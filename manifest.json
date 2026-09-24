@@ -1,0 +1,9 @@
+{
+  "id": "vault-planner",
+  "name": "Vault Planner",
+  "version": "0.1.0",
+  "minAppVersion": "1.12.2",
+  "description": "Offene Tasks aus den Projektdateien per Drag & Drop als Fokus-Block in den Outlook-Kalender einplanen.",
+  "author": "Daniel Hepe",
+  "isDesktopOnly": true
+}

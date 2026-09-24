@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npm test:*)",
+      "Bash(npx vitest:*)",
+      "Bash(node esbuild.config.mjs:*)",
+      "Bash(node scripts/package.mjs)",
+      "Bash(bash scripts/verify.sh:*)",
+      "Bash(npx npm@11 install:*)",
+      "Bash(python3 -m zipfile -l:*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/verify.sh\" --hook",
+            "timeout": 300,
+            "statusMessage": "Verifying"
+          }
+        ]
+      }
+    ]
+  }
+}

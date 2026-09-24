@@ -1,0 +1,288 @@
+/* Vault Planner — Obsidian variables only, so light and dark themes need no extra rules. */
+
+.vault-planner-view {
+  display: grid;
+  grid-template-columns: minmax(320px, 38%) 1fr;
+  gap: var(--size-4-4);
+  height: 100%;
+  overflow: hidden;
+}
+
+/* min-height 0: without it the grid rows grow with their content and FullCalendar's
+   height: 100% has nothing to measure against. */
+.vault-planner-view .vp-left,
+.vault-planner-view .vp-right {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.vault-planner-view .vp-right {
+  position: relative;
+}
+
+.vault-planner-view .vp-calendar {
+  flex: 1;
+  min-height: 0;
+}
+
+.vault-planner-view .vp-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+}
+
+.vault-planner-view .vp-header h3 {
+  margin: 0 0 var(--size-4-2);
+}
+
+.vault-planner-view .vp-count {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.vault-planner-view .vp-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  font-size: var(--font-ui-small);
+}
+
+.vault-planner-view .vp-banner.is-warning {
+  border-left: 3px solid var(--text-error);
+}
+
+.vault-planner-view .vp-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+}
+
+.vault-planner-view .vp-search {
+  flex: 1 1 10rem;
+}
+
+.vault-planner-view .vp-unplanned {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  font-size: var(--font-ui-small);
+  white-space: nowrap;
+}
+
+.vault-planner-view .vp-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: var(--size-4-1);
+}
+
+.vault-planner-view .vp-empty {
+  padding: var(--size-4-4) 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.vault-planner-view .vp-group-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: var(--size-4-3) 0 var(--size-4-2);
+  padding: var(--size-2-2) 0;
+  background: var(--background-primary);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+}
+
+.vault-planner-view .vp-waiting summary {
+  cursor: pointer;
+}
+
+/* The card is also FullCalendar's drag preview, which lives in <body> — so its style must not
+   depend on .vault-planner-view. */
+.vp-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+}
+
+.vp-card[data-drag] {
+  cursor: grab;
+}
+
+.vp-card[data-drag]:hover {
+  border-color: var(--interactive-accent);
+}
+
+.vp-card.is-pending {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.vp-card.is-conflict {
+  border-color: var(--text-warning);
+}
+
+.vp-card .vp-check {
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.vp-card .vp-card-body {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.vp-card .vp-card-body:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+.vp-card .vp-title {
+  font-weight: var(--font-semibold);
+  overflow-wrap: anywhere;
+}
+
+.vp-card .vp-meta {
+  color: var(--text-muted);
+}
+
+.vp-card .vp-due.is-overdue {
+  color: var(--text-error);
+  font-weight: var(--font-bold);
+}
+
+.vp-card .vp-status {
+  margin-top: var(--size-2-1);
+  color: var(--text-accent);
+}
+
+.vp-card .vp-status.is-muted {
+  color: var(--text-faint);
+}
+
+.vp-card .vp-status.is-warning {
+  color: var(--text-warning);
+}
+
+.vault-planner-view .vp-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--background-primary) 70%, transparent);
+  color: var(--text-muted);
+}
+
+.vault-planner-view .vp-popout-hint {
+  grid-column: 1 / -1;
+  padding: var(--size-4-8);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* FullCalendar, themed through its own variables. */
+.vault-planner-view .fc {
+  --fc-border-color: var(--background-modifier-border);
+  --fc-page-bg-color: var(--background-primary);
+  --fc-neutral-bg-color: var(--background-secondary);
+  --fc-today-bg-color: var(--background-modifier-hover);
+  --fc-now-indicator-color: var(--color-red);
+  --fc-non-business-color: var(--background-modifier-hover);
+  --fc-button-text-color: var(--text-normal);
+  --fc-button-bg-color: var(--interactive-normal);
+  --fc-button-border-color: var(--background-modifier-border);
+  --fc-button-hover-bg-color: var(--interactive-hover);
+  --fc-button-hover-border-color: var(--background-modifier-border);
+  --fc-button-active-bg-color: var(--interactive-accent);
+  --fc-button-active-border-color: var(--interactive-accent);
+  --fc-event-bg-color: var(--interactive-accent);
+  --fc-event-border-color: var(--interactive-accent);
+  --fc-event-text-color: var(--text-on-accent);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+}
+
+.vault-planner-view .fc .fc-toolbar-title {
+  font-size: var(--font-ui-medium);
+}
+
+/* Someone else's meeting: neutral, and it must not look movable. */
+.vault-planner-view .fc .vp-meeting {
+  --fc-event-bg-color: var(--background-secondary-alt);
+  --fc-event-border-color: var(--background-modifier-border);
+  --fc-event-text-color: var(--text-muted);
+  cursor: default;
+}
+
+.vault-planner-view .fc .vp-block {
+  cursor: grab;
+}
+
+.vault-planner-view .fc .vp-block-done {
+  opacity: 0.6;
+}
+
+.vault-planner-view .fc .vp-block-missing,
+.vault-planner-view .fc .vp-block-conflict {
+  --fc-event-bg-color: var(--background-secondary);
+  --fc-event-text-color: var(--text-muted);
+  border-style: dashed;
+}
+
+/* Resize handles visible at rest on our blocks, not only on hover. */
+.vault-planner-view .fc .fc-timegrid-event.vp-block .fc-event-resizer {
+  display: block;
+}
+
+.vault-planner-view .fc .vp-event {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-2-2);
+  overflow: hidden;
+  padding: 1px 2px;
+}
+
+.vault-planner-view .fc .vp-event-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.vault-planner-view .fc .vp-event-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.vault-planner-view .fc .vp-event-text {
+  min-width: 0;
+}
+
+.vault-planner-view .fc .vp-event-time {
+  font-size: var(--font-ui-smaller);
+  opacity: 0.85;
+}
+
+.vault-planner-view .fc .vp-event-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
