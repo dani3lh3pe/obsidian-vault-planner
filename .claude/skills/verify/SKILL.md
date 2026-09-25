@@ -19,6 +19,12 @@ Exit 0 = green, exit 2 = red with the failing output. It runs, in order:
 The same script is the `Stop` hook (`--hook`): it skips when `git status` is clean and never blocks
 twice in a row.
 
+## Reporting
+
+Red is reported with the failing output verbatim — never "mostly fine". Green means tsc, tests,
+build and package passed, nothing more: a change only Windows can prove is "built, not yet checked
+on Windows", not "done".
+
 ## Handing a build over
 
 After a green run, tell Daniel the build id the script printed (`0.1.0-dev.<timestamp>`) and the

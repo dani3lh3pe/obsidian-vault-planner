@@ -20,9 +20,16 @@ ein Fokus-Block.
 - `.claude/skills/graph-calendar/` — Graph-Regeln (UTC lesen, Wandzeit schreiben, Immutable IDs,
   Extended Property). **Vor jeder Änderung an einem Graph-Aufruf lesen.**
 - `.claude/skills/verify/` — das Gate und die Übergabe eines Builds.
+- `.claude/skills/retro/` — Abschluss-Durchgang einer Sitzung: jedes Learning an seinen einen Ort.
+- `.claude/agents/invariant-reviewer.md` — prüft Token, HTTP und beide Schreibpfade gegen die
+  Invarianten, ändert nichts. Pflicht vor M5.
 - `README.md` — Einrichtung (Entra-App, Einstellungen), Bedienung, Fehlerbilder.
 - Vorbild ist die Web-App **daily-planner** (`../daily-planner`): Bei „wie wurde das dort
   gelöst" dort nachsehen, statt neu zu erfinden.
+
+**Obsidian, Tasks, FullCalendar 6.1.21 und Graph nie aus dem Gedächtnis.** Die Trainingsdaten
+kennen andere Versionen und veraltete Muster. Belegen (installierter Quelltext, `obsidian.d.ts`,
+Primärdoku) oder als offen markieren.
 
 ## Entwicklung hier, Ausführung auf Windows
 
@@ -95,8 +102,9 @@ Geister-Block.
 - Kein `console.log`, kein `alert()`, kein `confirm()`. Rückmeldung über `Notice`, Bestätigung
   über ein `Modal`, das die Sache beim Namen nennt.
 - FullCalendar bleibt exakt auf 6.1.21 (v7 hat andere Pakete und kein automatisches CSS).
-- **Bezeichner, Kommentare, Dokumentation, Commit-Nachrichten: Englisch. Oberflächentexte und
-  Antworten an den Nutzer: Deutsch.** Ausnahme: die Planungsdokumente in `docs/` sind Deutsch.
+- **Bezeichner, Kommentare, Skills, Commit-Nachrichten: Englisch. Oberflächentexte, diese Datei,
+  `README.md`, `docs/` und Antworten an den Nutzer: Deutsch.** Jede Datei bleibt beim Bearbeiten in
+  ihrer Sprache; nie nebenbei übersetzen.
 - Jeder Commit ist potenziell lesbar: keine echten Kundennamen, keine Tenant- oder Client-IDs,
   keine Zugangsdaten. Der Testvault nutzt neutrale Namen.
 
@@ -109,17 +117,25 @@ Geister-Block.
 
 ## Commit-Stil und Reviews
 
-Conventional Commits. Vor einem mehrdateiigen Commit `/ponytail-review`, dann `/code-review`:
+Conventional Commits. Vor einem mehrdateiigen Commit `/ponytail-review`, jeden Fund mit Daniel
+entscheiden, dann `/code-review`. Keiner ersetzt den anderen: ponytail-review sucht keine Fehler.
+Die Stufe richtet sich danach, was ein Fehler kostet, nicht nach der Größe des Diffs:
 
 - **high** — alles, was schreibt: Outlook-Termine, die zwei Vault-Schreibvorgänge, Anmeldung
 - **medium** — Graph-Lesepfad, Task-Index
 - **low** — reine UI
 
+Berührt ein Diff mehrere Stufen, gilt die höchste. `/code-review` entfällt nur bei Doku- oder
+Tippfehler-Diffs.
+
 Nach einer für den Nutzer sichtbaren Änderung: die manuellen Checks aus der Tabelle des
-Meilensteins nennen, die diese Änderung braucht, und was jeder beweist.
+Meilensteins nennen, die diese Änderung braucht, und was jeder beweist, also nur, was
+Automatisierung nicht beweist. Deckt das Gate die Änderung ganz ab (Umbenennung, reiner Refactor),
+das in einer Zeile sagen, statt Schritte zu erfinden.
 
 ## Learning Loop
 
 Zeigt eine Sitzung, dass eine Behauptung hier, im Plan oder im Skill falsch war, wird sie in
 derselben Sitzung korrigiert — am kanonischen Ort. Neue Graph-Erkenntnisse gehören in den
-graph-calendar-Skill, mit ihrem Beleg („live geprüft", „dokumentiert", „abgeleitet").
+graph-calendar-Skill, mit ihrem Beleg („live geprüft", „dokumentiert", „abgeleitet"). Wohin alles
+andere gehört, regelt der `retro`-Skill. Ein falsches Dokument ist schlimmer als keines.

@@ -793,8 +793,11 @@ festhalten, warum der PATCH-Nachweis entfallen ist.
    - Eingerückte Blöcke unter Tasks bleiben unverändert.
 3. **Sichern:** den Vault als Zip. Der Versionsverlauf von OneDrive ersetzt keinen Stand vor dem
    ersten Schreibzugriff.
-4. **Installieren:** `release/vault-planner.zip` nach `<Live-Vault>/.obsidian/plugins/` entpacken,
-   Settings eintragen, anmelden. Der Testvault ist dabei geschlossen.
+4. **Installieren:** erst, wenn alle Verifikationstabellen M1–M4 auf Windows bestanden sind, der
+   `invariant-reviewer` nichts Kritisches meldet und Daniel ausdrücklich zustimmt. Fehlt eines
+   davon, wird das gesagt und angehalten; ein grünes Gate ersetzt keinen dieser Punkte. Dann
+   `release/vault-planner.zip` nach `<Live-Vault>/.obsidian/plugins/` entpacken, Settings
+   eintragen, anmelden. Der Testvault ist dabei geschlossen.
 5. **README:** Entra-Registrierung (M0.1), Einrichtung und Bedienung.
 6. **Day Planner deaktivieren.** `99_System/Daily` wird nicht mehr gebraucht.
 
@@ -802,6 +805,10 @@ festhalten, warum der PATCH-Nachweis entfallen ist.
 Vergleich zwischen Zip und Live-Dateien: Jede Zeile, die seither `^t-…` oder ein Erledigt-Datum
 bekommen hat, unterscheidet sich vom Stand im Zip nur darin. Claudes eigene Änderungen lassen sich
 so von denen des Plugins trennen.
+
+**Nach der Woche:** Was über M5 hinaus gilt (die Tabelle „Belegt", die Fallentabellen), wandert in
+`CLAUDE.md` oder einen Skill, und dieser Plan wird als historisch gekennzeichnet. Ohne Meilensteine
+liest ihn vor einer Änderung niemand mehr.
 
 ## Verifikation (übergreifend)
 
