@@ -2,7 +2,7 @@ import { requestUrl } from "obsidian";
 import type { Auth } from "./auth";
 import { GRAPH_BASE, IMMUTABLE_ID_HEADER, MAX_EVENT_PAGES, REQUEST_TIMEOUT_MS } from "./config";
 import { GraphApiError, withTimeout } from "./lib/errors";
-import { calendarViewUrl, createEventBody, eventUrl, moveEventBody, type NewBlock } from "./lib/graphRequests";
+import { calendarViewUrl, createEventBody, eventUrl, isGraphUrl, moveEventBody, type NewBlock } from "./lib/graphRequests";
 import { mapGraphEvents, type MapResult } from "./lib/mapGraphEvents";
 import { readPage } from "./lib/odata";
 import type { GraphErrorResponse, TimeRange } from "./lib/types";
@@ -32,6 +32,7 @@ export class Graph {
   constructor(private readonly auth: Auth) {}
 
   private async send(method: string, url: string, body?: unknown): Promise<unknown> {
+    if (!isGraphUrl(url)) throw new Error("Graph hat auf eine fremde Adresse verwiesen. Die Anfrage wurde nicht gesendet.");
     const attempt = async (token: string) =>
       withTimeout(
         requestUrl({

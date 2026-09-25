@@ -39,7 +39,9 @@ Prefer: IdType="ImmutableId"
 
 - **Build the query with `encodeURIComponent`** (`encodeParams`), never `URLSearchParams`: the
   latter writes spaces as `+`, and the `$filter` inside `$expand` has spaces.
-- **Follow `@odata.nextLink` exactly as returned.** It carries every query option already.
+- **Follow `@odata.nextLink` exactly as returned.** It carries every query option already. Plugin
+  rule: `send()` refuses any URL outside `GRAPH_BASE` (`isGraphUrl`), so a nextLink can never carry
+  the token to another host.
 - **Do not add `createdDateTime` or `lastModifiedDateTime` to `$select`** — documented as not
   selectable on calendarView; expect a 400.
 - **The `Prefer` header is per request** — documented. `graph.ts` sets it on every call.

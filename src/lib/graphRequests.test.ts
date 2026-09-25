@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TASK_PROPERTY_ID } from "../config";
-import { calendarViewUrl, createEventBody, eventUrl, moveEventBody } from "./graphRequests";
+import { calendarViewUrl, createEventBody, eventUrl, isGraphUrl, moveEventBody } from "./graphRequests";
 
 const RANGE = { start: new Date("2026-09-21T00:00:00Z"), end: new Date("2026-10-05T00:00:00Z") };
 
@@ -62,5 +62,19 @@ describe("move and address", () => {
 
   it("encodes the event id in the path", () => {
     expect(eventUrl("AAMk/abc=")).toBe("https://graph.microsoft.com/v1.0/me/events/AAMk%2Fabc%3D");
+  });
+});
+
+describe("isGraphUrl", () => {
+  it("lets Graph's own URLs through, a nextLink included", () => {
+    expect(isGraphUrl(calendarViewUrl(RANGE))).toBe(true);
+    expect(isGraphUrl(eventUrl("AAMk"))).toBe(true);
+    expect(isGraphUrl("https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=x&%24skiptoken=abc")).toBe(true);
+  });
+
+  it("refuses another host, a lookalike host and plain http", () => {
+    expect(isGraphUrl("https://example.com/v1.0/me/calendarView")).toBe(false);
+    expect(isGraphUrl("https://graph.microsoft.com.example.com/v1.0/me")).toBe(false);
+    expect(isGraphUrl("http://graph.microsoft.com/v1.0/me")).toBe(false);
   });
 });

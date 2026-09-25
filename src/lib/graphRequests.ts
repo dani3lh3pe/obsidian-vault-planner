@@ -31,6 +31,11 @@ export function calendarViewUrl(range: TimeRange): string {
   ])}`;
 }
 
+/** The bearer token goes to Graph only — that includes a nextLink, which is followed as returned. */
+export function isGraphUrl(url: string): boolean {
+  return url.startsWith(`${GRAPH_BASE}/`);
+}
+
 /** Ids are base64-ish and can carry "=" or "/". */
 export function eventUrl(eventId: string): string {
   return `${GRAPH_BASE}/me/events/${encodeURIComponent(eventId)}`;
