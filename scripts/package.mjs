@@ -3,7 +3,7 @@
 //   release/test-vault.zip     -> the throwaway vault, unpacked once on the notebook
 // Python's zipfile, because the host has no `zip` and Node's stdlib has no archive writer.
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 
 // A build id in the version, visible under Settings → Community plugins: testing a stale build
 // is the expensive failure of a two-machine loop.
@@ -29,6 +29,10 @@ cpSync("styles.css", "release/vault-planner/styles.css");
 writeFileSync("release/vault-planner/manifest.json", `${JSON.stringify(manifest, null, 2)}\n`);
 
 execFileSync("python3", ["-m", "zipfile", "-c", "vault-planner.zip", "vault-planner"], { cwd: "release" });
-execFileSync("python3", ["-m", "zipfile", "-c", "release/test-vault.zip", "test-vault"]);
+// The zip's root is the vault root. One level deeper, no path starts with 10_Kunden/ and the task
+// list stays empty.
+execFileSync("python3", ["-m", "zipfile", "-c", "../release/test-vault.zip", ...readdirSync("test-vault")], {
+  cwd: "test-vault",
+});
 
 console.log(`release/vault-planner.zip  ${manifest.version}`);

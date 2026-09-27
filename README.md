@@ -27,7 +27,7 @@ live aus dem Kalender an, auch nachdem du einen Block in Outlook verschoben oder
 ### 2. Testvault (einmalig)
 
 1. `release/test-vault.zip` herunterladen und **außerhalb des OneDrive** entpacken, z. B. nach
-   `C:\dev\test-vault`.
+   `C:\dev\test-vault`. Danach liegt `10_Kunden` direkt in diesem Ordner.
 2. In Obsidian: *Anderen Vault öffnen → Ordner als Vault öffnen*.
 3. Einstellungen → Community-Plugins → einschalten, **Tasks** in derselben Version wie im
    Live-Vault installieren und dessen `data.json` aus
@@ -94,6 +94,7 @@ Sonst nichts: kein `⏳`, kein Datum, keine Termin-ID, kein Schreiben im Hinterg
 | „Conditional Access blockiert …" (AADSTS53003/53000) | Eine CA-Richtlinie greift | In den Anmeldeprotokollen die Richtlinie suchen |
 | „Diese Rückmeldung gehört zu keiner laufenden Anmeldung" | Der Link ging an ein anderes Vault-Fenster, oder Obsidian wurde neu gestartet | Nur einen Vault offen lassen, erneut „Anmelden" |
 | „Kalender nicht erreichbar – Planungsstatus unbekannt" | Netzwerk oder Graph gestört | „Erneut versuchen"; ziehen ist so lange gesperrt |
+| „Keine offenen Aufgaben", obwohl Tasks im Vault stehen | `10_Kunden` und `20_Intern` liegen nicht direkt im Vault-Ordner, z. B. eine Ebene tiefer nach dem Entpacken | Die Ordner eine Ebene hochschieben, dann das Plugin aus- und einschalten |
 | „Block-ID doppelt" an einer Karte | Eine Zeile mit `^t-…` wurde kopiert | Bei der Kopie die Block-ID entfernen |
 | Block gestrichelt mit „Aufgabe nicht gefunden" | Die Task-Zeile mit dieser Block-ID gibt es nicht mehr | Block per Rechtsklick löschen oder die ID wiederherstellen |
 
