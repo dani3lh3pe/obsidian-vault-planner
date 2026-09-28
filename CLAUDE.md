@@ -108,6 +108,9 @@ Geister-Block.
 - Kein `console.log`, kein `alert()`, kein `confirm()`. Rückmeldung über `Notice`, Bestätigung
   über ein `Modal`, das die Sache beim Namen nennt.
 - FullCalendar bleibt exakt auf 6.1.21 (v7 hat andere Pakete und kein automatisches CSS).
+- **Keine Methode der Ansicht darf wie eine interne von Obsidian heißen** (`open`, `close`, `load`,
+  `unload` …). `View` hat Methoden, die in `obsidian.d.ts` fehlen; eine gleichnamige ersetzt sie still,
+  `tsc` merkt nichts. So hat `open(task)` einmal das Öffnen der Ansicht verhindert: weiße Seite.
 - **Bezeichner, Kommentare, Skills, Commit-Nachrichten: Englisch. Oberflächentexte, diese Datei,
   `README.md`, `docs/` und Antworten an den Nutzer: Deutsch.** Jede Datei bleibt beim Bearbeiten in
   ihrer Sprache; nie nebenbei übersetzen.

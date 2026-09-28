@@ -699,12 +699,12 @@ export class PlannerView extends ItemView {
       const from = pressed;
       pressed = null;
       if (from !== null && Math.hypot(event.clientX - from.x, event.clientY - from.y) > CLICK_SLOP_PX) return;
-      this.open(task);
+      this.openCard(task);
     });
     body.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        this.open(task);
+        this.openCard(task);
       }
     });
     if (isPlannerTask(task)) {
@@ -971,7 +971,8 @@ export class PlannerView extends ItemView {
     }
   }
 
-  private open(task: AnyTask): void {
+  /** Not `open`: that name belongs to Obsidian's View (see CLAUDE.md, Code-Standards). */
+  private openCard(task: AnyTask): void {
     if (isPlannerTask(task)) this.openPlanner(task.id);
     else void this.openTask(task);
   }
