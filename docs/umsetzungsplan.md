@@ -62,7 +62,7 @@ seiner Graph-Details belegten Fallen. Beides ist unten korrigiert, und der Umfan
 
 | # | Entwurf | Jetzt | Warum |
 | --- | --- | --- | --- |
-| 1 | `⏳` = frühester künftiger Block, gepflegt von SyncService, Event-Cache in `data.json`, täglichem ±30-Tage-Lauf und Verwaist-Liste | Entfällt komplett. Der Status wird abgeleitet | Ein zweiter Speicherort driftet (Invariante der Web-App). Jeder Sync wäre ein Schreibzugriff im Hintergrund auf OneDrive-Dateien, die Claude parallel bearbeitet, und `⏳` änderte sich schon dadurch, dass Zeit vergeht. Phase 6 des Entwurfs existiert nur, um diese Drift zu reparieren |
+| 1 | `⏳` = frühester künftiger Block, gepflegt von SyncService, Event-Cache in `data.json`, täglichem ±30-Tage-Lauf und Verwaist-Liste | Entfällt komplett. Der Status wird abgeleitet | Ein zweiter Speicherort driftet (Invariante der Web-App). Jeder Sync wäre ein Schreibzugriff im Hintergrund auf Vault-Dateien, die Claude parallel bearbeitet, und `⏳` änderte sich schon dadurch, dass Zeit vergeht. Phase 6 des Entwurfs existiert nur, um diese Drift zu reparieren |
 | 2 | Lesen mit `Prefer: outlook.timezone` | In UTC lesen, mit einer einzigen Parse-Stelle `fromGraphUtc` | Der Header ändert die Antwort, aber nicht die Fensterparameter: Asymmetrie innerhalb eines Requests (graph-calendar-Skill: „do not re-attempt") |
 | 3 | Kein `Prefer: IdType="ImmutableId"` | Auf **jedem** Event-Request und jeder Seite | Standard-IDs ändern sich, wenn ein Termin zwischen Ordnern verschoben wird. Regel des Skills, kostet nichts |
 | 4 | POST ohne `transactionId` | Mit `crypto.randomUUID()` pro POST | Schützt davor, dass ein POST auf Transportebene wiederholt wird (etwa stilles Neusenden über eine abgestandene Verbindung). Gegen den **Doppel-Drop** hilft sie nicht, denn jeder Drop ist eine eigene Transaktion. Dagegen schützt die Speichern-Markierung (Nebenläufigkeit, Regel 3) |
@@ -77,7 +77,7 @@ seiner Graph-Details belegten Fallen. Beides ist unten korrigiert, und der Umfan
 | 13 | Raster fest von 06 bis 20 Uhr | `visibleHours`: 07–19 als Minimum, erweitert sich bis zu den Terminen der Woche | Web-App `e9f3d97`: Ein Termin um 06:15 fehlte, der Morgen sah leer aus |
 | 14 | Gruppen W&D, Dringend, Wichtig, Rest; `urgentDays` 3 | Gruppen der Web-App: W&D, Wichtig, Dringend, Rest. Dringend heißt Deadline ≤ heute + 7 (inklusive, Berliner Tag). Dazu „Warten auf", eingeklappt | So gruppierst du heute schon täglich. Als Konstante in einer Zeile änderbar |
 | 15 | Tasks-API „nutzen", sonst eigenes `[ ]→[x]` | `executeToggleTaskDoneCommand` ist eine reine String-Funktion (seit Tasks 7.2.0) und liefert nur Text, den das Plugin selbst schreibt. Ohne Tasks-API gibt es kein Erledigen | Ein selbst gebautes Abhaken verliert bei `🔁` die Folgeaufgabe, ohne dass es jemand merkt |
-| 16 | Konfliktprüfung: Zeile an der gecachten Nummer == `raw` | Die Zeile im **aktuellen** Inhalt per Block-ID oder eindeutigem Rohtext finden, sonst abbrechen | Claude und OneDrive fügen darüber Zeilen ein. Dann verschiebt sich die Nummer, der Text nicht |
+| 16 | Konfliktprüfung: Zeile an der gecachten Nummer == `raw` | Die Zeile im **aktuellen** Inhalt per Block-ID oder eindeutigem Rohtext finden, sonst abbrechen | Claude und LiveSync fügen darüber Zeilen ein. Dann verschiebt sich die Nummer, der Text nicht |
 | 17 | 13 Settings | Nur `tenantId` und `clientId`, alles andere als Konstante in `src/config.ts`. Seit M6 kommt der Planner-Schalter dazu | Ein Nutzer, ein Vault |
 | 18 | Banner „N Planungen abgelaufen" plus „Zurück in den Backlog" (entfernt `⏳`) | Status „abgelaufen" (alle Blöcke vorbei, Task offen). Er wird angezeigt und zählt als ungeplant. Kein Knopf | Ohne `⏳` gibt es nichts zu entfernen. Neu einplanen oder die Woche verstreichen lassen löst den Zustand von selbst |
 | 19 | Popover für fremde Termine, „In Outlook öffnen", „Task erledigen" im Block-Menü, Refresh-Knopf | Block-Menü mit „Aufgabe öffnen" und „Block löschen…", fremde Termine bekommen einen Tooltip | Nichts davon beschleunigt den Morgenablauf. Erledigen sitzt an der Karte, die Aktualisierung läuft von selbst |
@@ -360,7 +360,7 @@ Build-Kennung ist die neueste.
 | Falle | Gegenmaßnahme |
 | --- | --- |
 | Die SPA-Registrierung der Web-App wiederverwenden | Nicht tun. Ein SPA-Redirect verlangt beim Einlösen einen `Origin` (AADSTS9002327), `requestUrl` sendet keinen. Mit `fetch` ginge es, aber SPA-Refresh-Tokens gelten nur 24 h |
-| Gegen den Live-Vault entwickeln | Nie vor M5. Ein Fehler im Schreibpfad verteilt OneDrive sofort überallhin, und Claude liest ihn mit |
+| Gegen den Live-Vault entwickeln | Nie vor M5. Ein Fehler im Schreibpfad verteilt LiveSync sofort auf alle Geräte, und Claude liest ihn mit |
 | Den globalen Filter von Tasks übersehen | Schritt 0.2. Sonst hakt die Tasks-API solche Zeilen ohne Erledigt-Datum ab |
 | `npm i @fullcalendar/core` installiert 7.x (inzwischen `latest`), das nicht zu `timegrid`/`interaction` 6.1.21 passt | Exakt pinnen und das Lockfile committen |
 | Den Testvault unter „Dokumente" oder „Desktop" entpacken, die per Known Folder Move ins OneDrive umgeleitet sind | Einen Ordner außerhalb von OneDrive wählen, z. B. `C:\dev\test-vault`, sonst synchronisiert OneDrive ihn mit |
@@ -963,8 +963,7 @@ Benutzer oder brauchte es die Administratorzustimmung?
    - **Beim Kopieren oder Aufteilen behält nur das Original die Block-ID.**
    - Aufwand als `[aufwand:: 2h]` vor den Emoji-Feldern, und nur, wenn er genannt wurde.
    - Eingerückte Blöcke unter Tasks bleiben unverändert.
-3. **Sichern:** den Vault als Zip. Der Versionsverlauf von OneDrive ersetzt keinen Stand vor dem
-   ersten Schreibzugriff.
+3. **Sichern:** den Vault als Zip, als Stand vor dem ersten Schreibzugriff.
 4. **Installieren:** erst, wenn alle Verifikationstabellen M1–M4 und M6 auf Windows bestanden sind, der
    `invariant-reviewer` nichts Kritisches meldet und Daniel ausdrücklich zustimmt. Fehlt eines
    davon, wird das gesagt und angehalten; ein grünes Gate ersetzt keinen dieser Punkte. Dann

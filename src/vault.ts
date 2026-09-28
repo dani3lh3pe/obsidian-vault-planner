@@ -9,7 +9,7 @@ import type { VaultTask } from "./lib/types";
  * Every task line of the source files, kept current through the metadata cache.
  *
  * The cache, not a regex over the file: it already knows which checkbox lines are tasks and which
- * sit inside a code block. Changes by Claude, OneDrive or the editor all arrive as `changed`.
+ * sit inside a code block. Changes by Claude, LiveSync or the editor all arrive as `changed`.
  */
 export class TaskIndex {
   private readonly byPath = new Map<string, VaultTask[]>();

@@ -95,7 +95,7 @@ export const URGENT_WITHIN_DAYS = 7;
 /** Without `[aufwand::]` a block is booked for one hour, the same proposal as the web app. */
 export const DEFAULT_AUFWAND_HOURS = 1;
 
-/** Device-local storage keys. Never in data.json: that file lives in the OneDrive-synced vault. */
+/** Device-local storage keys. Never in data.json: that file lives in the synced vault. */
 export const SECRET_REFRESH_TOKEN = "vault-planner-refresh-token";
 export const LOCAL_ACCOUNT_KEY = "vault-planner-account";
 /** The calendar view last chosen in the toolbar ("workWeek", "days3", …). */

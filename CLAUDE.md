@@ -39,8 +39,8 @@ Windows-Notebook. Jeder verify-Lauf erzeugt `release/vault-planner.zip` mit eine
 `<Testvault>/.obsidian/plugins/` und schaltet das Plugin aus und wieder ein. `release/test-vault.zip`
 enthält den Testvault und wird einmal übertragen.
 
-**Nie gegen den Live-Vault entwickeln.** Er liegt im OneDrive, und Claude bearbeitet ihn parallel.
-Der Live-Vault kommt erst in M5 dran.
+**Nie gegen den Live-Vault entwickeln.** Er synchronisiert per Self-hosted LiveSync mit Server und
+Handy, und Claude bearbeitet ihn parallel. Der Live-Vault kommt erst in M5 dran.
 
 ## Befehle
 
@@ -68,9 +68,9 @@ npm run dev            # esbuild im Watch-Modus nach build/main.js
 4. **Graph folgt dem graph-calendar-Skill.** Nie `attendees`.
 5. **Alle HTTP-Aufrufe über `requestUrl`, nie `fetch`**, und nur zu `login.microsoftonline.com`
    und `graph.microsoft.com`. Keine Telemetrie.
-6. **Tokens nie in `data.json`** — sie liegt im Vault und damit im OneDrive. Der Refresh-Token liegt
-   in `app.secretStorage`. Nur ein Klick öffnet den Browser („Anmelden", „In Planner öffnen"), nie
-   ein Timer.
+6. **Tokens nie in `data.json`** — sie liegt im Vault, und ein Vault-Sync kann sie mitnehmen. Der
+   Refresh-Token liegt in `app.secretStorage`. Nur ein Klick öffnet den Browser („Anmelden", „In
+   Planner öffnen"), nie ein Timer.
 7. **In Planner schreibt das Plugin genau zweierlei, beides nur auf eine Handlung des Nutzers
    hin:** abschließen (`percentComplete: 100`) und den Bucket wechseln. Immer mit `If-Match`; ein
    412 wird nie automatisch wiederholt. Ist die Aufgabe weiteren Personen zugewiesen, fragt vorher

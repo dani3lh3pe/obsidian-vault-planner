@@ -30,7 +30,7 @@ export interface AuthSettings {
  * Sign-in with auth code + PKCE in the system browser, back through obsidian://vault-planner-auth.
  *
  * The refresh token lives in Obsidian's SecretStorage (encrypted by the OS since 1.11.5, device-
- * local, never synced) — NEVER in data.json, which sits in the OneDrive-synced vault. The access
+ * local, never synced) — NEVER in data.json, which sits in the synced vault. The access
  * token lives in memory only. Only `login()` ever opens a browser; the timers never do.
  */
 export class Auth {
