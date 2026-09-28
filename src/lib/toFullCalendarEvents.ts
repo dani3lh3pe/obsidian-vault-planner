@@ -1,5 +1,5 @@
 import type { EventInput } from "@fullcalendar/core";
-import { parseTaskLink } from "./schedule";
+import { parseTaskLink, plannerIdOf } from "./schedule";
 import type { CalendarEvent } from "./types";
 
 /** Entries where the user is available must not visually block a free slot. */
@@ -19,6 +19,25 @@ export interface EventProps {
 }
 
 /**
+ * What an event looks like, as classes; the colours themselves live in styles.css. Someone else's
+ * entry takes the colour of its first coloured Outlook category, our block the colour of its
+ * source — the same as the card it came from.
+ */
+function classesOf(event: CalendarEvent, blockId: string | null, state: BlockState | null, categoryColors: ReadonlyMap<string, number>): string[] {
+  if (blockId !== null) {
+    const block = ["vp-block", `vp-block-${state}`];
+    return plannerIdOf(blockId) === null ? block : [...block, "vp-source-planner"];
+  }
+  const preset = event.categories.map((name) => categoryColors.get(name)).find((value) => value !== undefined);
+  return [
+    "vp-meeting",
+    ...(preset === undefined ? [] : [`vp-cat-${preset}`]),
+    // Hatched, the way Outlook draws tentative time.
+    ...(event.showAs === "tentative" ? ["vp-tentative"] : []),
+  ];
+}
+
+/**
  * Calendar events -> what FullCalendar renders. The only place that decides what showAs,
  * isCancelled and isAllDay MEAN for display (ported from daily-planner; own blocks are now
  * recognised by the task property instead of a stored id list).
@@ -27,6 +46,7 @@ export function toFullCalendarEvents(
   events: readonly CalendarEvent[],
   vaultName: string,
   stateOf: (blockId: string) => BlockState,
+  categoryColors: ReadonlyMap<string, number>,
 ): EventInput[] {
   const result: EventInput[] = [];
 
@@ -37,7 +57,7 @@ export function toFullCalendarEvents(
     const blockId = parseTaskLink(event.taskLink, vaultName);
     const state = blockId === null ? null : stateOf(blockId);
     const extendedProps: EventProps = { kind: blockId === null ? "meeting" : "own", blockId, state };
-    const classNames = blockId === null ? ["vp-meeting"] : ["vp-block", `vp-block-${state}`];
+    const classNames = classesOf(event, blockId, state, categoryColors);
 
     if (event.isAllDay) {
       // Midnight bounds, `end` on the FOLLOWING day: take the date prefix and never compute a

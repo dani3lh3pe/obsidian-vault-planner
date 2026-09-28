@@ -1,5 +1,11 @@
 /* Vault Planner — Obsidian variables only, so light and dark themes need no extra rules. */
 
+/* The Planner colour (daily-planner's): dark enough for white text in both themes. On <body>,
+   because a card's drag preview lives there too. This line is the tuning knob. */
+body {
+  --vp-planner: oklch(0.52 0.12 155);
+}
+
 .vault-planner-view {
   display: grid;
   grid-template-columns: minmax(320px, 38%) 1fr;
@@ -97,11 +103,29 @@
   top: 0;
   z-index: 1;
   margin: var(--size-4-3) 0 var(--size-4-2);
-  padding: var(--size-2-2) 0;
+  padding: var(--size-2-2) var(--size-4-2);
+  border-left: 3px solid var(--vp-quadrant, transparent);
   background: var(--background-primary);
-  color: var(--text-muted);
+  color: var(--text-normal);
   font-size: var(--font-ui-small);
   font-weight: var(--font-semibold);
+}
+
+/* The quadrant's urgency, on its title only: the cards keep their source colour. */
+.vault-planner-view .vp-q-now {
+  --vp-quadrant: var(--color-red);
+}
+
+.vault-planner-view .vp-q-schedule {
+  --vp-quadrant: var(--color-orange);
+}
+
+.vault-planner-view .vp-q-quick {
+  --vp-quadrant: var(--color-yellow);
+}
+
+.vault-planner-view .vp-q-rest {
+  --vp-quadrant: var(--text-faint);
 }
 
 .vault-planner-view .vp-waiting summary {
@@ -109,18 +133,24 @@
 }
 
 /* The card is also FullCalendar's drag preview, which lives in <body> — so its style must not
-   depend on .vault-planner-view. */
+   depend on .vault-planner-view. Tinted in its source colour, the fill of the block it becomes. */
 .vp-card {
+  --vp-source: var(--interactive-accent);
   display: flex;
   align-items: flex-start;
   gap: var(--size-4-2);
   margin-bottom: var(--size-4-2);
   padding: var(--size-4-2) var(--size-4-3);
-  border: 1px solid var(--background-modifier-border);
+  border: 1px solid color-mix(in srgb, var(--vp-source) 30%, var(--background-modifier-border));
+  border-left: 3px solid var(--vp-source);
   border-radius: var(--radius-m);
-  background: var(--background-secondary);
+  background: color-mix(in srgb, var(--vp-source) 8%, var(--background-primary));
   color: var(--text-normal);
   font-size: var(--font-ui-small);
+}
+
+.vp-card.is-planner {
+  --vp-source: var(--vp-planner);
 }
 
 .vp-card[data-drag] {
@@ -128,7 +158,7 @@
 }
 
 .vp-card[data-drag]:hover {
-  border-color: var(--interactive-accent);
+  border-color: var(--vp-source);
 }
 
 .vp-card.is-pending {
@@ -163,6 +193,18 @@
 
 .vp-card .vp-meta {
   color: var(--text-muted);
+}
+
+.vp-card .vp-effort.is-missing {
+  color: var(--text-faint);
+}
+
+.vp-card .vp-chip {
+  padding: 0 var(--size-2-2);
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  white-space: nowrap;
 }
 
 .vp-card .vp-due.is-overdue {
@@ -206,7 +248,8 @@
   --fc-border-color: var(--background-modifier-border);
   --fc-page-bg-color: var(--background-primary);
   --fc-neutral-bg-color: var(--background-secondary);
-  --fc-today-bg-color: var(--background-modifier-hover);
+  /* Not the non-business shade: today must stand out from the evening. */
+  --fc-today-bg-color: color-mix(in srgb, var(--interactive-accent) 7%, transparent);
   --fc-now-indicator-color: var(--color-red);
   --fc-non-business-color: var(--background-modifier-hover);
   --fc-button-text-color: var(--text-normal);
@@ -227,16 +270,95 @@
   font-size: var(--font-ui-medium);
 }
 
-/* Someone else's meeting: neutral, and it must not look movable. */
+/* Six view buttons: at a narrow width the toolbar wraps instead of overflowing. */
+.vault-planner-view .fc .fc-toolbar {
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+}
+
+/* The day headers are no links (navLinks is off), so they must not look like Obsidian's. */
+.vault-planner-view .fc .fc-col-header-cell-cushion {
+  color: var(--text-normal);
+  text-decoration: none;
+}
+
+.vault-planner-view .fc .fc-day-today .fc-col-header-cell-cushion {
+  color: var(--text-accent);
+  font-weight: var(--font-bold);
+}
+
+/* Someone else's meeting: tinted in its Outlook category colour (blue without one, like Outlook's
+   default calendar), with a stripe — readable, and clearly not ours: ours are filled. */
 .vault-planner-view .fc .vp-meeting {
-  --fc-event-bg-color: var(--background-secondary-alt);
-  --fc-event-border-color: var(--background-modifier-border);
-  --fc-event-text-color: var(--text-muted);
+  --vp-cat-color: var(--vp-cat, var(--color-blue));
+  --fc-event-bg-color: color-mix(in srgb, var(--vp-cat-color) 18%, var(--background-primary));
+  --fc-event-border-color: color-mix(in srgb, var(--vp-cat-color) 45%, var(--background-primary));
+  --fc-event-text-color: var(--text-normal);
+  --fc-bg-event-color: var(--vp-cat-color);
+  border-left: 3px solid var(--vp-cat-color);
   cursor: default;
 }
 
+/* Free and working-elsewhere time is a background band: the category tints it, but no stripe
+   makes it look like a meeting. */
+.vault-planner-view .fc .fc-bg-event.vp-meeting {
+  border-left: 0;
+}
+
+/* The dark presets (Black, DarkPurple …) vanish on a dark background: lift every category there. */
+.theme-dark .vault-planner-view .fc .vp-meeting {
+  --vp-cat-color: color-mix(in srgb, var(--vp-cat, var(--color-blue)) 70%, white);
+}
+
+.vault-planner-view .fc .vp-tentative {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 5px,
+    color-mix(in srgb, var(--vp-cat-color) 25%, transparent) 5px 8px
+  );
+}
+
+/* Outlook's 25 category presets. Graph only names them ("Red", "DarkSteel"); these hex values are
+   our approximation — the colour a client shows is its own. */
+.vp-cat-0 { --vp-cat: #d13438; } /* Red */
+.vp-cat-1 { --vp-cat: #f7630c; } /* Orange */
+.vp-cat-2 { --vp-cat: #8e562e; } /* Brown */
+.vp-cat-3 { --vp-cat: #e3c000; } /* Yellow — darker than Outlook's, or the stripe vanishes on white */
+.vp-cat-4 { --vp-cat: #13a10e; } /* Green */
+.vp-cat-5 { --vp-cat: #00b7c3; } /* Teal */
+.vp-cat-6 { --vp-cat: #7a9a01; } /* Olive */
+.vp-cat-7 { --vp-cat: #0078d4; } /* Blue */
+.vp-cat-8 { --vp-cat: #8764b8; } /* Purple */
+.vp-cat-9 { --vp-cat: #c30052; } /* Cranberry */
+.vp-cat-10 { --vp-cat: #69797e; } /* Steel */
+.vp-cat-11 { --vp-cat: #394146; } /* DarkSteel */
+.vp-cat-12 { --vp-cat: #a19f9d; } /* Gray */
+.vp-cat-13 { --vp-cat: #605e5c; } /* DarkGray */
+.vp-cat-14 { --vp-cat: #201f1e; } /* Black */
+.vp-cat-15 { --vp-cat: #750b1c; } /* DarkRed */
+.vp-cat-16 { --vp-cat: #ca5010; } /* DarkOrange */
+.vp-cat-17 { --vp-cat: #603d30; } /* DarkBrown */
+.vp-cat-18 { --vp-cat: #c19c00; } /* DarkYellow */
+.vp-cat-19 { --vp-cat: #0b6a0b; } /* DarkGreen */
+.vp-cat-20 { --vp-cat: #006666; } /* DarkTeal */
+.vp-cat-21 { --vp-cat: #4b5320; } /* DarkOlive */
+.vp-cat-22 { --vp-cat: #004e8c; } /* DarkBlue */
+.vp-cat-23 { --vp-cat: #32145a; } /* DarkPurple */
+.vp-cat-24 { --vp-cat: #6e0811; } /* DarkCranberry */
+
+/* Our blocks: filled in the colour of their source, the same as the card they came from. The
+   state rules below come AFTER this, so dashed and faded still win. */
 .vault-planner-view .fc .vp-block {
+  --vp-source: var(--interactive-accent);
+  --fc-event-bg-color: var(--vp-source);
+  --fc-event-border-color: var(--vp-source);
+  --fc-event-text-color: var(--text-on-accent);
   cursor: grab;
+}
+
+.vault-planner-view .fc .vp-source-planner {
+  --vp-source: var(--vp-planner);
+  --fc-event-text-color: white;
 }
 
 .vault-planner-view .fc .vp-block-done {

@@ -41,6 +41,9 @@ export function eventUrl(eventId: string): string {
   return `${GRAPH_BASE}/me/events/${encodeURIComponent(eventId)}`;
 }
 
+/** The user's category list with a colour preset each — needs MailboxSettings.Read. */
+export const MASTER_CATEGORIES_URL = `${GRAPH_BASE}/me/outlook/masterCategories`;
+
 /** Everything assigned to the signed-in user, across plans. No $select: it would drop the etag. */
 export const PLANNER_TASKS_URL = `${GRAPH_BASE}/me/planner/tasks`;
 

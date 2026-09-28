@@ -34,6 +34,7 @@ seiner Graph-Details belegten Fallen. Beides ist unten korrigiert, und der Umfan
 ## Stand der Umsetzung (2026-09-24)
 
 - **M6 (Planner) als Code fertig (2026-09-28)**, auf Windows noch ungeprüft.
+- **M7 (Darstellung) als Code fertig (2026-09-28)**, auf Windows noch ungeprüft.
 - **Als Code fertig:** M0 (der Repo-Teil: Gerüst, Gate, Testvault, Skills), M1–M4. `bash
   scripts/verify.sh` ist grün, 145 Tests. Der Build liegt in `release/vault-planner.zip`.
 - **Ein unabhängiger Review** gegen den Quelltext von FullCalendar 6.1.21 und `obsidian.d.ts` hat
@@ -215,7 +216,7 @@ ist, bleibt „geplant", auch während man nächste Woche plant.
 
   Sonst steht über der Liste „Planungsstatus unbekannt".
 - **Aufgabe nicht gefunden:** Findet ein eigener Block keine Task-Zeile, bleibt er trotzdem ein
-  eigener Block. Er behält die Akzentfarbe, zeigt „Aufgabe nicht gefunden" und ist über sein Menü
+  eigener Block. Er behält den Rand in der Farbe seiner Quelle, zeigt „Aufgabe nicht gefunden" und ist über sein Menü
   löschbar. Der Index kennt dafür die Block-IDs **aller** Task-Zeilen der Quelldateien, auch
   erledigter. Den Hinweis gibt es erst, wenn der Index vollständig ist (M2.2).
 - **Doppelte Block-ID:** Steht eine Block-ID in mehr als einer Task-Zeile (kopierte oder geteilte
@@ -416,7 +417,8 @@ weil eigene Blöcke nie Serien sind.
   `{ action, code, state }`.
   - Erst den `state` prüfen, dann den Code tauschen: `POST …/token` per `requestUrl`,
     `application/x-www-form-urlencoded`, `throw: false`.
-- **Scopes:** `openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite`. Der
+- **Scopes:** `openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite`, seit M7
+  dazu `MailboxSettings.Read`, mit Planner `Tasks.ReadWrite` (`scopes()` in `src/config.ts`). Der
   Anzeigename ist `preferred_username` aus dem ID-Token und kommt gerätelokal in
   `saveLocalStorage`. Kein `GET /me`.
 - **Ablage:** `app.secretStorage.setSecret("vault-planner-refresh-token", rt)`. Beim Abmelden mit
@@ -662,8 +664,8 @@ Fehler erscheinen im Klartext aus `errors.ts`.
 **3.6 Darstellung** (`lib/schedule.ts` + Test):
 
 - `deriveSchedule` wie oben.
-- Eigene Blöcke erscheinen in Akzentfarbe **mit Icon**, sind editierbar und haben sichtbare
-  Anfasser.
+- Eigene Blöcke erscheinen gefüllt in der Farbe ihrer Quelle **mit Icon** (seit M7: Vault in der
+  Akzentfarbe, Planner grün), sind editierbar und haben sichtbare Anfasser.
 - „Aufgabe nicht gefunden" und „Konflikt" sind gedämpft und tragen einen Hinweis.
 
 | Falle | Gegenmaßnahme |
@@ -876,6 +878,74 @@ Planner darf den Kalender nicht mitnehmen.
 | Die Aufgabe in Planner ändern, dann im Plugin binnen 60 s abhaken | Notice „in Planner geändert", nichts überschrieben, die Liste liest neu |
 | Schalter aus | Die Planner-Karten verschwinden, Vault und Kalender laufen weiter, Planner-Blöcke bleiben im Raster |
 
+## M7 — Darstellung: Farben und Ansichten
+
+**Anlass (2026-09-28):** Auf dem ersten Screenshot mit Planner sah fast alles gleich aus. Fremde
+Termine waren fast weiß auf weiß, die Spalte von heute hatte dieselbe Farbe wie die
+Nicht-Arbeitszeit, und alle Karten waren gleich grau. Mit Daniel entschieden:
+
+- Kategoriefarben aus Outlook;
+- Karten und Blöcke nach Quelle einfärben;
+- die Ansichten 1–4 Tage, Arbeitswoche und Woche;
+- blättern um N Arbeitstage.
+
+**Regel:** Pro Fläche kodiert Farbe genau eine Sache, und Farbe ist nie das einzige Signal.
+
+| Fläche | Farbe | Zweites Signal |
+| --- | --- | --- |
+| Fremder Termin | hell getönt in der ersten Outlook-Kategorie, ohne Kategorie blau; mit Vorbehalt schraffiert | Titel |
+| Eigener Block | gefüllt in der Quelle: Vault in der Akzentfarbe, Planner `oklch(0.52 0.12 155)` (aus daily-planner) | Icon |
+| Karte | getönt in der Quelle, mit Randstreifen | „Planner" in der Meta-Zeile |
+| Quadranten-Titel | Randmarke rot, orange, gelb, grau | Titeltext |
+
+**7.1 Kategoriefarben** (`graph.readCategoryColors`, `lib/mapGraphEvents.ts` + Test):
+
+- `categories` kommt ins `$select`.
+- `/me/outlook/masterCategories` wird beim Öffnen und nach der Anmeldung gelesen.
+- Die neue Berechtigung `MailboxSettings.Read` braucht laut Doku keine Administratorzustimmung. Die Regeln stehen im graph-calendar-Skill.
+- Scheitert das Lesen, bleibt die Grundfarbe, ohne Banner: Es ist Dekoration, nicht Planungsstatus.
+
+**7.2 Liste:**
+
+- Datum „bis Di., 22.09." im Stil der Statuszeile, mit Jahr nur außerhalb des laufenden Jahres (`formatDue`).
+- „Aufwand?" blass.
+- Bucket als Chip.
+
+**7.3 Ansichten:**
+
+- FullCalendar-Ansichten mit `dayCount` (zählt nur sichtbare Tage) und `weekends: true` für die Woche.
+- Eigene Pfeile mit `shiftWorkdays`, weil FullCalendar eine `dayCount`-Ansicht nur um einen Tag weiterschiebt.
+- Die Wahl steht per Gerät in `app.saveLocalStorage`.
+
+| Falle | Gegenmaßnahme |
+| --- | --- |
+| Hex-Werte der Kategorien für belegt halten | Graph nennt nur Namen, die Farbe hängt vom Client ab. Die Tabelle in `styles.css` ist eine Näherung |
+| `dateIncrement: N Tage` für die Tagesansichten | Über das Wochenende doppelt sich ein Tag (Do, Fr, Mo → Mo, Di, Mi). `shiftWorkdays` zählt Arbeitstage |
+| Stildefinition nur unter `.vault-planner-view` | Die Drag-Vorschau der Karte hängt in `<body>`. Deshalb stehen `--vp-planner` auf `body` und die Kartenfarbe an `.vp-card` |
+| Zustandsregeln vor den Quellfarben | „Aufgabe nicht gefunden" würde grün statt gestrichelt. Die Regeln für missing und conflict stehen danach |
+| Ein Tippfehler wie `📅 2026-13-01` im Datumsformat | Intl wirft, und Liste und Kalender bleiben bei jedem Rendern leer. Was kein echtes Datum ist, bleibt, wie es geschrieben ist |
+| Freie Zeit mit dem Kategoriestreifen | Sähe aus wie ein Termin. Hintergrund-Bänder bekommen nur die Tönung |
+| Dunkle Presets im dunklen Theme | Schwarz auf Schwarz. Unter `.theme-dark` wird jede Kategoriefarbe um 30 % aufgehellt |
+
+**Bewusst so (mit Daniel, 2026-09-28):** `MailboxSettings.Read` steckt im selben Token wie der
+Kalender. Fehlt die Zustimmung, meldet sich das Plugin ab und zeigt keinen Kalender, bis sie
+erteilt ist. Anders als beim Planner-Schalter gibt es keinen Ausweg per Einstellung. Daniel
+verwaltet die Entra-App selbst, und ein Schalter wäre eine Einstellung mehr.
+
+**Offen, erst live prüfbar:** Kommt `categories` im `$select` von calendarView mit? Reicht die
+Benutzerzustimmung für `MailboxSettings.Read`?
+
+**Verifikation M7** (manuell):
+
+| Handlung | Was sie beweist |
+| --- | --- |
+| `MailboxSettings.Read` in Entra ergänzen, das Plugin neu laden | Das Banner „Anmelden" erscheint, die Zustimmung nennt die Postfacheinstellungen, danach ist der Kalender da: Scope und Benutzerzustimmung |
+| In Outlook einem Termin eine Kategorie geben, die Ansicht neu öffnen | Der Termin trägt ungefähr die Outlook-Farbe, einer ohne Kategorie ist blau, einer mit Vorbehalt schraffiert |
+| Eine Vault- und eine Planner-Aufgabe einplanen | Der Block ist lila bzw. grün, passend zur Karte |
+| Die Knöpfe 1–4, Arbeitswoche und Woche durchklicken | Die 3-Tage-Ansicht blättert Mo–Mi → Do, Fr, Mo, die Woche zeigt Sa/So, nach einem Neustart ist die Ansicht wieder da |
+| In die 1-Tages-Ansicht und auf einen Samstag ziehen | Der Block entsteht auch in den neuen Ansichten |
+| Dunkles Theme | Getönte Termine, grüne Blöcke und Karten bleiben lesbar |
+
 ## M5 — Go-live im echten Vault
 
 1. **Task-Format im Vault** (Daniel mit Claude, geht auch früher): Die Vault-`CLAUDE.md` §3 und der
@@ -967,7 +1037,7 @@ beweist.
 - **Braucht es nicht:**
   - Neuer-Task-Modal, dafür gibt es Quick Capture
   - Entf-Taste, das Menü ist der Weg
-  - Kategorie und `🟣`
+  - eine Kategorie am Block und `🟣` (Kategorien fremder Termine werden seit M7 nur gelesen)
   - Splitter
   - Retry und Backoff; „Erneut versuchen" liest nur neu
   - Popover, „In Outlook öffnen", Refresh-Knopf
@@ -982,7 +1052,8 @@ beweist.
 - **Außerhalb des Umfangs:**
   - Rückgängig nach dem Erledigen
   - FullCalendar v7
-  - Mobile, Popout-Fenster, Wochenende, mehrere Kalender, Teilnehmer, Termine ohne Task
+  - Mobile, Popout-Fenster, mehrere Kalender, Teilnehmer, Termine ohne Task; das Wochenende nur in
+    der Ansicht „Woche" (M7)
 
 ## Offen, nicht blockierend
 

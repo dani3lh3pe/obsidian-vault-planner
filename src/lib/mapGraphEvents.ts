@@ -42,6 +42,26 @@ function readTaskLink(value: unknown): string | null {
   return isRecord(first) && typeof first.value === "string" && first.value !== "" ? first.value : null;
 }
 
+function readCategories(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((name): name is string => typeof name === "string") : [];
+}
+
+/**
+ * The master list (/me/outlook/masterCategories) -> category name to preset number: "preset7" is 7.
+ * "none" and anything unknown are left out, so such a category tints nothing. The colour of a
+ * preset lives in styles.css only: Graph names them ("Red", "DarkSteel"), it publishes no hex values.
+ */
+export function readCategoryColors(raw: readonly unknown[]): Map<string, number> {
+  const colors = new Map<string, number>();
+  for (const item of raw) {
+    if (!isRecord(item) || typeof item.displayName !== "string" || typeof item.color !== "string") continue;
+    const match = /^preset(\d{1,2})$/iu.exec(item.color);
+    const preset = match === null ? NaN : Number(match[1]);
+    if (preset <= 24) colors.set(item.displayName, preset);
+  }
+  return colors;
+}
+
 /**
  * Shape only: unknown[] -> CalendarEvent[]. Drops what cannot be narrowed and counts it. Never
  * filters on meaning — cancelled, declined and all-day events all survive this step.
@@ -72,6 +92,7 @@ export function mapGraphEvents(raw: readonly unknown[]): MapResult {
       showAs: readShowAs(item.showAs),
       responseStatus: readResponse(item.responseStatus),
       taskLink: readTaskLink(item.singleValueExtendedProperties),
+      categories: readCategories(item.categories),
     });
   }
 

@@ -8,13 +8,14 @@ import {
   eventUrl,
   isGraphUrl,
   isPlannerUrl,
+  MASTER_CATEGORIES_URL,
   moveEventBody,
   PLANNER_TASKS_URL,
   plannerTaskUrl,
   planUrl,
   type NewBlock,
 } from "./lib/graphRequests";
-import { mapGraphEvents, type MapResult } from "./lib/mapGraphEvents";
+import { mapGraphEvents, readCategoryColors, type MapResult } from "./lib/mapGraphEvents";
 import { readPage } from "./lib/odata";
 import { mapPlannerTasks, planTitle, readBuckets, type PlannerSnapshot } from "./lib/planner";
 import type { GraphErrorResponse, PlannerBucket, PlannerTask, TimeRange } from "./lib/types";
@@ -88,6 +89,15 @@ export class Graph {
       url = nextLink;
     }
     return mapGraphEvents(raw);
+  }
+
+  /**
+   * Category name -> colour preset, for tinting other people's entries. Not an event request, so
+   * no IdType preference.
+   */
+  async readCategoryColors(): Promise<Map<string, number>> {
+    // ponytail: first page only — a master list longer than one page leaves some categories uncoloured.
+    return readCategoryColors(readPage(await this.send("GET", MASTER_CATEGORIES_URL, undefined, {})).value);
   }
 
   /** The response carries no extended property (documented); the next read shows the block. */

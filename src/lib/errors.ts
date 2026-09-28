@@ -123,7 +123,7 @@ const AADSTS: Record<string, string> = {
   "90002": "Der Tenant wurde nicht gefunden. Die Tenant-ID in den Einstellungen prüfen.",
   "65001":
     "Die Zustimmung fehlt. „Anmelden“ holt sie ein; ist die Benutzerzustimmung gesperrt, als Administrator " +
-    "für Calendars.ReadWrite (mit Planner auch Tasks.ReadWrite) zustimmen.",
+    "für Calendars.ReadWrite und MailboxSettings.Read (mit Planner auch Tasks.ReadWrite) zustimmen.",
   "7000218":
     "Entra verlangt ein Client-Secret. In der App-Registrierung „Öffentliche Clientflows " +
     "zulassen“ auf Ja stellen.",

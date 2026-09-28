@@ -31,7 +31,7 @@ expands a series server-side, applies its exceptions and drops cancelled instanc
 Sent on every request and page:
 
 ```
-$select=id,subject,start,end,isAllDay,isCancelled,showAs,responseStatus
+$select=id,subject,start,end,isAllDay,isCancelled,showAs,responseStatus,categories
 $expand=singleValueExtendedProperties($filter=id eq 'String {F81E…C02B} Name vaultTaskId')
 $top=250
 Prefer: IdType="ImmutableId"
@@ -69,6 +69,17 @@ site drops any event whose `timeZone` is not `"UTC"` rather than guessing.
 | `isCancelled` | Can still sit in the calendar | Not shown, not a plan |
 | `responseStatus` | `declined` is not blocked time; your own events are `none`/`organizer` | Filter `declined` only |
 | occurrence `id` | Synthetic for series occurrences | Harmless: our blocks are never series |
+| `categories` | Names only; the colour is in the user's master list | Tint by the first name that has a colour (M7) |
+
+### Category colours (M7)
+
+`GET /me/outlook/masterCategories` returns `{ displayName, color }` per category. Documented:
+it needs **MailboxSettings.Read**, which needs no admin consent (delegated). `color` is `none` or
+`preset0`…`preset24`. Graph names the presets (`Red`, `DarkSteel`, …) but publishes **no hex
+values** — "the actual color is dependent on the Outlook client". The hex table in `styles.css`
+is derived (our approximation). Not an event request, so **no** `Prefer: IdType` header. First
+page only; a failed read leaves the base colour and shows no banner — decoration, not plan status.
+Reading `categories` is fine; **writing** them stays forbidden (see Writing).
 
 ## The task link (plugin-specific)
 
@@ -141,7 +152,11 @@ gap, and the autumn hour where two instants share one wall-clock string (not fix
 fields; the Prefer header not affecting the window parameters; `attendees` triggering invitations;
 `transactionId` idempotency; the POST response omitting extended properties; DELETE 404.
 
-**Open, to verify live:** `$expand` of the task property together with `$select` (M1.0).
+**Documented by Microsoft, NOT verified here (M7):** masterCategories needs MailboxSettings.Read
+without admin consent; `categories` holds `displayName` values of the master list.
+
+**Open, to verify live:** `$expand` of the task property together with `$select` (M1.0); that
+`categories` comes back in `$select` on calendarView (M7).
 
 ## Rejected — do not re-attempt
 
@@ -161,7 +176,7 @@ fields; the Prefer header not affecting the window parameters; `attendees` trigg
 | `src/lib/time.ts` | The only zone conversion: `toWallClock`, `fromGraphUtc`, `plannerDay` |
 | `src/lib/graphRequests.ts` | URLs and bodies: calendarView query, POST/PATCH bodies, event URL |
 | `src/graph.ts` | `requestUrl`, headers, 401 retry, paging, DELETE-404 |
-| `src/lib/mapGraphEvents.ts` | The single parse site; drops what it cannot narrow |
+| `src/lib/mapGraphEvents.ts` | The single parse site; drops what it cannot narrow; the category colour list |
 | `src/lib/toFullCalendarEvents.ts` | What `showAs`, `isCancelled`, `isAllDay` MEAN for display |
 | `src/lib/schedule.ts` | Which task a block belongs to, and the planning status |
 | `src/config.ts` | Zone names, the property id, `$select`, paging limits |

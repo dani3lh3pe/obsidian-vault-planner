@@ -13,11 +13,16 @@ function event(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
     showAs: "busy",
     responseStatus: "accepted",
     taskLink: null,
+    categories: [],
     ...overrides,
   };
 }
 
-const map = (events: CalendarEvent[]) => toFullCalendarEvents(events, "Vault", () => "open");
+const COLORS = new Map([
+  ["Kunde A", 7],
+  ["Privat", 0],
+]);
+const map = (events: CalendarEvent[]) => toFullCalendarEvents(events, "Vault", () => "open", COLORS);
 
 describe("toFullCalendarEvents", () => {
   it("drops cancelled and declined entries", () => {
@@ -62,7 +67,29 @@ describe("toFullCalendarEvents", () => {
   });
 
   it("carries the task state into the class", () => {
-    const [missing] = toFullCalendarEvents([event({ taskLink: "Vault|t-9" })], "Vault", () => "missing");
+    const [missing] = toFullCalendarEvents([event({ taskLink: "Vault|t-9" })], "Vault", () => "missing", COLORS);
     expect(missing.classNames).toEqual(["vp-block", "vp-block-missing"]);
+  });
+
+  it("tints a meeting by its FIRST category that has a colour, and hatches tentative time", () => {
+    const [first, skipped, none, tentative] = map([
+      event({ categories: ["Kunde A", "Privat"] }),
+      event({ categories: ["Unbekannt", "Privat"] }),
+      event({ categories: ["Unbekannt"] }),
+      event({ showAs: "tentative" }),
+    ]);
+    expect(first.classNames).toEqual(["vp-meeting", "vp-cat-7"]);
+    expect(skipped.classNames).toEqual(["vp-meeting", "vp-cat-0"]);
+    expect(none.classNames).toEqual(["vp-meeting"]);
+    expect(tentative.classNames).toEqual(["vp-meeting", "vp-tentative"]);
+  });
+
+  it("colours our blocks by source, never by a category someone added in Outlook", () => {
+    const [vault, planner] = map([
+      event({ taskLink: "Vault|t-1", categories: ["Kunde A"] }),
+      event({ taskLink: "planner:abc", categories: ["Kunde A"] }),
+    ]);
+    expect(vault.classNames).toEqual(["vp-block", "vp-block-open"]);
+    expect(planner.classNames).toEqual(["vp-block", "vp-block-open", "vp-source-planner"]);
   });
 });

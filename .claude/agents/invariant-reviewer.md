@@ -27,7 +27,7 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
 
 - [ ] The refresh token goes only to `app.secretStorage` (`SECRET_REFRESH_TOKEN`). Grep `saveData`,
       `saveLocalStorage`, `setSecret`, `new Notice`, `throw new` for anything token-shaped;
-      `saveLocalStorage` is plaintext and holds the account name only
+      `saveLocalStorage` is plaintext and holds the account name and the calendar view name only
 - [ ] `state` is checked before the code is exchanged; PKCE uses S256; a redirect without a
       pending sign-in changes nothing
 - [ ] `window.open` is reachable only from a click — the sign-in button and "In Planner öffnen";
@@ -45,7 +45,10 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
 - [ ] Every URL that carries the bearer token starts with `GRAPH_BASE`, including a followed
       `@odata.nextLink`; the token endpoint under `LOGIN_BASE` is the only other host
 - [ ] No telemetry, no request the user did not cause apart from the reads: calendar every 15 s,
-      Planner every 60 s, both on returning to the view
+      Planner every 60 s, both on returning to the view; the category colours on opening the view
+      and after sign-in (`/me/outlook/masterCategories`, read only)
+- [ ] The scope string asks for nothing beyond `Calendars.ReadWrite`, `MailboxSettings.Read` and,
+      with the Planner switch on, `Tasks.ReadWrite` (plus the OIDC scopes)
 
 ## Outlook writes (`src/graph.ts`, `src/lib/graphRequests.ts`, `src/view.ts`)
 

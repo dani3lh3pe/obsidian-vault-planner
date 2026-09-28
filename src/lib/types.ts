@@ -14,6 +14,8 @@ export interface CalendarEvent {
   responseStatus: string;
   /** The task property's raw value ("<vaultName>|<blockId>"), or null for anything else. */
   taskLink: string | null;
+  /** Outlook category names, in the event's order; the first one with a colour tints it. */
+  categories: string[];
 }
 
 /** A half-open span of time, [start, end). */

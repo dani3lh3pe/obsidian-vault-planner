@@ -38,14 +38,14 @@ describe("authorizeUrl", () => {
       code_challenge: "abc",
       code_challenge_method: "S256",
       state: "xyz",
-      scope: "openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite",
+      scope: "openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/MailboxSettings.Read",
     });
   });
 
   it("asks for Tasks.ReadWrite only while Planner is switched on", () => {
     expect(scopes(false)).not.toContain("Tasks.");
     expect(scopes(true)).toBe(
-      "openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/Tasks.ReadWrite",
+      "openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/MailboxSettings.Read https://graph.microsoft.com/Tasks.ReadWrite",
     );
   });
 });

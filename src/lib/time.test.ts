@@ -7,6 +7,8 @@ import {
   formatSlot,
   formatSlotWithDate,
   plannerDay,
+  formatDue,
+  shiftWorkdays,
 } from "./time";
 
 describe("toWallClock", () => {
@@ -133,5 +135,40 @@ describe("the test clock", () => {
     // `npm test` sets TZ=UTC. A run without it on a Berlin machine would hide exactly the
     // late-evening day bugs plannerDay exists for.
     expect(new Date(0).getTimezoneOffset()).toBe(0);
+  });
+});
+
+describe("formatDue", () => {
+  it("names the weekday, and the year only when it is not this one", () => {
+    expect(formatDue("2026-09-22", "2026-09-28")).toBe("Di., 22.09.");
+    expect(formatDue("2027-01-15", "2026-09-28")).toBe("Fr., 15.01.2027");
+  });
+
+  it("keeps a typo that is no real date as written, instead of throwing or rolling it over", () => {
+    expect(formatDue("2026-13-01", "2026-09-28")).toBe("2026-13-01");
+    expect(formatDue("2026-02-30", "2026-09-28")).toBe("2026-02-30");
+  });
+});
+
+describe("shiftWorkdays", () => {
+  // TZ=UTC in the tests; the function counts in local calendar days either way.
+  const day = (text: string) => new Date(`${text}T00:00:00`);
+  const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+  it("pages the 3-day view Mon–Wed, Thu–Mon, Tue–Thu — no day twice, none left out", () => {
+    expect(iso(shiftWorkdays(day("2026-09-28"), 3))).toBe("2026-10-01"); // Mon -> Thu
+    expect(iso(shiftWorkdays(day("2026-10-01"), 3))).toBe("2026-10-06"); // Thu -> Tue
+  });
+
+  it("goes back over the weekend the same way", () => {
+    expect(iso(shiftWorkdays(day("2026-10-06"), -3))).toBe("2026-10-01"); // Tue -> Thu
+    expect(iso(shiftWorkdays(day("2026-09-28"), -1))).toBe("2026-09-25"); // Mon -> Fri
+    expect(iso(shiftWorkdays(day("2026-09-28"), -4))).toBe("2026-09-22"); // Mon -> Tue
+  });
+
+  it("lands on midnight, whatever time of day it starts from", () => {
+    const after = shiftWorkdays(new Date("2026-10-23T09:30:00"), 1); // Fri -> Mon
+    expect(iso(after)).toBe("2026-10-26");
+    expect(after.getHours()).toBe(0);
   });
 });

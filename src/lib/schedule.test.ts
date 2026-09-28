@@ -14,6 +14,7 @@ function event(id: string, start: string, end: string, overrides: Partial<Calend
     showAs: "busy",
     responseStatus: "organizer",
     taskLink: null,
+    categories: [],
     ...overrides,
   };
 }

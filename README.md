@@ -18,7 +18,8 @@ live aus dem Kalender an, auch nachdem du einen Block in Outlook verschoben oder
    - `obsidian://vault-planner-auth`
    - `http://localhost` (Reserve)
 3. „Öffentliche Clientflows zulassen" bleibt auf **Nein**.
-4. **API-Berechtigungen → Microsoft Graph → Delegiert:** `Calendars.ReadWrite`, für Planner-Aufgaben
+4. **API-Berechtigungen → Microsoft Graph → Delegiert:** `Calendars.ReadWrite` und
+   `MailboxSettings.Read` (nur für die Farben der Outlook-Kategorien), für Planner-Aufgaben
    zusätzlich `Tasks.ReadWrite`. Falls Benutzerzustimmung gesperrt ist, die Administratorzustimmung
    erteilen.
 5. Kein Secret, keine Anwendungsberechtigung.
@@ -51,6 +52,9 @@ zustimmen kann, schaltet den Schalter wieder aus und meldet sich neu an. Ausscha
 fordert `Tasks.ReadWrite` nicht mehr an, nimmt die einmal erteilte Zustimmung aber nicht zurück.
 Das geht nur in Entra bzw. unter myapps.microsoft.com.
 
+Seit M7 fragt das Plugin zusätzlich `MailboxSettings.Read` an. Nach dem ersten Update darauf meldet
+es sich deshalb einmal ab; **Anmelden** holt die Zustimmung ein.
+
 - Der Browser öffnet die Microsoft-Anmeldung und fragt am Ende, ob er Obsidian öffnen darf.
 - Beim Anmelden nur **einen** Vault mit dem Plugin offen haben: Der `obsidian://`-Link geht an das
   zuletzt aktive Vault-Fenster.
@@ -69,6 +73,12 @@ Das geht nur in Entra bzw. unter myapps.microsoft.com.
 
   Suche, Kunden-Filter und „nur ungeplante" stehen darüber. Ein Klick öffnet die Aufgabe in einem
   neuen Tab.
+- **Farben:** Karte und Block einer Vault-Aufgabe haben die Akzentfarbe, bei Planner-Aufgaben sind
+  sie grün. Eigene Blöcke sind gefüllt. Fremde Termine sind hell getönt in der Farbe ihrer ersten
+  Outlook-Kategorie, ohne Kategorie blau, und schraffiert, wenn sie „mit Vorbehalt" sind.
+- **Ansicht:** Die Knöpfe rechts über dem Kalender schalten zwischen 1, 2, 3 oder 4 Arbeitstagen,
+  der Arbeitswoche und der ganzen Woche mit Wochenende um. In der Tagesansicht blättern die Pfeile
+  um so viele Arbeitstage, wie zu sehen sind. Die Wahl bleibt auf diesem Gerät gespeichert.
 - **Einplanen:** eine Karte in den Kalender ziehen. Die Dauer ist `[aufwand:: …]`, sonst eine
   Stunde. Die Karte zeigt „Wird gespeichert…", bis der Termin im Kalender auftaucht.
 - **Verschieben oder Größe ändern:** den Block im Kalender ziehen bzw. am Rand ziehen.
@@ -115,12 +125,14 @@ Aufgabe inzwischen in Planner geändert, bricht das Plugin ab und liest neu, sta
 | „Keine offenen Aufgaben", obwohl Tasks im Vault stehen | `10_Kunden` und `20_Intern` liegen nicht direkt im Vault-Ordner, z. B. eine Ebene tiefer nach dem Entpacken | Die Ordner eine Ebene hochschieben, dann das Plugin aus- und einschalten |
 | „Kein Zugriff auf Planner" | `Tasks.ReadWrite` fehlt in der App-Registrierung oder ist nicht zugestimmt | Berechtigung ergänzen, abmelden, neu anmelden |
 | „… zwischenzeitlich in Planner geändert" | Die Aufgabe wurde in Planner geändert, seit das Plugin sie gelesen hat | Nach dem Neuladen erneut versuchen |
+| Alle fremden Termine blau, obwohl sie in Outlook Kategorien haben | Die Kategorieliste war nicht lesbar (`MailboxSettings.Read` fehlt oder ist nicht zugestimmt), oder die Kategorie ist neu | Berechtigung ergänzen, abmelden, neu anmelden; eine neue Kategorie erscheint, sobald die Ansicht neu geöffnet wird |
 | „Block-ID doppelt" an einer Karte | Eine Zeile mit `^t-…` wurde kopiert | Bei der Kopie die Block-ID entfernen |
 | Block gestrichelt mit „Aufgabe nicht gefunden" | Die Task-Zeile mit dieser Block-ID gibt es nicht mehr | Block per Rechtsklick löschen oder die ID wiederherstellen |
 
 ## Grenzen
 
-Nur Desktop, nur das Hauptfenster (kein Pop-out), nur der Standardkalender, Montag bis Freitag.
+Nur Desktop, nur das Hauptfenster (kein Pop-out), nur der Standardkalender. Das Wochenende nur in
+der Ansicht „Woche".
 Keine Teilnehmer, keine Termine ohne Task. Aus Planner nur Basic-Pläne: Premium-Pläne liefert die
 API nicht.
 

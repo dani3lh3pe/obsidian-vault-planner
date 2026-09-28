@@ -11,6 +11,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import { ItemView, Menu, Modal, Notice, setIcon, type App, type WorkspaceLeaf } from "obsidian";
 import {
   BUSINESS_HOURS,
+  CALENDAR_VIEW_KEY,
   CLICK_SLOP_PX,
   DEFAULT_AUFWAND_HOURS,
   PLANNER_REFRESH_INTERVAL_MS,
@@ -27,13 +28,26 @@ import { ReadGate } from "./lib/readGate";
 import { blocksByTask, fetchRange, inRange, linkKey, plannerIdOf, plannerKey, planStatus, statusWindow } from "./lib/schedule";
 import { cleanTitle, eventBody, eventSubject, plannerEventBody } from "./lib/subject";
 import { buildList, isOpen, type ListOptions } from "./lib/taskList";
-import { aufwandToDuration, formatSlot, formatSlotWithDate, plannerDay } from "./lib/time";
+import { aufwandToDuration, formatDue, formatSlot, formatSlotWithDate, plannerDay, shiftWorkdays } from "./lib/time";
 import { toFullCalendarEvents, type BlockState, type EventProps } from "./lib/toFullCalendarEvents";
 import type { AnyTask, CalendarEvent, PlannerBucket, PlannerTask, PlanStatus, TimeRange, VaultTask } from "./lib/types";
 import { visibleHours } from "./lib/visibleHours";
 import { toggleDone, writeBlockId } from "./vault";
 
 const UNPLANNED: PlanStatus = { kind: "ungeplant" };
+
+/**
+ * The toolbar's views. dayCount counts visible days only: with the weekend hidden, "3" from
+ * Thursday is Thu, Fri, Mon — and the 1–4 day views page by as many weekdays (step).
+ */
+const VIEWS: Record<string, { type: string; buttonText: string; dayCount?: number; weekends?: boolean }> = {
+  days1: { type: "timeGrid", dayCount: 1, buttonText: "1" },
+  days2: { type: "timeGrid", dayCount: 2, buttonText: "2" },
+  days3: { type: "timeGrid", dayCount: 3, buttonText: "3" },
+  days4: { type: "timeGrid", dayCount: 4, buttonText: "4" },
+  workWeek: { type: "timeGridWeek", buttonText: "Arbeitswoche" },
+  fullWeek: { type: "timeGridWeek", weekends: true, buttonText: "Woche" },
+};
 
 /**
  * A card's saving marker before it has a block id. Needed on the FIRST booking: the index only
@@ -50,7 +64,14 @@ interface CardData {
   blockId: string | null;
   plannerId: string | null;
   title: string;
+  /** "1,5 h", or null while the task has no [aufwand::]. */
+  effort: string | null;
+  /** Customer · project. */
   meta: string;
+  bucket: string | null;
+  /** "mit 2 weiteren Personen", Planner only. */
+  shared: string | null;
+  /** "Di., 22.09." */
   due: string | null;
   overdue: boolean;
   status: { text: string; muted: boolean } | null;
@@ -132,6 +153,10 @@ export class PlannerView extends ItemView {
    * failed: then the next read is news enough.
    */
   private readonly plannerWriting = new Map<string, { from: number; spent: string | null }>();
+  /** Outlook category name -> colour preset. Empty until read, and after a failed read. */
+  private categoryColors: ReadonlyMap<string, number> = new Map();
+  /** Only the newest category read may land: an older one may be the previous account's. */
+  private categorySeq = 0;
 
   private bannerEl: HTMLElement | null = null;
   private plannerHintEl: HTMLElement | null = null;
@@ -197,6 +222,7 @@ export class PlannerView extends ItemView {
     );
     this.renderAll();
     void this.refreshPlanner();
+    void this.loadCategoryColors();
   }
 
   async onClose(): Promise<void> {
@@ -259,9 +285,19 @@ export class PlannerView extends ItemView {
 
   private buildCalendar(right: HTMLElement): void {
     this.loadingEl = right.createDiv({ cls: "vp-loading", text: "Termine werden geladen…" });
+    const stored: unknown = this.app.loadLocalStorage(CALENDAR_VIEW_KEY);
     const calendar = new Calendar(right.createDiv({ cls: "vp-calendar" }), {
       plugins: [timeGridPlugin, interactionPlugin],
-      initialView: "timeGridWeek",
+      views: VIEWS,
+      buttonHints: {
+        days1: "1 Tag",
+        days2: "2 Arbeitstage",
+        days3: "3 Arbeitstage",
+        days4: "4 Arbeitstage",
+        workWeek: "Arbeitswoche (Mo–Fr)",
+        fullWeek: "Woche (Mo–So)",
+      },
+      initialView: typeof stored === "string" && Object.hasOwn(VIEWS, stored) ? stored : "workWeek",
       // The locale OBJECT: the string "de" silently falls back to English without it.
       locale: deLocale,
       timeZone: "local",
@@ -277,7 +313,12 @@ export class PlannerView extends ItemView {
       expandRows: true,
       height: "100%",
       businessHours: BUSINESS_HOURS,
-      headerToolbar: { left: "prev,next today", center: "title", right: "" },
+      // Own arrows: FullCalendar's would page a dayCount view by one day.
+      customButtons: {
+        vpPrev: { icon: "chevron-left", hint: "Zurück", click: () => this.step(-1) },
+        vpNext: { icon: "chevron-right", hint: "Weiter", click: () => this.step(1) },
+      },
+      headerToolbar: { left: "vpPrev,vpNext today", center: "title", right: "days1,days2,days3,days4 workWeek,fullWeek" },
       droppable: true,
       editable: true,
       eventResizableFromStart: true,
@@ -327,6 +368,8 @@ export class PlannerView extends ItemView {
       this.error = null;
       void this.refresh(true);
       void this.refreshPlanner(true);
+      // The Planner switch leaves this scope alone; a sign-in may be another account's.
+      if (reason === "auth") void this.loadCategoryColors();
       return;
     }
     if (this.renderTimer !== null) return;
@@ -422,6 +465,28 @@ export class PlannerView extends ItemView {
     this.renderAll();
   }
 
+  /**
+   * Decoration only: a failed read leaves every meeting in the base colour, no banner — the plan
+   * status does not depend on it. Never the last list on failure or sign-out: it may be another
+   * account's. Read on open and after sign-in, so a category created meanwhile shows once the view
+   * is reopened.
+   */
+  private async loadCategoryColors(): Promise<void> {
+    const { auth, graph } = this.plugin;
+    const seq = ++this.categorySeq;
+    let colors: ReadonlyMap<string, number> = new Map();
+    if (auth.configured && auth.signedIn) {
+      try {
+        colors = await graph.readCategoryColors();
+      } catch {
+        // The base colour; see above.
+      }
+    }
+    if (seq !== this.categorySeq) return;
+    this.categoryColors = colors;
+    this.renderCalendar();
+  }
+
   /** The task as the LAST read knows it: its etag may have changed since the card was built. */
   private plannerTask(id: string): PlannerTask | undefined {
     return this.planner?.tasks.find((task) => task.id === id);
@@ -441,7 +506,19 @@ export class PlannerView extends ItemView {
     }, 0);
   }
 
+  /** The 1–4 day views move by as many weekdays (Mon–Wed, Thu–Mon), the weeks by a week. */
+  private step(direction: 1 | -1): void {
+    const calendar = this.calendar;
+    if (calendar === null) return;
+    const days = VIEWS[calendar.view.type]?.dayCount;
+    if (days !== undefined) calendar.gotoDate(shiftWorkdays(calendar.view.currentStart, direction * days));
+    else if (direction === 1) calendar.next();
+    else calendar.prev();
+  }
+
   private onDatesSet(arg: DatesSetArg): void {
+    // Per device, like the account hint: the view is a habit of this screen, not of the vault.
+    this.app.saveLocalStorage(CALENDAR_VIEW_KEY, arg.view.type);
     const previous = this.displayed;
     // datesSet also fires on renders that did not change the range; reading then would loop.
     if (previous !== null && previous.start.getTime() === arg.start.getTime() && previous.end.getTime() === arg.end.getTime()) {
@@ -552,13 +629,6 @@ export class PlannerView extends ItemView {
 
     const bucket =
       planner === null ? undefined : this.planner?.buckets.get(planner.planId)?.find((b) => b.id === planner.bucketId);
-    const meta = [
-      task.aufwand === undefined ? "Aufwand?" : `${String(task.aufwand).replace(".", ",")} h`,
-      task.kunde,
-      ...(task.projekt === null ? [] : [task.projekt]),
-      ...(bucket === undefined ? [] : [bucket.name]),
-      ...(planner === null || !planner.othersAssigned ? [] : [`mit ${others(planner.othersAssigned)}`]),
-    ].join(" · ");
     const key = linkKey(task);
 
     return {
@@ -568,8 +638,11 @@ export class PlannerView extends ItemView {
       blockId: vault?.blockId ?? null,
       plannerId: planner?.id ?? null,
       title: cleanTitle(task.description) || task.description,
-      meta,
-      due: task.due,
+      effort: task.aufwand === undefined ? null : `${String(task.aufwand).replace(".", ",")} h`,
+      meta: task.projekt === null ? task.kunde : `${task.kunde} · ${task.projekt}`,
+      bucket: bucket?.name ?? null,
+      shared: planner === null || !planner.othersAssigned ? null : `mit ${others(planner.othersAssigned)}`,
+      due: task.due === null ? null : formatDue(task.due, today),
       overdue: isOverdue(task, today),
       status,
       conflict,
@@ -634,7 +707,7 @@ export class PlannerView extends ItemView {
     for (const group of groups) {
       if (group.rows.length === 0) continue;
       const section = list.createDiv({ cls: "vp-group" });
-      section.createEl("h4", { cls: "vp-group-title", text: `${QUADRANT_TITLE[group.quadrant]} · ${group.rows.length}` });
+      section.createEl("h4", { cls: `vp-group-title vp-q-${group.quadrant}`, text: `${QUADRANT_TITLE[group.quadrant]} · ${group.rows.length}` });
       for (const row of group.rows) this.buildCard(section, row.task, row.card);
     }
     if (waiting.length > 0) {
@@ -653,6 +726,8 @@ export class PlannerView extends ItemView {
     // Self-contained class: FullCalendar's drag preview is a copy of this element in <body>,
     // where styles scoped to the view would not reach it.
     const el = parent.createDiv({ cls: "vp-card" });
+    // The source colour, the same as the block this card turns into.
+    el.toggleClass("is-planner", card.plannerId !== null);
     el.toggleClass("is-pending", card.pending);
     el.toggleClass("is-conflict", card.conflict !== null);
     if (!card.pending && card.conflict === null) {
@@ -679,7 +754,15 @@ export class PlannerView extends ItemView {
       attr: { role: "button", tabindex: "0", title: isPlannerTask(task) ? "In Planner öffnen" : "Öffnen" },
     });
     body.createDiv({ cls: "vp-title", text: card.title });
-    const meta = body.createDiv({ cls: "vp-meta", text: card.meta });
+    const meta = body.createDiv({ cls: "vp-meta" });
+    // A missing effort is a prompt, not information: it stays, but quiet.
+    meta.createSpan({ cls: card.effort === null ? "vp-effort is-missing" : "vp-effort", text: card.effort ?? "Aufwand?" });
+    meta.appendText(` · ${card.meta}`);
+    if (card.bucket !== null) {
+      meta.appendText(" ");
+      meta.createSpan({ cls: "vp-chip", text: card.bucket });
+    }
+    if (card.shared !== null) meta.appendText(` · ${card.shared}`);
     if (card.due !== null) {
       meta.appendText(" · ");
       // Red is an addition, not the message: the date itself says what is wrong.
@@ -760,7 +843,12 @@ export class PlannerView extends ItemView {
     }
     this.calendarStale = false;
 
-    const input = toFullCalendarEvents(this.events, this.app.vault.getName(), this.blockState(this.plugin.index.blockIndex()));
+    const input = toFullCalendarEvents(
+      this.events,
+      this.app.vault.getName(),
+      this.blockState(this.plugin.index.blockIndex()),
+      this.categoryColors,
+    );
     const signature = JSON.stringify(input);
     if (signature !== this.eventsSignature) {
       this.eventsSignature = signature;

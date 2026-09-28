@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapGraphEvents } from "./mapGraphEvents";
+import { mapGraphEvents, readCategoryColors } from "./mapGraphEvents";
 
 const utc = (dateTime: string) => ({ dateTime, timeZone: "UTC" });
 
@@ -99,5 +99,32 @@ describe("mapGraphEvents", () => {
     ]);
 
     expect(events.map((event) => event.taskLink)).toEqual([null, null, null]);
+  });
+
+  it("keeps the category names in their order and drops anything that is not a name", () => {
+    const { events } = mapGraphEvents([
+      { id: "AAA", start: utc("2026-09-10T07:00:00.0"), end: utc("2026-09-10T08:00:00.0"), categories: ["Kunde A", 7, null, "Privat"] },
+      { id: "BBB", start: utc("2026-09-10T07:00:00.0"), end: utc("2026-09-10T08:00:00.0") },
+    ]);
+
+    expect(events.map((event) => event.categories)).toEqual([["Kunde A", "Privat"], []]);
+  });
+});
+
+describe("readCategoryColors", () => {
+  it("maps each name to its preset number and leaves out none, unknown and broken entries", () => {
+    const colors = readCategoryColors([
+      { displayName: "Kunde A", color: "preset7" },
+      { displayName: "Privat", color: "Preset24" },
+      { displayName: "Farblos", color: "none" },
+      { displayName: "Zukunft", color: "preset25" },
+      { displayName: "Kaputt" },
+      "nonsense",
+    ]);
+
+    expect([...colors]).toEqual([
+      ["Kunde A", 7],
+      ["Privat", 24],
+    ]);
   });
 });

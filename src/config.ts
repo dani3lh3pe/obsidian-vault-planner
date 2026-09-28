@@ -17,11 +17,13 @@ export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 export const LOGIN_BASE = "https://login.microsoftonline.com";
 
 /**
- * OIDC scopes for the id token and the refresh token, plus the Graph permissions. Tasks.ReadWrite
- * only while Planner is switched on: without it the consent never asks for the task boards.
+ * OIDC scopes for the id token and the refresh token, plus the Graph permissions. MailboxSettings.Read
+ * only reads the category colours (M7). Tasks.ReadWrite only while Planner is switched on: without it
+ * the consent never asks for the task boards.
  */
 export function scopes(planner: boolean): string {
-  const base = "openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite";
+  const base =
+    "openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/MailboxSettings.Read";
   return planner ? `${base} https://graph.microsoft.com/Tasks.ReadWrite` : base;
 }
 
@@ -36,7 +38,7 @@ export const REDIRECT_URI = `obsidian://${REDIRECT_ACTION}`;
 export const IMMUTABLE_ID_HEADER = { Prefer: 'IdType="ImmutableId"' } as const;
 
 /** `createdDateTime`/`lastModifiedDateTime` are NOT $select-able on calendarView. */
-export const EVENT_SELECT = "id,subject,start,end,isAllDay,isCancelled,showAs,responseStatus";
+export const EVENT_SELECT = "id,subject,start,end,isAllDay,isCancelled,showAs,responseStatus,categories";
 export const EVENT_PAGE_SIZE = 250;
 /** A broken nextLink loop would otherwise hang the view. Two weeks never come close. */
 export const MAX_EVENT_PAGES = 10;
@@ -96,6 +98,8 @@ export const DEFAULT_AUFWAND_HOURS = 1;
 /** Device-local storage keys. Never in data.json: that file lives in the OneDrive-synced vault. */
 export const SECRET_REFRESH_TOKEN = "vault-planner-refresh-token";
 export const LOCAL_ACCOUNT_KEY = "vault-planner-account";
+/** The calendar view last chosen in the toolbar ("workWeek", "days3", …). */
+export const CALENDAR_VIEW_KEY = "vault-planner-calendar-view";
 
 export const VIEW_TYPE = "vault-planner-view";
 

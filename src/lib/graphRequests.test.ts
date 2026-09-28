@@ -21,7 +21,7 @@ describe("calendarViewUrl", () => {
     const params = new URL(url).searchParams;
     expect(params.get("startDateTime")).toBe("2026-09-21T00:00:00.000Z");
     expect(params.get("endDateTime")).toBe("2026-10-05T00:00:00.000Z");
-    expect(params.get("$select")).toBe("id,subject,start,end,isAllDay,isCancelled,showAs,responseStatus");
+    expect(params.get("$select")).toBe("id,subject,start,end,isAllDay,isCancelled,showAs,responseStatus,categories");
     expect(params.get("$expand")).toBe(`singleValueExtendedProperties($filter=id eq '${TASK_PROPERTY_ID}')`);
     expect(params.get("$top")).toBe("250");
   });

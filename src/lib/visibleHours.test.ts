@@ -20,6 +20,7 @@ function event(
     showAs: "busy",
     responseStatus: "none",
     taskLink: null,
+    categories: [],
     ...overrides,
   };
 }

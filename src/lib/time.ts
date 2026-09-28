@@ -113,3 +113,37 @@ export function formatSlot(start: Date, end: Date): string {
 export function formatSlotWithDate(start: Date, end: Date): string {
   return `${DATE_AND_TIME.format(start)}–${TIME_ONLY.format(end)}`;
 }
+
+const DUE = new Intl.DateTimeFormat("de-DE", { timeZone: PLANNER_IANA_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
+const DUE_WITH_YEAR = new Intl.DateTimeFormat("de-DE", {
+  timeZone: PLANNER_IANA_ZONE,
+  weekday: "short",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
+/**
+ * A deadline "yyyy-mm-dd" as "Di., 22.09." — the same style as the card's slot line. With the
+ * year when it is not this year's. Noon UTC is the same day in Berlin all year round. A typo that
+ * is no real date (2026-13-01, 2026-02-30) stays as written: Intl would throw, or roll it over.
+ */
+export function formatDue(day: string, today: string): string {
+  const noon = new Date(`${day}T12:00:00Z`);
+  if (Number.isNaN(noon.getTime()) || noon.toISOString().slice(0, 10) !== day) return day;
+  return (day.slice(0, 4) === today.slice(0, 4) ? DUE : DUE_WITH_YEAR).format(noon);
+}
+
+/**
+ * `n` weekdays after (or before, for negative n) `date`, local midnight — how the 1–4 day views
+ * page: Mon–Wed, then Thu, Fri, Mon. Counted in calendar days like statusWindow, so DST cannot
+ * shift it.
+ */
+export function shiftWorkdays(date: Date, n: number): Date {
+  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  for (let left = Math.abs(n); left > 0; ) {
+    result.setDate(result.getDate() + Math.sign(n));
+    if (result.getDay() !== 0 && result.getDay() !== 6) left -= 1;
+  }
+  return result;
+}
