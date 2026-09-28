@@ -11,6 +11,8 @@ export class GraphApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly body: GraphErrorResponse | null,
+    /** Came from a Planner endpoint: the same status means something else there. */
+    public readonly planner = false,
   ) {
     super(`Graph API error ${status}: ${body?.error?.code ?? "Unknown"}`);
     this.name = "GraphApiError";
@@ -91,16 +93,25 @@ const GRAPH_CODES: Record<string, string> = {
   ErrorAccessDenied: "Kein Zugriff auf den Kalender. Fehlt die Berechtigung Calendars.ReadWrite?",
 };
 
-function mapGraphError(status: number, body: GraphErrorResponse | null): string {
+/** Planner's own readings of a status (umsetzungsplan M6). */
+const PLANNER_STATUS: Record<number, string> = {
+  403: "Kein Zugriff auf Planner. Fehlt die Berechtigung Tasks.ReadWrite? Dann abmelden, neu anmelden und zustimmen.",
+  404: "Die Planner-Aufgabe gibt es nicht mehr, oder sie ist dir nicht mehr zugewiesen.",
+  // Never retried with the fresh etag: that would overwrite exactly the change that caused it.
+  412: "Die Aufgabe wurde zwischenzeitlich in Planner geändert. Die Liste wird neu geladen – bitte erneut versuchen.",
+};
+
+function mapGraphError(status: number, body: GraphErrorResponse | null, planner: boolean): string {
   const code = body?.error?.code;
   if (code !== undefined && GRAPH_CODES[code] !== undefined) return GRAPH_CODES[code];
+  if (planner && PLANNER_STATUS[status] !== undefined) return PLANNER_STATUS[status];
 
   if (status === 401) return GRAPH_CODES.InvalidAuthenticationToken;
   if (status === 403) return GRAPH_CODES.ErrorAccessDenied;
   if (status === 404) return GRAPH_CODES.ErrorItemNotFound;
   if (status === 429) return "Zu viele Anfragen an Microsoft. Kurz warten und erneut versuchen.";
   if (status >= 500) return "Microsoft Graph ist gerade nicht erreichbar. Später erneut versuchen.";
-  return "Unerwarteter Fehler beim Kalenderzugriff.";
+  return planner ? "Unerwarteter Fehler beim Planner-Zugriff." : "Unerwarteter Fehler beim Kalenderzugriff.";
 }
 
 /** The AADSTS numbers that have a known fix in this setup (see README, Entra-App). */
@@ -110,7 +121,9 @@ const AADSTS: Record<string, string> = {
     "unter „Mobile- und Desktopanwendungen“ stehen.",
   "700016": "Die App wurde nicht gefunden. Client-ID und Tenant-ID in den Einstellungen prüfen.",
   "90002": "Der Tenant wurde nicht gefunden. Die Tenant-ID in den Einstellungen prüfen.",
-  "65001": "Die Zustimmung fehlt. Administratorzustimmung für Calendars.ReadWrite erteilen.",
+  "65001":
+    "Die Zustimmung fehlt. „Anmelden“ holt sie ein; ist die Benutzerzustimmung gesperrt, als Administrator " +
+    "für Calendars.ReadWrite (mit Planner auch Tasks.ReadWrite) zustimmen.",
   "7000218":
     "Entra verlangt ein Client-Secret. In der App-Registrierung „Öffentliche Clientflows " +
     "zulassen“ auf Ja stellen.",
@@ -145,7 +158,7 @@ export function isAuthExpired(error: unknown): boolean {
 }
 
 export function getErrorMessage(error: unknown): string {
-  if (error instanceof GraphApiError) return mapGraphError(error.status, error.body);
+  if (error instanceof GraphApiError) return mapGraphError(error.status, error.body, error.planner);
   if (error instanceof AuthError) return mapAuthError(error);
   if (error instanceof SignedOutError) return "Nicht angemeldet. Bitte anmelden.";
   // requestUrl rejects with Chromium's net error text when there is no connection at all.

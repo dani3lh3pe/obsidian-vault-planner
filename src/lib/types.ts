@@ -55,6 +55,42 @@ export interface VaultTask {
   projekt: string | null;
 }
 
+/**
+ * A Planner task assigned to the signed-in user. Resolved on every read, never stored. Carries the
+ * list fields under the same names as VaultTask, so quadrants, sorting and filters apply as they are.
+ */
+export interface PlannerTask {
+  source: "planner";
+  id: string;
+  /** From the last read; every PATCH sends it as If-Match. */
+  etag: string;
+  planId: string;
+  bucketId: string | null;
+  /** The title. */
+  description: string;
+  /** In the vault's checkbox alphabet: " " open, "/" in progress (1–99 %), "x" done. */
+  status: string;
+  priority: Priority;
+  due: string | null;
+  aufwand: undefined;
+  isWaiting: false;
+  kunde: string;
+  /** The plan's title, or null while it is unknown. */
+  projekt: string | null;
+  /**
+   * How many OTHER people the task is assigned to: completing it closes it for them too. null when
+   * the assignments could not be read — treated as shared, never as "only me".
+   */
+  othersAssigned: number | null;
+}
+
+export type AnyTask = VaultTask | PlannerTask;
+
+export interface PlannerBucket {
+  id: string;
+  name: string;
+}
+
 /** One of our own blocks, as found in the calendar. */
 export interface Block {
   eventId: string;

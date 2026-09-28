@@ -1,14 +1,40 @@
 import { STATUS_WINDOW_DAYS } from "../config";
-import type { Block, CalendarEvent, PlanStatus, TimeRange } from "./types";
+import { isPlannerTask } from "./planner";
+import type { AnyTask, Block, CalendarEvent, PlanStatus, TimeRange } from "./types";
 
 /**
  * Which task is planned, derived from the calendar on every render — never stored. The event's
- * extended property ("<vaultName>|<blockId>") is the only link; the vault holds just the block id.
+ * extended property is the only link: "<vaultName>|<blockId>" for a vault task, "planner:<taskId>"
+ * for a Planner task — which needs no vault write at all.
  */
 
-/** The block id an event links to — but only for THIS vault: the test vault shares the calendar. */
+/**
+ * A Planner task is the same in every vault, so its link carries no vault name: the test vault and
+ * the live vault share one calendar and must agree on it. Never confused with a vault link — block
+ * ids are [a-zA-Z0-9-] and a Windows folder name cannot hold ":".
+ */
+const PLANNER_KEY = "planner:";
+
+export function plannerKey(taskId: string): string {
+  return `${PLANNER_KEY}${taskId}`;
+}
+
+export function plannerIdOf(key: string): string | null {
+  return key.startsWith(PLANNER_KEY) && key.length > PLANNER_KEY.length ? key.slice(PLANNER_KEY.length) : null;
+}
+
+/** The key a task's blocks carry — null for a vault task that was never booked. */
+export function linkKey(task: AnyTask): string | null {
+  return isPlannerTask(task) ? plannerKey(task.id) : task.blockId;
+}
+
+/**
+ * The key an event links to: a block id only for THIS vault (the test vault shares the calendar),
+ * a Planner key in any vault.
+ */
 export function parseTaskLink(link: string | null, vaultName: string): string | null {
   if (link === null) return null;
+  if (plannerIdOf(link) !== null) return link;
   const prefix = `${vaultName}|`;
   return link.startsWith(prefix) && link.length > prefix.length ? link.slice(prefix.length) : null;
 }

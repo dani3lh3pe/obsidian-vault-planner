@@ -13,6 +13,7 @@ import {
   BUSINESS_HOURS,
   CLICK_SLOP_PX,
   DEFAULT_AUFWAND_HOURS,
+  PLANNER_REFRESH_INTERVAL_MS,
   REFRESH_INTERVAL_MS,
   VIEW_TYPE,
   WORK_HOURS,
@@ -20,14 +21,15 @@ import {
 import type VaultPlannerPlugin from "./main";
 import type { ChangeReason } from "./main";
 import { getErrorMessage, isAuthExpired } from "./lib/errors";
+import { isPlannerTask, plannerWebUrl, type PlannerSnapshot } from "./lib/planner";
 import { isOverdue, QUADRANT_TITLE } from "./lib/priority";
 import { ReadGate } from "./lib/readGate";
-import { blocksByTask, fetchRange, inRange, planStatus, statusWindow } from "./lib/schedule";
-import { cleanTitle, eventBody, eventSubject } from "./lib/subject";
+import { blocksByTask, fetchRange, inRange, linkKey, plannerIdOf, plannerKey, planStatus, statusWindow } from "./lib/schedule";
+import { cleanTitle, eventBody, eventSubject, plannerEventBody } from "./lib/subject";
 import { buildList, isOpen, type ListOptions } from "./lib/taskList";
 import { aufwandToDuration, formatSlot, formatSlotWithDate, plannerDay } from "./lib/time";
 import { toFullCalendarEvents, type BlockState, type EventProps } from "./lib/toFullCalendarEvents";
-import type { CalendarEvent, PlanStatus, TimeRange, VaultTask } from "./lib/types";
+import type { AnyTask, CalendarEvent, PlannerBucket, PlannerTask, PlanStatus, TimeRange, VaultTask } from "./lib/types";
 import { visibleHours } from "./lib/visibleHours";
 import { toggleDone, writeBlockId } from "./vault";
 
@@ -46,6 +48,7 @@ interface CardData {
   line: number;
   raw: string;
   blockId: string | null;
+  plannerId: string | null;
   title: string;
   meta: string;
   due: string | null;
@@ -57,21 +60,21 @@ interface CardData {
 }
 
 /** A real dialog naming the thing, never window.confirm (UX rule 3). */
-class DeleteBlockModal extends Modal {
+class ConfirmModal extends Modal {
   constructor(
     app: App,
-    private readonly message: string,
+    private readonly text: { title: string; message: string; confirm: string; warning: boolean },
     private readonly onConfirm: () => void,
   ) {
     super(app);
   }
 
   onOpen(): void {
-    this.titleEl.setText("Block löschen?");
-    this.contentEl.createEl("p", { text: this.message });
+    this.titleEl.setText(this.text.title);
+    this.contentEl.createEl("p", { text: this.text.message });
     const buttons = this.contentEl.createDiv({ cls: "modal-button-container" });
     buttons.createEl("button", { text: "Abbrechen" }).addEventListener("click", () => this.close());
-    const confirm = buttons.createEl("button", { text: "Löschen", cls: "mod-warning" });
+    const confirm = buttons.createEl("button", { text: this.text.confirm, cls: this.text.warning ? "mod-warning" : "mod-cta" });
     confirm.addEventListener("click", () => {
       this.close();
       this.onConfirm();
@@ -83,10 +86,14 @@ class DeleteBlockModal extends Modal {
   }
 }
 
+/** "einer weiteren Person" / "2 weiteren Personen". */
+const others = (count: number): string => (count === 1 ? "einer weiteren Person" : `${count} weiteren Personen`);
+
 /**
  * Tasks on the left, the Outlook week on the right. The calendar is the truth: the view derives
  * "geplant" from what Graph returns and writes nothing to the vault except a block id on drop
- * and a completion through the Tasks API.
+ * and a completion through the Tasks API. Planner tasks (M6) join the same list; their writes go
+ * to Planner only.
  */
 export class PlannerView extends ItemView {
   private calendar: Calendar | null = null;
@@ -111,8 +118,23 @@ export class PlannerView extends ItemView {
   private renderTimer: number | null = null;
   private calendarStale = false;
   private unsubscribe: (() => void) | null = null;
+  /** Planner's last good read; null while switched off or not read yet. Kept when a read fails. */
+  private planner: PlannerSnapshot | null = null;
+  private plannerError: string | null = null;
+  /** Only the newest Planner read may land — the same rule as the calendar's, without gestures. */
+  private plannerSeq = 0;
+  private plannerInFlight: number | null = null;
+  private plannerReadAt = 0;
+  /**
+   * Planner tasks with a PATCH under way or not yet re-read: the etag it used is spent, so the card
+   * stays "Wird gespeichert…" until a read started after the write (`from`; ∞ while the PATCH runs)
+   * shows a DIFFERENT etag — Planner can lag behind its own writes. `spent` is null when the write
+   * failed: then the next read is news enough.
+   */
+  private readonly plannerWriting = new Map<string, { from: number; spent: string | null }>();
 
   private bannerEl: HTMLElement | null = null;
+  private plannerHintEl: HTMLElement | null = null;
   private countEl: HTMLElement | null = null;
   private listEl: HTMLElement | null = null;
   private loadingEl: HTMLElement | null = null;
@@ -159,15 +181,22 @@ export class PlannerView extends ItemView {
     this.unsubscribe = this.plugin.onChange((reason) => this.onPluginChange(reason));
     // Registered on the VIEW, not the plugin: closing the tab must stop the poll.
     this.registerInterval(window.setInterval(() => this.poll(), REFRESH_INTERVAL_MS));
-    this.registerDomEvent(document, "visibilitychange", () => this.poll());
+    // Planner on its own clock: a 429 there must not stall the calendar.
+    this.registerInterval(
+      window.setInterval(() => {
+        if (this.isVisible()) void this.refreshPlanner();
+      }, PLANNER_REFRESH_INTERVAL_MS),
+    );
+    this.registerDomEvent(document, "visibilitychange", () => this.onReturn());
     // Switching back from Outlook does not always fire visibilitychange; focus does.
-    this.registerDomEvent(window, "focus", () => this.poll());
+    this.registerDomEvent(window, "focus", () => this.onReturn());
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", (leaf) => {
         if (leaf === this.leaf) this.poll();
       }),
     );
     this.renderAll();
+    void this.refreshPlanner();
   }
 
   async onClose(): Promise<void> {
@@ -189,6 +218,7 @@ export class PlannerView extends ItemView {
     header.createEl("h3", { text: "Aufgaben" });
     this.countEl = header.createDiv({ cls: "vp-count" });
     this.bannerEl = left.createDiv({ cls: "vp-banner" });
+    this.plannerHintEl = left.createDiv({ cls: "vp-banner" });
 
     // Controls live OUTSIDE the container that is rebuilt, so typing keeps its focus.
     const controls = left.createDiv({ cls: "vp-controls" });
@@ -222,7 +252,7 @@ export class PlannerView extends ItemView {
         title: el.dataset.title ?? "",
         duration: el.dataset.duration ?? "01:00",
         create: true,
-        extendedProps: { path: el.dataset.path, raw: el.dataset.raw, blockId: el.dataset.blockId },
+        extendedProps: { path: el.dataset.path, raw: el.dataset.raw, blockId: el.dataset.blockId, plannerId: el.dataset.plannerId },
       }),
     });
   }
@@ -280,14 +310,23 @@ export class PlannerView extends ItemView {
     return document.visibilityState === "visible" && this.containerEl.isShown();
   }
 
+  /** Back from Outlook or Planner Web: both may have changed. Planner at most every 15 s. */
+  private onReturn(): void {
+    this.poll();
+    // Half the Planner clock: prompt after Planner Web, but no full read on every window switch.
+    if (this.isVisible() && Date.now() - this.plannerReadAt >= PLANNER_REFRESH_INTERVAL_MS / 2) void this.refreshPlanner();
+  }
+
   private poll(): void {
     if (this.isVisible()) void this.refresh(false);
   }
 
   private onPluginChange(reason: ChangeReason): void {
-    if (reason === "auth") {
+    // The Planner switch changes the token's scope too: the calendar reads with the new one.
+    if (reason === "auth" || reason === "settings") {
       this.error = null;
       void this.refresh(true);
+      void this.refreshPlanner(true);
       return;
     }
     if (this.renderTimer !== null) return;
@@ -345,6 +384,50 @@ export class PlannerView extends ItemView {
   }
 
   /**
+   * Planner tasks and buckets. Never touches the calendar: a failure here is a hint, not a banner.
+   * `force` starts a read even while one runs — after a write only a read started now can show it;
+   * the clocks wait, or a slow read would be superseded forever.
+   */
+  private async refreshPlanner(force = false): Promise<void> {
+    const { auth, graph, settings } = this.plugin;
+    if (!settings.plannerEnabled || !auth.configured || !auth.signedIn) {
+      // A read still running must not bring the tasks back.
+      this.plannerSeq += 1;
+      if (this.planner === null && this.plannerError === null) return;
+      this.planner = null;
+      this.plannerError = null;
+      this.plannerWriting.clear();
+      this.renderAll();
+      return;
+    }
+    if (!force && this.plannerInFlight !== null) return;
+    const seq = ++this.plannerSeq;
+    this.plannerInFlight = seq;
+    this.plannerReadAt = Date.now();
+    try {
+      const snapshot = await graph.readPlanner();
+      if (seq !== this.plannerSeq) return;
+      this.planner = snapshot;
+      this.plannerError = null;
+      for (const [id, mark] of this.plannerWriting) {
+        const now = snapshot.tasks.find((task) => task.id === id);
+        if (seq >= mark.from && (mark.spent === null || now?.etag !== mark.spent)) this.plannerWriting.delete(id);
+      }
+    } catch (error) {
+      if (seq !== this.plannerSeq) return;
+      this.plannerError = getErrorMessage(error);
+    } finally {
+      if (this.plannerInFlight === seq) this.plannerInFlight = null;
+    }
+    this.renderAll();
+  }
+
+  /** The task as the LAST read knows it: its etag may have changed since the card was built. */
+  private plannerTask(id: string): PlannerTask | undefined {
+    return this.planner?.tasks.find((task) => task.id === id);
+  }
+
+  /**
    * eventDragStop/eventResizeStop fire BEFORE FullCalendar hands the drop to eventChange. Swapping
    * the event source right here would remove the very event being dropped, so the catch-up runs
    * after this event-loop turn — by then eventChange has opened the PATCH gesture, and
@@ -380,11 +463,14 @@ export class PlannerView extends ItemView {
     this.renderCalendar();
   }
 
-  private statusFn(): ((task: VaultTask) => PlanStatus) | null {
+  private statusFn(): ((task: AnyTask) => PlanStatus) | null {
     if (!this.ready) return null;
     const now = new Date();
     const blocks = blocksByTask(this.events, this.app.vault.getName(), statusWindow(now));
-    return (task) => (task.blockId === null ? UNPLANNED : planStatus(blocks.get(task.blockId), now));
+    return (task) => {
+      const key = linkKey(task);
+      return key === null ? UNPLANNED : planStatus(blocks.get(key), now);
+    };
   }
 
   private renderBanner(): void {
@@ -416,16 +502,40 @@ export class PlannerView extends ItemView {
     } else el.toggle(false);
 
     this.loadingEl?.toggle(auth.configured && auth.signedIn && !this.everLoaded && this.error === null);
+    this.renderPlannerHint();
+  }
+
+  private renderPlannerHint(): void {
+    const el = this.plannerHintEl;
+    if (el === null) return;
+    const { auth, settings } = this.plugin;
+    el.empty();
+    let text: string | null = null;
+    if (settings.plannerEnabled && auth.configured && auth.signedIn) {
+      if (this.plannerError !== null) text = `Planner nicht erreichbar – ${this.plannerError}`;
+      else if (this.planner === null) text = "Planner-Aufgaben werden geladen…";
+      else if (this.planner.truncated) text = "Planner hat mehr Aufgaben geliefert, als das Plugin liest – es fehlen welche.";
+      else if (this.planner.droppedCount > 0) text = `${this.planner.droppedCount} Planner-Aufgaben waren nicht lesbar und fehlen in der Liste.`;
+    }
+    el.toggle(text !== null);
+    if (text === null) return;
+    // Everything but the first load is something missing.
+    el.toggleClass("is-warning", this.planner !== null || this.plannerError !== null);
+    el.createSpan({ text });
+    if (this.plannerError !== null) {
+      el.createEl("button", { text: "Erneut versuchen", cls: "mod-cta" }).addEventListener("click", () => void this.refreshPlanner(true));
+    }
   }
 
   private cardData(
-    task: VaultTask,
-    statusOf: ((task: VaultTask) => PlanStatus) | null,
+    task: AnyTask,
+    statusOf: ((task: AnyTask) => PlanStatus) | null,
     byBlock: Map<string, VaultTask[]>,
     today: string,
     weekEnd: Date,
   ): CardData {
-    const siblings = task.blockId === null ? undefined : byBlock.get(task.blockId);
+    const [planner, vault] = isPlannerTask(task) ? [task, null] : [null, task];
+    const siblings = vault === null || vault.blockId === null ? undefined : byBlock.get(vault.blockId);
     const conflict =
       siblings !== undefined && siblings.length > 1
         ? `Block-ID doppelt (${siblings.map((other) => other.path.split("/").pop()?.replace(/\.md$/, "")).join(", ")})`
@@ -440,24 +550,33 @@ export class PlannerView extends ItemView {
       status = { text: `abgelaufen: ${formatSlot(plan.last.start, plan.last.end)}`, muted: true };
     }
 
+    const bucket =
+      planner === null ? undefined : this.planner?.buckets.get(planner.planId)?.find((b) => b.id === planner.bucketId);
     const meta = [
       task.aufwand === undefined ? "Aufwand?" : `${String(task.aufwand).replace(".", ",")} h`,
       task.kunde,
       ...(task.projekt === null ? [] : [task.projekt]),
+      ...(bucket === undefined ? [] : [bucket.name]),
+      ...(planner === null || !planner.othersAssigned ? [] : [`mit ${others(planner.othersAssigned)}`]),
     ].join(" · ");
+    const key = linkKey(task);
 
     return {
-      path: task.path,
-      line: task.line,
-      raw: task.raw,
-      blockId: task.blockId,
+      path: vault?.path ?? "",
+      line: vault?.line ?? 0,
+      raw: vault?.raw ?? "",
+      blockId: vault?.blockId ?? null,
+      plannerId: planner?.id ?? null,
       title: cleanTitle(task.description) || task.description,
       meta,
       due: task.due,
       overdue: isOverdue(task, today),
       status,
       conflict,
-      pending: (task.blockId !== null && this.gate.isPending(task.blockId)) || this.gate.isPending(rawKey(task)),
+      pending:
+        (key !== null && this.gate.isPending(key)) ||
+        (vault !== null && this.gate.isPending(rawKey(vault))) ||
+        (planner !== null && this.plannerWriting.has(planner.id)),
       // The drag preview shows the length that will be booked: effort, or one hour without it.
       duration: aufwandToDuration(task.aufwand ?? DEFAULT_AUFWAND_HOURS),
     };
@@ -473,7 +592,7 @@ export class PlannerView extends ItemView {
     weekEnd.setDate(weekEnd.getDate() + 7);
     const statusOf = this.statusFn();
     const byBlock = index.blockIndex();
-    const model = buildList(index.tasks, statusOf, this.options, today);
+    const model = buildList([...index.tasks, ...(this.planner?.tasks ?? [])], statusOf, this.options, today);
 
     // The chosen customer has no open task left: the filter was reset, so build the list again.
     if (this.syncKunden(model.kunden)) {
@@ -483,11 +602,14 @@ export class PlannerView extends ItemView {
     if (this.unplannedBox !== null) this.unplannedBox.disabled = statusOf === null;
     this.countEl?.setText(model.openCount === 0 ? "" : `${model.shownCount} von ${model.openCount} offen`);
 
-    const toRows = (tasks: VaultTask[]) =>
+    const toRows = (tasks: AnyTask[]) =>
       tasks.map((task) => ({ task, card: this.cardData(task, statusOf, byBlock, today, weekEnd) }));
     const groups = model.groups.map((group) => ({ quadrant: group.quadrant, rows: toRows(group.tasks) }));
     const waiting = toRows(model.waiting);
-    const empty = !index.complete && model.openCount === 0
+    const { auth, settings } = this.plugin;
+    const plannerLoading =
+      settings.plannerEnabled && auth.configured && auth.signedIn && this.planner === null && this.plannerError === null;
+    const empty = (!index.complete || plannerLoading) && model.openCount === 0
       ? "Aufgaben werden gelesen…"
       : model.openCount === 0
         ? "Keine offenen Aufgaben."
@@ -527,7 +649,7 @@ export class PlannerView extends ItemView {
     list.scrollTop = scrollTop;
   }
 
-  private buildCard(parent: HTMLElement, task: VaultTask, card: CardData): void {
+  private buildCard(parent: HTMLElement, task: AnyTask, card: CardData): void {
     // Self-contained class: FullCalendar's drag preview is a copy of this element in <body>,
     // where styles scoped to the view would not reach it.
     const el = parent.createDiv({ cls: "vp-card" });
@@ -535,9 +657,12 @@ export class PlannerView extends ItemView {
     el.toggleClass("is-conflict", card.conflict !== null);
     if (!card.pending && card.conflict === null) {
       el.dataset.drag = "";
-      el.dataset.path = card.path;
-      el.dataset.raw = card.raw;
-      if (card.blockId !== null) el.dataset.blockId = card.blockId;
+      if (card.plannerId !== null) el.dataset.plannerId = card.plannerId;
+      else {
+        el.dataset.path = card.path;
+        el.dataset.raw = card.raw;
+        if (card.blockId !== null) el.dataset.blockId = card.blockId;
+      }
       el.dataset.title = card.title;
       el.dataset.duration = card.duration;
     }
@@ -545,9 +670,14 @@ export class PlannerView extends ItemView {
     const check = el.createEl("input", { type: "checkbox", cls: "vp-check", attr: { "aria-label": "Erledigen", title: "Erledigen" } });
     // FullCalendar starts a drag on mousedown/touchstart of the list; the checkbox must not.
     for (const type of ["mousedown", "touchstart", "click"]) check.addEventListener(type, (event) => event.stopPropagation());
-    check.addEventListener("change", () => void this.complete(task, check));
+    // Saving: a second tick would send a used-up etag, or complete a task that is being booked.
+    check.disabled = card.pending;
+    check.addEventListener("change", () => (isPlannerTask(task) ? this.completePlanner(task.id, check) : void this.complete(task, check)));
 
-    const body = el.createDiv({ cls: "vp-card-body", attr: { role: "button", tabindex: "0", title: "Öffnen" } });
+    const body = el.createDiv({
+      cls: "vp-card-body",
+      attr: { role: "button", tabindex: "0", title: isPlannerTask(task) ? "In Planner öffnen" : "Öffnen" },
+    });
     body.createDiv({ cls: "vp-title", text: card.title });
     const meta = body.createDiv({ cls: "vp-meta", text: card.meta });
     if (card.due !== null) {
@@ -569,14 +699,21 @@ export class PlannerView extends ItemView {
       const from = pressed;
       pressed = null;
       if (from !== null && Math.hypot(event.clientX - from.x, event.clientY - from.y) > CLICK_SLOP_PX) return;
-      void this.openTask(task);
+      this.open(task);
     });
     body.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        void this.openTask(task);
+        this.open(task);
       }
     });
+    if (isPlannerTask(task)) {
+      el.addEventListener("contextmenu", (event) => {
+        // Without this, Electron shows its own menu on top.
+        event.preventDefault();
+        this.showPlannerMenu(event, task.id);
+      });
+    }
   }
 
   /** Refresh the dropdown; true when the chosen customer disappeared and the filter was reset. */
@@ -598,6 +735,14 @@ export class PlannerView extends ItemView {
   private blockState(byBlock: Map<string, VaultTask[]>): (blockId: string) => BlockState {
     const complete = this.plugin.index.complete;
     return (blockId) => {
+      const plannerId = plannerIdOf(blockId);
+      if (plannerId !== null) {
+        // Switched off or not read yet: say nothing rather than "Aufgabe nicht gefunden".
+        if (this.planner === null) return "pending";
+        const task = this.plannerTask(plannerId);
+        if (task === undefined) return "missing";
+        return isOpen(task) ? "open" : "done";
+      }
       const tasks = byBlock.get(blockId);
       if (tasks === undefined) return complete ? "missing" : "pending";
       if (tasks.length > 1) return "conflict";
@@ -663,8 +808,12 @@ export class PlannerView extends ItemView {
       event.preventDefault();
       event.stopPropagation();
       const menu = new Menu();
+      const plannerId = plannerIdOf(blockId);
       const tasks = this.plugin.index.blockIndex().get(blockId);
-      if (tasks !== undefined && tasks.length === 1) {
+      if (plannerId !== null) {
+        menu.addItem((item) => item.setTitle("In Planner öffnen").setIcon("external-link").onClick(() => this.openPlanner(plannerId)));
+        menu.addSeparator();
+      } else if (tasks !== undefined && tasks.length === 1) {
         const task = tasks[0];
         menu.addItem((item) => item.setTitle("Aufgabe öffnen").setIcon("file-text").onClick(() => void this.openTask(task)));
         menu.addSeparator();
@@ -692,7 +841,7 @@ export class PlannerView extends ItemView {
     // Read the drop BEFORE reverting it, then drop FullCalendar's provisional event: the grid is
     // drawn from Graph alone, so nothing shows twice and nothing shows that Outlook does not have.
     const { start, end } = arg.event;
-    const props = arg.event.extendedProps as { path?: unknown; raw?: unknown; blockId?: unknown };
+    const props = arg.event.extendedProps as { path?: unknown; raw?: unknown; blockId?: unknown; plannerId?: unknown };
     arg.revert();
 
     // The second door; eventAllow is the first.
@@ -700,9 +849,12 @@ export class PlannerView extends ItemView {
       new Notice("Der Kalender ist noch nicht bereit – bitte kurz warten.");
       return;
     }
-    if (start === null || end === null || arg.event.allDay || typeof props.path !== "string" || typeof props.raw !== "string") {
+    if (start === null || end === null || arg.event.allDay) return;
+    if (typeof props.plannerId === "string" && props.plannerId !== "") {
+      void this.bookPlanner(props.plannerId, start, end);
       return;
     }
+    if (typeof props.path !== "string" || typeof props.raw !== "string") return;
     const blockId = typeof props.blockId === "string" && props.blockId !== "" ? props.blockId : null;
     void this.book(props.path, props.raw, blockId, start, end);
   }
@@ -783,8 +935,15 @@ export class PlannerView extends ItemView {
 
   private confirmDelete(eventId: string, title: string, start: Date | null, end: Date | null): void {
     const when = start !== null && end !== null ? ` (${formatSlot(start, end)})` : "";
-    new DeleteBlockModal(this.app, `„${title}“${when} wird in Outlook gelöscht. Die Aufgabe bleibt, wie sie ist.`, () =>
-      void this.deleteBlock(eventId),
+    new ConfirmModal(
+      this.app,
+      {
+        title: "Block löschen?",
+        message: `„${title}“${when} wird in Outlook gelöscht. Die Aufgabe bleibt, wie sie ist.`,
+        confirm: "Löschen",
+        warning: true,
+      },
+      () => void this.deleteBlock(eventId),
     ).open();
   }
 
@@ -810,6 +969,129 @@ export class PlannerView extends ItemView {
       box.disabled = false;
       new Notice(getErrorMessage(error));
     }
+  }
+
+  private open(task: AnyTask): void {
+    if (isPlannerTask(task)) this.openPlanner(task.id);
+    else void this.openTask(task);
+  }
+
+  /** A click, never a timer, opens the browser (Invariant 6). */
+  private openPlanner(taskId: string): void {
+    window.open(plannerWebUrl(this.plugin.settings.tenantId.trim(), taskId));
+  }
+
+  /** Like book(), but nothing is written to the vault: the Planner id is already stable. */
+  private async bookPlanner(taskId: string, start: Date, end: Date): Promise<void> {
+    const task = this.plannerTask(taskId);
+    if (task === undefined || !isOpen(task)) {
+      new Notice("Die Planner-Aufgabe ist nicht mehr offen – bitte die Liste prüfen.");
+      return;
+    }
+    const key = plannerKey(task.id);
+    this.gate.hold(key);
+    this.renderList();
+    try {
+      await this.plugin.graph.createBlock({
+        subject: eventSubject(task.description),
+        body: plannerEventBody(task, plannerWebUrl(this.plugin.settings.tenantId.trim(), task.id)),
+        start,
+        end,
+        link: key,
+      });
+      new Notice(`Termin angelegt: ${formatSlot(start, end)}.`);
+    } catch (error) {
+      new Notice(getErrorMessage(error));
+    } finally {
+      this.gate.releaseAfterNextRead(key);
+      void this.refresh(true);
+    }
+  }
+
+  /**
+   * Both Planner writes: mark the card, send, and keep the mark until a read brings the new etag —
+   * the one this write used is spent either way, and a second click would only earn a 412.
+   */
+  private async writePlanner(task: PlannerTask, write: () => Promise<void>, success: string): Promise<void> {
+    this.plannerWriting.set(task.id, { from: Number.POSITIVE_INFINITY, spent: null });
+    this.renderList();
+    let spent: string | null = null;
+    try {
+      await write();
+      spent = task.etag;
+      new Notice(success);
+    } catch (error) {
+      new Notice(getErrorMessage(error));
+    } finally {
+      this.plannerWriting.set(task.id, { from: this.plannerSeq + 1, spent });
+      void this.refreshPlanner(true);
+    }
+  }
+
+  /** Planner write #1. Shared with others: ask first, it closes the task on their board too. */
+  private completePlanner(taskId: string, box: HTMLInputElement): void {
+    const task = this.plannerTask(taskId);
+    // The card is rebuilt as "Wird gespeichert…" and then disappears; the tick itself is not the state.
+    box.checked = false;
+    if (task === undefined || this.plannerWriting.has(taskId)) {
+      new Notice("Die Planner-Aufgabe ist nicht mehr offen – bitte die Liste prüfen.");
+      return;
+    }
+    // Blocks stay in Outlook: booked time is history.
+    const run = (): void =>
+      void this.writePlanner(task, () => this.plugin.graph.completePlannerTask(task), `„${task.description}“ in Planner abgeschlossen.`);
+    if (task.othersAssigned === 0) {
+      run();
+      return;
+    }
+    new ConfirmModal(
+      this.app,
+      {
+        title: "Aufgabe abschließen?",
+        message:
+          task.othersAssigned === null
+            ? `Für „${task.description}“ war nicht lesbar, wem die Aufgabe noch zugewiesen ist. Abschließen schließt sie in Planner für alle ab.`
+            : `„${task.description}“ ist noch ${others(task.othersAssigned)} zugewiesen. Abschließen schließt die Aufgabe in Planner für alle ab.`,
+        confirm: "Abschließen",
+        warning: false,
+      },
+      run,
+    ).open();
+  }
+
+  /** Planner write #2, from the card's menu. The bucket list is the last read's. */
+  private showPlannerMenu(event: MouseEvent, taskId: string): void {
+    const task = this.plannerTask(taskId);
+    if (task === undefined || this.plannerWriting.has(taskId)) return;
+    const menu = new Menu();
+    menu.addItem((item) => item.setTitle("In Planner öffnen").setIcon("external-link").onClick(() => this.openPlanner(task.id)));
+    menu.addSeparator();
+    const buckets = this.planner?.buckets.get(task.planId) ?? [];
+    menu.addItem((item) => item.setTitle(buckets.length === 0 ? "Keine Buckets gelesen" : "Bucket wechseln").setDisabled(true));
+    for (const bucket of buckets) {
+      const current = bucket.id === task.bucketId;
+      menu.addItem((item) =>
+        item
+          .setTitle(bucket.name)
+          .setChecked(current)
+          .setDisabled(current)
+          .onClick(() => this.movePlanner(task, bucket)),
+      );
+    }
+    menu.showAtMouseEvent(event);
+  }
+
+  /**
+   * With the etag of the task the menu SHOWED: if a read brought a newer version while the menu was
+   * open, someone changed it — moving with the fresh etag would overwrite that unseen.
+   */
+  private movePlanner(shown: PlannerTask, bucket: PlannerBucket): void {
+    const current = this.plannerTask(shown.id);
+    if (current === undefined || current.etag !== shown.etag || this.plannerWriting.has(shown.id)) {
+      new Notice("Die Aufgabe hat sich inzwischen geändert – bitte das Menü erneut öffnen.");
+      return;
+    }
+    void this.writePlanner(shown, () => this.plugin.graph.movePlannerTask(shown, bucket.id), `„${shown.description}“ nach „${bucket.name}“ verschoben.`);
   }
 
   /** In a NEW tab — the planner itself must never be replaced by the note. */

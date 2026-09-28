@@ -44,3 +44,8 @@ export function eventBody(
   lines.push(`obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(task.path)}`);
   return lines.join("\n");
 }
+
+/** The same for a Planner task: its plan, and the way to it without Obsidian. */
+export function plannerEventBody(task: { projekt: string | null }, webUrl: string): string {
+  return ["Fokus-Block aus Obsidian", `Planner: ${task.projekt ?? "Plan unbekannt"}`, webUrl].join("\n");
+}

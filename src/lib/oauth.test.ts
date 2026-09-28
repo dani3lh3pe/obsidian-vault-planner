@@ -10,6 +10,7 @@ import {
   redirectError,
   refreshGrantBody,
 } from "./oauth";
+import { scopes } from "../config";
 import { AuthError } from "./errors";
 
 describe("PKCE", () => {
@@ -28,7 +29,7 @@ describe("PKCE", () => {
 
 describe("authorizeUrl", () => {
   it("carries PKCE, state and the obsidian redirect for this tenant", () => {
-    const url = new URL(authorizeUrl({ tenantId: "tenant-guid", clientId: "client-guid", challenge: "abc", state: "xyz" }));
+    const url = new URL(authorizeUrl({ tenantId: "tenant-guid", clientId: "client-guid", challenge: "abc", state: "xyz", scope: scopes(false) }));
     expect(url.origin + url.pathname).toBe("https://login.microsoftonline.com/tenant-guid/oauth2/v2.0/authorize");
     expect(Object.fromEntries(url.searchParams)).toMatchObject({
       client_id: "client-guid",
@@ -40,15 +41,22 @@ describe("authorizeUrl", () => {
       scope: "openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite",
     });
   });
+
+  it("asks for Tasks.ReadWrite only while Planner is switched on", () => {
+    expect(scopes(false)).not.toContain("Tasks.");
+    expect(scopes(true)).toBe(
+      "openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/Tasks.ReadWrite",
+    );
+  });
 });
 
 describe("grant bodies", () => {
   it("send the verifier with the code, and no secret anywhere", () => {
-    const code = new URLSearchParams(codeGrantBody({ clientId: "c", code: "the-code", verifier: "v" }));
+    const code = new URLSearchParams(codeGrantBody({ clientId: "c", code: "the-code", verifier: "v", scope: "s" }));
     expect(Object.fromEntries(code)).toMatchObject({ grant_type: "authorization_code", code: "the-code", code_verifier: "v" });
-    const refresh = new URLSearchParams(refreshGrantBody({ clientId: "c", refreshToken: "rt" }));
-    expect(Object.fromEntries(refresh)).toMatchObject({ grant_type: "refresh_token", refresh_token: "rt" });
-    expect(codeGrantBody({ clientId: "c", code: "x", verifier: "v" })).not.toContain("client_secret");
+    const refresh = new URLSearchParams(refreshGrantBody({ clientId: "c", refreshToken: "rt", scope: "s" }));
+    expect(Object.fromEntries(refresh)).toMatchObject({ grant_type: "refresh_token", refresh_token: "rt", scope: "s" });
+    expect(codeGrantBody({ clientId: "c", code: "x", verifier: "v", scope: "s" })).not.toContain("client_secret");
   });
 });
 

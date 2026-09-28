@@ -33,6 +33,7 @@ seiner Graph-Details belegten Fallen. Beides ist unten korrigiert, und der Umfan
 
 ## Stand der Umsetzung (2026-09-24)
 
+- **M6 (Planner) als Code fertig (2026-09-28)**, auf Windows noch ungeprüft.
 - **Als Code fertig:** M0 (der Repo-Teil: Gerüst, Gate, Testvault, Skills), M1–M4. `bash
   scripts/verify.sh` ist grün, 145 Tests. Der Build liegt in `release/vault-planner.zip`.
 - **Ein unabhängiger Review** gegen den Quelltext von FullCalendar 6.1.21 und `obsidian.d.ts` hat
@@ -74,7 +75,7 @@ seiner Graph-Details belegten Fallen. Beides ist unten korrigiert, und der Umfan
 | 14 | Gruppen W&D, Dringend, Wichtig, Rest; `urgentDays` 3 | Gruppen der Web-App: W&D, Wichtig, Dringend, Rest. Dringend heißt Deadline ≤ heute + 7 (inklusive, Berliner Tag). Dazu „Warten auf", eingeklappt | So gruppierst du heute schon täglich. Als Konstante in einer Zeile änderbar |
 | 15 | Tasks-API „nutzen", sonst eigenes `[ ]→[x]` | `executeToggleTaskDoneCommand` ist eine reine String-Funktion (seit Tasks 7.2.0) und liefert nur Text, den das Plugin selbst schreibt. Ohne Tasks-API gibt es kein Erledigen | Ein selbst gebautes Abhaken verliert bei `🔁` die Folgeaufgabe, ohne dass es jemand merkt |
 | 16 | Konfliktprüfung: Zeile an der gecachten Nummer == `raw` | Die Zeile im **aktuellen** Inhalt per Block-ID oder eindeutigem Rohtext finden, sonst abbrechen | Claude und OneDrive fügen darüber Zeilen ein. Dann verschiebt sich die Nummer, der Text nicht |
-| 17 | 13 Settings | Nur `tenantId` und `clientId`, alles andere als Konstante in `src/config.ts` | Ein Nutzer, ein Vault |
+| 17 | 13 Settings | Nur `tenantId` und `clientId`, alles andere als Konstante in `src/config.ts`. Seit M6 kommt der Planner-Schalter dazu | Ein Nutzer, ein Vault |
 | 18 | Banner „N Planungen abgelaufen" plus „Zurück in den Backlog" (entfernt `⏳`) | Status „abgelaufen" (alle Blöcke vorbei, Task offen). Er wird angezeigt und zählt als ungeplant. Kein Knopf | Ohne `⏳` gibt es nichts zu entfernen. Neu einplanen oder die Woche verstreichen lassen löst den Zustand von selbst |
 | 19 | Popover für fremde Termine, „In Outlook öffnen", „Task erledigen" im Block-Menü, Refresh-Knopf | Block-Menü mit „Aufgabe öffnen" und „Block löschen…", fremde Termine bekommen einen Tooltip | Nichts davon beschleunigt den Morgenablauf. Erledigen sitzt an der Karte, die Aktualisierung läuft von selbst |
 | 20 | Auth erst in Phase 3 | In M1, zusammen mit dem Lesen des Kalenders | Risiko zuerst: Die Unbekannten sind die Tenant-Policy und FullCalendar in Obsidian, nicht die Taskliste |
@@ -83,28 +84,10 @@ seiner Graph-Details belegten Fallen. Beides ist unten korrigiert, und der Umfan
 | 23 | ESLint | Kein Linter. Das Gate ist `tsc` im strict-Modus | So wie in der Web-App |
 | 24 | Nicht-Ziel: wiederkehrende Tasks einplanen | Geht ohne Sonderfall | Beim Erledigen bleibt die Block-ID an der erledigten Zeile, die Folgeaufgabe bekommt keine (Tasks-Quelltext `createNextOccurrence`: `blockLink: ''`). Beim nächsten Einplanen erhält sie eine eigene. Ein Verbot bräuchte Code, das Zulassen nicht |
 
-## Invarianten (kommen in die `CLAUDE.md` des Plugin-Repos)
+## Invarianten
 
-1. **Der Kalender ist die Wahrheit für den Planungsstatus.** Weder im Vault noch in `data.json`
-   stehen je ein Planungsdatum oder eine Event-ID. Es gibt keinen `⏳`-Schreibpfad, auch nicht „nur
-   als Hinweis".
-2. **In den Vault schreibt das Plugin genau zweierlei, beides nur auf eine Handlung des Nutzers
-   hin.** Erstens hängt es eine Block-ID an die Task-Zeile (einmal, danach nie geändert). Zweitens
-   erledigt es einen Task: Dabei ersetzt es genau die Zielzeile durch die Ausgabe der Tasks-API
-   (ein oder zwei Zeilen). Nie schreibt es im Hintergrund, nie in eine andere Zeile, und nie legt
-   es eine Datei an, löscht oder benennt sie um.
-3. **Jeder Schreibvorgang läuft über `app.vault.process()`.** Vorher werden offene Editoren
-   derselben Datei gespeichert. Die Zielzeile wird im aktuellen Inhalt per Block-ID oder
-   eindeutigem Rohtext gesucht, und das Zeilenende (`\r\n` bzw. `\n`) bleibt erhalten. Ist die
-   Zeile nicht zu finden oder mehrdeutig, wird abgebrochen und gemeldet.
-4. **Graph folgt dem graph-calendar-Skill:** in UTC lesen, in Berliner Wandzeit schreiben,
-   `ImmutableId` auf jedem Request, nie `attendees`, `transactionId` beim POST, DELETE-404 gilt als
-   Erfolg.
-5. **Alle HTTP-Aufrufe laufen über `requestUrl`, nie über `fetch`,** und zwar nur zu
-   `login.microsoftonline.com` und `graph.microsoft.com`, ohne Telemetrie. `fetch` sendet
-   `Origin: app://obsidian.md` und scheitert dann an CORS bzw. mit AADSTS9002326.
-6. **Tokens landen nie in `data.json`,** denn die liegt im Vault und damit im OneDrive. Kein Timer
-   öffnet je den Browser; das tut nur der Anmelde-Knopf.
+Sie stehen in `CLAUDE.md`, Abschnitt „Invarianten", und werden nur dort gepflegt. Die Nummern, auf
+die dieser Plan verweist, sind die dortigen.
 
 ## Architektur
 
@@ -441,7 +424,7 @@ weil eigene Blöcke nie Serien sind.
 - **`getAccessToken()`:**
   - Das Access-Token liegt im Speicher und wird fünf Minuten vor Ablauf erneuert.
   - **Jeder** neue Refresh-Token wird sofort gespeichert.
-  - Es läuft immer nur ein Refresh zur Zeit.
+  - Es läuft immer nur ein Refresh zur Zeit, seit M6 einer je Scope.
   - Die Funktion öffnet **nie** den Browser.
   - Bei `invalid_grant` oder `interaction_required` wechselt der Zustand auf „abgemeldet": der Takt
     stoppt, und ein Banner „Anmeldung abgelaufen" bietet „Anmelden".
@@ -780,6 +763,119 @@ festhalten, warum der PATCH-Nachweis entfallen ist.
 | Einen wiederkehrenden, geplanten Task erledigen | Die Folgeaufgabe steht korrekt darüber, ohne Block-ID. Der alte Block hängt an der erledigten Zeile |
 | Einen zweiten Block für denselben Task anlegen, den ersten löschen | Die Karte zeigt den verbleibenden Block |
 
+## M6 — Planner-Aufgaben (per Schalter)
+
+**Ziel:** Die mir zugewiesenen Planner-Aufgaben stehen in derselben Liste. Sie lassen sich
+einplanen, abhaken und in einen anderen Bucket schieben. Ausgeschaltet verhält sich das Plugin wie
+vor M6.
+
+**Entscheidungen (mit Daniel, 2026-09-28):**
+
+- Abhaken und Bucket wechseln gehen im Plugin.
+- Im Kundenfilter gibt es einen Eintrag „Planner", der Plan steht als Projekt auf der Karte.
+- Ist die Aufgabe mehreren zugewiesen, zeigt die Karte die Anzahl. Namen bräuchten
+  `User.ReadBasic.All` und fehlen deshalb.
+
+Vorbild ist der Planner-Pfad der Web-App (M13, `briefing.md` §12).
+
+**6.1 Anmeldung** (`auth.ts`, `lib/oauth.ts`):
+
+- Der Schalter `plannerEnabled` steht in den Settings, Standard aus.
+- Eingeschaltet kommt `Tasks.ReadWrite` in den Scope von Anmeldung und Refresh.
+- Das Access-Token merkt sich seinen Scope; nach dem Umschalten wird neu getauscht.
+- Fehlt die Zustimmung, scheitert der Refresh mit AADSTS65001. Das Plugin meldet sich ab, und
+  „Anmelden" holt die Zustimmung ein.
+- Bewusst ein Token für beides: Ein zweiter Token-Pfad nur für Planner wäre mehr Code als der
+  ganze Lesepfad. Der Preis: Ohne Zustimmung meldet sich das Plugin ab, auch für den Kalender. Wer
+  nicht zustimmen kann, schaltet Planner aus und meldet sich neu an. Angemeldet zu bleiben hieße,
+  alle 15 s einen scheiternden Token-Tausch in die Anmeldeprotokolle zu schreiben.
+
+**6.2 Lesen** (`graph.ts`, `lib/planner.ts`), auf einem eigenen Takt von 60 s. Ein 429 bei
+Planner darf den Kalender nicht mitnehmen.
+
+- `GET /me/planner/tasks`, dem `@odata.nextLink` folgen (höchstens 10 Seiten), ohne
+  `$select`/`$filter`. Ein `$select` nähme den etag mit, den jeder Schreibvorgang braucht.
+- Für jeden Plan mit einer offenen Aufgabe:
+  - `GET /planner/plans/{id}` für den Titel, für die Sitzung gemerkt.
+  - `GET /planner/plans/{id}/buckets` bei jedem Lesen, sortiert nach `orderHint`, ordinal.
+- Abbildung:
+  - `priority` 0–1 → 🔺, 2–4 → ⏫, sonst nicht wichtig.
+  - `dueDateTime` → Berliner Tag.
+  - `percentComplete` 1–99 → „in Arbeit", 100 → erledigt.
+  - `assignments` → Anzahl weiterer Personen.
+- Erledigte Aufgaben bleiben im Modell, damit ihre Blöcke einen Titel haben.
+- Fehler: ein Hinweis über der Liste, Kalender und Vault-Aufgaben bleiben unberührt, es gibt
+  keine Wiederholung. Scheitert nur ein Plan (etwa ein verlassenes Team), fehlen allein dessen
+  Titel und Buckets; die Aufgaben bleiben sichtbar.
+- Bei der Rückkehr in die Ansicht, etwa aus Planner Web, wird Planner sofort gelesen, höchstens
+  alle 30 s. Ein laufender Lesevorgang wird dabei nicht verworfen; nur ein Schreibvorgang und der
+  Schalter erzwingen einen neuen.
+- Mehr als 10 Seiten (auch erledigte Aufgaben zählen mit) ergeben einen Hinweis statt einer still
+  gekürzten Liste.
+- Nach einem Schreibvorgang zeigt die Karte „Wird gespeichert…", bis ein danach gestarteter
+  Lesevorgang einen **anderen** etag zeigt; Planner kann seinen eigenen Schreibvorgängen
+  hinterherhinken. Ein zweiter Klick könnte sonst nur einen 412 ernten.
+
+**6.3 Einplanen:** wie M3, aber **ohne** Schreiben im Vault.
+
+- Die Property trägt `planner:<taskId>`, **ohne** Vault-Namen: Eine Planner-Aufgabe ist in jedem
+  Vault dieselbe, und Test- und Live-Vault teilen einen Kalender. Mit Vault-Namen erschiene ein im
+  Testvault gebuchter Block im Live-Vault als fremder Termin. Block-IDs (`[a-zA-Z0-9-]`) und
+  Windows-Ordnernamen enthalten keinen Doppelpunkt, also gibt es keine Verwechslung mit
+  `<vault>|<blockId>`.
+- Betreff ist der Titel, der Body nennt Plan und Planner-Link.
+
+**6.4 Abhaken und Bucket wechseln** (die zwei Planner-Schreibvorgänge):
+
+- `PATCH /planner/tasks/{id}` mit `If-Match` = etag des letzten Lesens, Body
+  `{ "percentComplete": 100 }` bzw. `{ "bucketId": … }`.
+- Ist die Aufgabe weiteren Personen zugewiesen, fragt vorher ein Dialog.
+- 412 heißt, jemand hat die Aufgabe in Planner geändert: Notice, neu lesen, **nie** automatisch
+  mit dem frischen etag wiederholen.
+- Die Blöcke bleiben stehen.
+
+**6.5 Oberfläche:**
+
+- Die Karte zeigt „Aufwand? · Planner · Planname · Bucket" und gegebenenfalls „mit N weiteren".
+- Ein Klick öffnet die Aufgabe in Planner im Browser.
+- Rechtsklick öffnet ein Menü mit „In Planner öffnen" und den Buckets des Plans; der aktuelle ist
+  abgehakt.
+- „Aufgabe öffnen" am Block öffnet bei Planner-Blöcken ebenfalls Planner.
+
+| Falle | Gegenmaßnahme |
+| --- | --- |
+| Eine fehlende Priorität als wichtig lesen | Der Standard ist 5 („mittel"). Nur 0–4 ist wichtig (Web-App M13) |
+| Das Datumspräfix von `dueDateTime` nehmen | Es ist ein Zeitpunkt (Planner Web setzt 10:00Z). `fromGraphUtc` und `plannerDay`, sonst liegt ein Termin nahe Mitternacht einen Tag daneben |
+| PATCH ohne `If-Match` | Pflicht. Eine Aufgabe ohne etag wird verworfen und gezählt, statt still nicht abzuschließen |
+| Einen 412 mit frischem etag wiederholen | Das überschreibt genau die Änderung, die den Konflikt ausgelöst hat |
+| Planner auf dem Takt des Kalenders | Ein 429 bei Planner nähme den Kalender mit. Eigener Takt, eigener Fehlerzustand |
+| `orderHint` mit `localeCompare` sortieren | Dokumentiert ist ein ordinaler Vergleich Zeichen für Zeichen |
+| `Prefer: IdType="ImmutableId"` auch an Planner | Das ist ein Kalender-Header. Planner-Anfragen bekommen ihn nicht |
+
+**Offen, erst live prüfbar:**
+
+- Braucht `Tasks.ReadWrite` eine Administratorzustimmung? Die Berechtigungsreferenz sagt Nein,
+  die Web-App notierte Ja.
+- Öffnet `https://tasks.office.com/{tenantId}/Home/Task/{taskId}` die Aufgabe? Die Web-App hat
+  das nur angenommen.
+- Paginiert `/me/planner/tasks`?
+- Aufgaben aus Premium-Plänen liefert die API laut Doku nicht.
+
+**Verifikation M6** (manuell):
+
+| Handlung | Was sie beweist |
+| --- | --- |
+| Schalter ein, Obsidian beobachten | Entweder läuft es weiter (Zustimmung liegt vor) oder die Abmeldung mit Hinweis kommt; „Anmelden" holt die Zustimmung, danach erscheinen die Aufgaben |
+| Die Liste mit „Mir zugewiesen" in Planner vergleichen | Titel, Fälligkeit, Priorität (dringend/wichtig) und Plan stimmen, erledigte fehlen |
+| Eine Aufgabe mit Fälligkeit heute und eine überfällige | Beide unter „Dringend", die überfällige rot |
+| Eine Planner-Aufgabe ziehen, Obsidian neu laden | Der Block ist eigener, die Karte „geplant", in der Projektdatei ändert sich nichts |
+| Karte anklicken | Planner öffnet genau diese Aufgabe (Link-Format) |
+| Rechtsklick → anderen Bucket wählen | In Planner steht die Aufgabe im neuen Bucket, die Karte zeigt ihn |
+| Eine allein zugewiesene Aufgabe abhaken | In Planner erledigt, die Karte verschwindet, der Block bleibt |
+| Eine geteilte Aufgabe abhaken | Erst der Dialog mit der Anzahl, dann wie oben |
+| Die Aufgabe in Planner ändern, dann im Plugin binnen 60 s abhaken | Notice „in Planner geändert", nichts überschrieben, die Liste liest neu |
+| Schalter aus | Die Planner-Karten verschwinden, Vault und Kalender laufen weiter, Planner-Blöcke bleiben im Raster |
+
 ## M5 — Go-live im echten Vault
 
 1. **Task-Format im Vault** (Daniel mit Claude, geht auch früher): Die Vault-`CLAUDE.md` §3 und der
@@ -793,7 +889,7 @@ festhalten, warum der PATCH-Nachweis entfallen ist.
    - Eingerückte Blöcke unter Tasks bleiben unverändert.
 3. **Sichern:** den Vault als Zip. Der Versionsverlauf von OneDrive ersetzt keinen Stand vor dem
    ersten Schreibzugriff.
-4. **Installieren:** erst, wenn alle Verifikationstabellen M1–M4 auf Windows bestanden sind, der
+4. **Installieren:** erst, wenn alle Verifikationstabellen M1–M4 und M6 auf Windows bestanden sind, der
    `invariant-reviewer` nichts Kritisches meldet und Daniel ausdrücklich zustimmt. Fehlt eines
    davon, wird das gesagt und angehalten; ein grünes Gate ersetzt keinen dieser Punkte. Dann
    `release/vault-planner.zip` nach `<Live-Vault>/.obsidian/plugins/` entpacken, Settings

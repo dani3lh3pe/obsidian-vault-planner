@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { compareTasks, isOverdue, isUrgent, quadrantOf } from "./priority";
 import { buildList } from "./taskList";
+import { mapPlannerTasks } from "./planner";
 import type { PlanStatus, VaultTask } from "./types";
 
 const TODAY = "2026-09-24";
@@ -100,6 +101,18 @@ describe("buildList", () => {
     const tasks = Object.keys(statuses).map((name) => task(name));
     const model = buildList(tasks, (t) => statuses[t.description], { ...OPTIONS, onlyUnplanned: true }, TODAY);
     expect(model.groups.flatMap((g) => g.tasks).map((t) => t.description).sort()).toEqual(["abgelaufen", "ungeplant"]);
+  });
+
+  it("groups Planner tasks with the vault's, under one Planner customer", () => {
+    const planner = mapPlannerTasks([
+      { "@odata.etag": "e", id: "PT1", planId: "P", title: "Planner dringend", priority: 3, dueDateTime: "2026-09-25T10:00:00Z" },
+      { "@odata.etag": "e", id: "PT2", planId: "P", title: "Planner erledigt", percentComplete: 100 },
+    ]).tasks;
+    const model = buildList([task("Vault offen"), ...planner], null, OPTIONS, TODAY);
+    expect(model.groups.find((g) => g.quadrant === "now")?.tasks.map((t) => t.description)).toEqual(["Planner dringend"]);
+    expect(model.openCount).toBe(2);
+    expect(model.kunden).toEqual(["K", "Planner"]);
+    expect(buildList(planner, null, { ...OPTIONS, kunde: "Planner" }, TODAY).shownCount).toBe(1);
   });
 
   it("ignores 'nur ungeplante' while the status is unknown", () => {

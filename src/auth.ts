@@ -2,6 +2,7 @@ import { requestUrl, type App, type ObsidianProtocolData } from "obsidian";
 import {
   LOCAL_ACCOUNT_KEY,
   REQUEST_TIMEOUT_MS,
+  scopes,
   SECRET_REFRESH_TOKEN,
   TOKEN_REFRESH_MARGIN_MS,
 } from "./config";
@@ -21,6 +22,8 @@ import {
 export interface AuthSettings {
   tenantId: string;
   clientId: string;
+  /** Adds Tasks.ReadWrite to the scope (umsetzungsplan M6). */
+  plannerEnabled: boolean;
 }
 
 /**
@@ -31,9 +34,13 @@ export interface AuthSettings {
  * token lives in memory only. Only `login()` ever opens a browser; the timers never do.
  */
 export class Auth {
-  private access: { token: string; expiresAt: number } | null = null;
-  private refreshing: Promise<string> | null = null;
-  private pending: { verifier: string; state: string } | null = null;
+  /**
+   * Both remember their scope: after the Planner switch flips, a token for the other scope is the
+   * wrong token, even though it has not expired.
+   */
+  private access: { token: string; expiresAt: number; scope: string } | null = null;
+  private refreshing: { scope: string; promise: Promise<string> } | null = null;
+  private pending: { verifier: string; state: string; scope: string } | null = null;
   /**
    * Bumped by every sign-in and sign-out. A refresh that was already running when the user signed
    * out — or in again — must neither store its token nor wipe the new session.
@@ -60,6 +67,10 @@ export class Auth {
     return typeof value === "string" ? value : null;
   }
 
+  private scope(): string {
+    return scopes(this.settings().plannerEnabled);
+  }
+
   private refreshToken(): string | null {
     const value = this.app.secretStorage.getSecret(SECRET_REFRESH_TOKEN);
     return value === null || value === "" ? null : value;
@@ -70,9 +81,11 @@ export class Auth {
     const { tenantId, clientId } = this.settings();
     const verifier = randomVerifier();
     const state = randomVerifier();
-    this.pending = { verifier, state };
+    // The code is redeemed for the scope it was granted for, even if the switch flips meanwhile.
+    const scope = this.scope();
+    this.pending = { verifier, state, scope };
     window.open(
-      authorizeUrl({ tenantId: tenantId.trim(), clientId: clientId.trim(), challenge: await challengeFor(verifier), state }),
+      authorizeUrl({ tenantId: tenantId.trim(), clientId: clientId.trim(), challenge: await challengeFor(verifier), state, scope }),
     );
   }
 
@@ -90,7 +103,8 @@ export class Auth {
 
     this.generation += 1;
     this.refreshing = null;
-    await this.redeem(codeGrantBody({ clientId: this.settings().clientId.trim(), code, verifier: pending.verifier }), this.generation);
+    const { scope } = pending;
+    await this.redeem(codeGrantBody({ clientId: this.settings().clientId.trim(), code, verifier: pending.verifier, scope }), this.generation, scope);
     this.changed();
   }
 
@@ -99,39 +113,47 @@ export class Auth {
    * call, when there is no refresh token — a signed-out plugin must not keep knocking on Entra.
    */
   async getAccessToken(forceRefresh = false): Promise<string> {
-    if (!forceRefresh && this.access !== null && this.access.expiresAt - TOKEN_REFRESH_MARGIN_MS > Date.now()) {
-      return this.access.token;
+    const scope = this.scope();
+    const access = this.access;
+    if (!forceRefresh && access !== null && access.scope === scope && access.expiresAt - TOKEN_REFRESH_MARGIN_MS > Date.now()) {
+      return access.token;
     }
     const refreshToken = this.refreshToken();
     if (refreshToken === null) throw new SignedOutError();
     // One refresh at a time: a poll and a POST that both hit the expiry wait for the same answer.
-    if (this.refreshing === null) {
-      const running: Promise<string> = this.refresh(refreshToken).finally(() => {
+    if (this.refreshing === null || this.refreshing.scope !== scope) {
+      const running: Promise<string> = this.refresh(refreshToken, scope).finally(() => {
         // Only clear our own slot: after a sign-out a newer refresh may already sit there.
-        if (this.refreshing === running) this.refreshing = null;
+        if (this.refreshing?.promise === running) this.refreshing = null;
       });
-      this.refreshing = running;
+      this.refreshing = { scope, promise: running };
     }
-    return this.refreshing;
+    return this.refreshing.promise;
   }
 
   logout(): void {
     this.forget();
   }
 
-  private async refresh(refreshToken: string): Promise<string> {
+  private async refresh(refreshToken: string, scope: string): Promise<string> {
     const generation = this.generation;
     try {
-      const tokens = await this.redeem(refreshGrantBody({ clientId: this.settings().clientId.trim(), refreshToken }), generation);
+      const tokens = await this.redeem(
+        refreshGrantBody({ clientId: this.settings().clientId.trim(), refreshToken, scope }),
+        generation,
+        scope,
+      );
       return tokens.accessToken;
     } catch (error) {
+      // Also the missing consent after switching Planner on (AADSTS65001): "Anmelden" asks for it.
       const expired = error instanceof AuthError && (error.code === "invalid_grant" || error.code === "interaction_required");
-      if (expired && generation === this.generation) this.forget();
+      // A refresh for a scope the switch has left since must not end the session of the new one.
+      if (expired && generation === this.generation && scope === this.scope()) this.forget();
       throw error;
     }
   }
 
-  private async redeem(body: string, generation: number): Promise<TokenSet> {
+  private async redeem(body: string, generation: number, scope: string): Promise<TokenSet> {
     const response = await withTimeout(
       requestUrl({
         url: tokenUrl(this.settings().tenantId.trim()),
@@ -149,7 +171,8 @@ export class Auth {
     // Every refresh returns a new refresh token with a fresh 90-day lifetime: keep the newest.
     if (tokens.refreshToken !== null) this.app.secretStorage.setSecret(SECRET_REFRESH_TOKEN, tokens.refreshToken);
     if (tokens.account !== null) this.app.saveLocalStorage(LOCAL_ACCOUNT_KEY, tokens.account);
-    this.access = { token: tokens.accessToken, expiresAt: tokens.expiresAt };
+    // A late answer for a scope the switch has left since must not replace the current token.
+    if (scope === this.scope()) this.access = { token: tokens.accessToken, expiresAt: tokens.expiresAt, scope };
     return tokens;
   }
 

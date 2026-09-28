@@ -6,16 +6,20 @@ import { getErrorMessage } from "./lib/errors";
 import { TaskIndex } from "./vault";
 import { PlannerView } from "./view";
 
-/** The only settings: public ids that must not live in git. Tokens never go here (data.json is in the vault). */
+/**
+ * Public ids that must not live in git, and the Planner switch. Tokens never go here (data.json is
+ * in the vault).
+ */
 interface Settings {
   tenantId: string;
   clientId: string;
+  plannerEnabled: boolean;
 }
 
-export type ChangeReason = "index" | "auth";
+export type ChangeReason = "index" | "auth" | "settings";
 
 export default class VaultPlannerPlugin extends Plugin {
-  settings: Settings = { tenantId: "", clientId: "" };
+  settings: Settings = { tenantId: "", clientId: "", plannerEnabled: false };
   auth!: Auth;
   graph!: Graph;
   index!: TaskIndex;
@@ -47,7 +51,7 @@ export default class VaultPlannerPlugin extends Plugin {
     return () => this.listeners.delete(listener);
   }
 
-  private emit(reason: ChangeReason): void {
+  emit(reason: ChangeReason): void {
     for (const listener of this.listeners) listener(reason);
   }
 
@@ -70,6 +74,7 @@ export default class VaultPlannerPlugin extends Plugin {
     this.settings = {
       tenantId: typeof record.tenantId === "string" ? record.tenantId : "",
       clientId: typeof record.clientId === "string" ? record.clientId : "",
+      plannerEnabled: record.plannerEnabled === true,
     };
   }
 
@@ -114,6 +119,21 @@ class VaultPlannerSettingTab extends PluginSettingTab {
             plugin.settings.clientId = value.trim();
             await plugin.saveSettings();
           }),
+      );
+
+    new Setting(containerEl)
+      .setName("Planner-Aufgaben")
+      .setDesc(
+        "Zeigt die dir zugewiesenen Aufgaben aus Microsoft Planner in der Liste; abhaken und Bucket wechseln " +
+          "gehen im Plugin. Braucht die Berechtigung Tasks.ReadWrite: Fehlt die Zustimmung, meldet sich das " +
+          "Plugin ab, und „Anmelden“ holt sie ein.",
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(plugin.settings.plannerEnabled).onChange(async (value) => {
+          plugin.settings.plannerEnabled = value;
+          await plugin.saveSettings();
+          plugin.emit("settings");
+        }),
       );
 
     const { auth } = plugin;

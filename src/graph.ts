@@ -1,11 +1,23 @@
 import { requestUrl } from "obsidian";
 import type { Auth } from "./auth";
-import { GRAPH_BASE, IMMUTABLE_ID_HEADER, MAX_EVENT_PAGES, REQUEST_TIMEOUT_MS } from "./config";
+import { GRAPH_BASE, IMMUTABLE_ID_HEADER, MAX_EVENT_PAGES, MAX_PLANNER_PAGES, REQUEST_TIMEOUT_MS } from "./config";
 import { GraphApiError, withTimeout } from "./lib/errors";
-import { calendarViewUrl, createEventBody, eventUrl, isGraphUrl, moveEventBody, type NewBlock } from "./lib/graphRequests";
+import {
+  calendarViewUrl,
+  createEventBody,
+  eventUrl,
+  isGraphUrl,
+  isPlannerUrl,
+  moveEventBody,
+  PLANNER_TASKS_URL,
+  plannerTaskUrl,
+  planUrl,
+  type NewBlock,
+} from "./lib/graphRequests";
 import { mapGraphEvents, type MapResult } from "./lib/mapGraphEvents";
 import { readPage } from "./lib/odata";
-import type { GraphErrorResponse, TimeRange } from "./lib/types";
+import { mapPlannerTasks, planTitle, readBuckets, type PlannerSnapshot } from "./lib/planner";
+import type { GraphErrorResponse, PlannerBucket, PlannerTask, TimeRange } from "./lib/types";
 
 function parseBody(text: string): unknown {
   if (text === "") return null;
@@ -29,17 +41,26 @@ function errorBody(value: unknown): GraphErrorResponse | null {
  * `Origin: app://obsidian.md` and fails on CORS. The graph-calendar skill owns the rules.
  */
 export class Graph {
+  /** Plan titles for the session: they rarely change, and each is one request per plan. */
+  private readonly planTitles = new Map<string, string>();
+
   constructor(private readonly auth: Auth) {}
 
-  private async send(method: string, url: string, body?: unknown): Promise<unknown> {
+  /** `headers`: the immutable-id preference for calendar calls, If-Match for Planner writes. */
+  private async send(
+    method: string,
+    url: string,
+    body?: unknown,
+    headers: Record<string, string> = IMMUTABLE_ID_HEADER,
+  ): Promise<unknown> {
     if (!isGraphUrl(url)) throw new Error("Graph hat auf eine fremde Adresse verwiesen. Die Anfrage wurde nicht gesendet.");
     const attempt = async (token: string) =>
       withTimeout(
         requestUrl({
           url,
           method,
-          // The Prefer header is per request: every page, every write.
-          headers: { Authorization: `Bearer ${token}`, ...IMMUTABLE_ID_HEADER },
+          // Headers are per request: the calendar's Prefer goes on every page and every write.
+          headers: { Authorization: `Bearer ${token}`, ...headers },
           ...(body === undefined ? {} : { contentType: "application/json", body: JSON.stringify(body) }),
           throw: false,
         }),
@@ -52,7 +73,7 @@ export class Graph {
 
     // `.json` would throw on the empty body of a 204; read text and parse only what is there.
     const parsed = parseBody(response.text);
-    if (response.status >= 400) throw new GraphApiError(response.status, errorBody(parsed));
+    if (response.status >= 400) throw new GraphApiError(response.status, errorBody(parsed), isPlannerUrl(url));
     return parsed;
   }
 
@@ -76,6 +97,55 @@ export class Graph {
 
   async moveBlock(eventId: string, start: Date, end: Date): Promise<void> {
     await this.send("PATCH", eventUrl(eventId), moveEventBody(start, end));
+  }
+
+  /**
+   * Everything assigned to the signed-in user, with the titles and buckets of every plan that has
+   * an open task. No IdType preference: that one is the calendar's. A failing task list fails the
+   * read (the view keeps the last good one and says so); a plan that cannot be read only lacks its
+   * title or buckets this round — a plan the user has left must not hide every other task.
+   */
+  async readPlanner(): Promise<PlannerSnapshot> {
+    const raw: unknown[] = [];
+    let url: string | null = PLANNER_TASKS_URL;
+    for (let page = 0; url !== null && page < MAX_PLANNER_PAGES; page += 1) {
+      const { value, nextLink } = readPage(await this.send("GET", url, undefined, {}));
+      raw.push(...value);
+      url = nextLink;
+    }
+    const truncated = url !== null;
+    const { tasks, droppedCount } = mapPlannerTasks(raw);
+
+    const planIds = [...new Set(tasks.filter((task) => task.status !== "x").map((task) => task.planId))];
+    const buckets = new Map<string, PlannerBucket[]>();
+    // ponytail: one bucket read per plan and minute; cache them if Planner starts to throttle.
+    const readPlan = async (planId: string): Promise<void> => {
+      if (this.planTitles.has(planId)) return;
+      const title = planTitle(await this.send("GET", planUrl(planId), undefined, {}));
+      if (title !== null) this.planTitles.set(planId, title);
+    };
+    // ponytail: first page only — a plan with more buckets than one page shows a shorter menu.
+    const readPlanBuckets = async (planId: string): Promise<void> => {
+      buckets.set(planId, readBuckets(readPage(await this.send("GET", `${planUrl(planId)}/buckets`, undefined, {})).value));
+    };
+    await Promise.allSettled(planIds.flatMap((planId) => [readPlan(planId), readPlanBuckets(planId)]));
+
+    return {
+      tasks: tasks.map((task) => ({ ...task, projekt: this.planTitles.get(task.planId) ?? null })),
+      buckets,
+      droppedCount,
+      truncated,
+    };
+  }
+
+  /** Planner write #1. If-Match is mandatory; a 412 is never retried with a fresh etag (M6.4). */
+  async completePlannerTask(task: Pick<PlannerTask, "id" | "etag">): Promise<void> {
+    await this.send("PATCH", plannerTaskUrl(task.id), { percentComplete: 100 }, { "If-Match": task.etag });
+  }
+
+  /** Planner write #2: the bucket, nothing else. */
+  async movePlannerTask(task: Pick<PlannerTask, "id" | "etag">, bucketId: string): Promise<void> {
+    await this.send("PATCH", plannerTaskUrl(task.id), { bucketId }, { "If-Match": task.etag });
   }
 
   /** A 404 counts as success: the block is gone, which is what the caller wanted. */

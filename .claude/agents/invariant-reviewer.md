@@ -1,6 +1,6 @@
 ---
 name: invariant-reviewer
-description: Read-only audit of the Vault Planner's safety invariants — where tokens live, which hosts get a request, the two vault writes and the Outlook write path. Use before the plugin goes into the live vault (umsetzungsplan M5, step 4), after changes to src/auth.ts, src/lib/oauth.ts, src/graph.ts, src/lib/graphRequests.ts, src/vault.ts, src/lib/taskLine.ts or the drop and menu handlers in src/view.ts, and when asked for a security or safety review. Reports findings by severity and changes nothing.
+description: Read-only audit of the Vault Planner's safety invariants — where tokens live, which hosts get a request, the two vault writes, the two Planner writes and the Outlook write path. Use before the plugin goes into the live vault (umsetzungsplan M5, step 4), after changes to src/auth.ts, src/lib/oauth.ts, src/graph.ts, src/lib/graphRequests.ts, src/vault.ts, src/lib/taskLine.ts or the drop and menu handlers in src/view.ts, and when asked for a security or safety review. Reports findings by severity and changes nothing.
 tools: Read, Glob, Grep, Bash
 ---
 
@@ -17,7 +17,7 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
 
 ## Authority (read first)
 
-- `CLAUDE.md` — "Invarianten" 1–6, "Tasks-Plugin", "Nebenläufigkeit", "UX-Regeln". The rules
+- `CLAUDE.md` — "Invarianten" 1–7, "Tasks-Plugin", "Nebenläufigkeit", "UX-Regeln". The rules
   live there; cite them by number instead of restating them.
 - `.claude/skills/graph-calendar/SKILL.md` — "Writing" and "The task link".
 - `docs/umsetzungsplan.md` — "Bewusst nicht enthalten" and "Offen, nicht blockierend". A gap
@@ -30,8 +30,8 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
       `saveLocalStorage` is plaintext and holds the account name only
 - [ ] `state` is checked before the code is exchanged; PKCE uses S256; a redirect without a
       pending sign-in changes nothing
-- [ ] `window.open` is reachable only from the sign-in button — trace every caller. No timer, no
-      401 path, no failed refresh opens the browser (Invariant 6)
+- [ ] `window.open` is reachable only from a click — the sign-in button and "In Planner öffnen";
+      trace every caller. No timer, no 401 path, no failed refresh opens the browser (Invariant 6)
 - [ ] A refresh still in flight after sign-out or a new sign-in neither stores its token nor
       clears the new one
 - [ ] Tracked files carry no tenant id, client id or real name: `git grep -nE
@@ -44,16 +44,27 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
       with `throw: false`
 - [ ] Every URL that carries the bearer token starts with `GRAPH_BASE`, including a followed
       `@odata.nextLink`; the token endpoint under `LOGIN_BASE` is the only other host
-- [ ] No telemetry, no request the user did not cause apart from the 15 s read
+- [ ] No telemetry, no request the user did not cause apart from the reads: calendar every 15 s,
+      Planner every 60 s, both on returning to the view
 
 ## Outlook writes (`src/graph.ts`, `src/lib/graphRequests.ts`, `src/view.ts`)
 
 - [ ] No `attendees` in any body, not even empty (Invariant 4)
 - [ ] Every POST, PATCH and DELETE follows a gesture (drop, drag, resize, menu) — none from the
       poll, a refresh or a render
-- [ ] Only our own blocks — property value `<this vault>|<blockId>` — can be moved, resized or
+- [ ] Only our own blocks — property value `<this vault>|<blockId>` or `planner:<taskId>` — can be moved, resized or
       deleted. A foreign meeting or another vault's block that can be changed is CRITICAL
 - [ ] The delete asks in a `Modal` that names the block (UX rule 3)
+
+## Planner writes (`src/graph.ts`, `src/view.ts`, Invariant 7)
+
+- [ ] Exactly two Planner writes exist: `completePlannerTask` and `movePlannerTask`, both a PATCH
+      with `If-Match` and nothing else in the body
+- [ ] Both follow a click; the etag comes from the latest read (`plannerTask(id)`), not from a card
+      built minutes ago
+- [ ] A 412 ends in a Notice and a re-read — never a second PATCH with the fresh etag
+- [ ] A task shared with others asks in a `Modal` before completing
+- [ ] Booking a Planner task writes nothing to the vault
 
 ## Vault writes (`src/vault.ts`, `src/lib/taskLine.ts`, Invariants 2–3)
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { blocksByTask, fetchRange, parseTaskLink, planStatus, statusWindow } from "./schedule";
+import { blocksByTask, fetchRange, linkKey, parseTaskLink, plannerIdOf, plannerKey, planStatus, statusWindow } from "./schedule";
+import { mapPlannerTasks } from "./planner";
 import type { CalendarEvent } from "./types";
 
 function event(id: string, start: string, end: string, overrides: Partial<CalendarEvent> = {}): CalendarEvent {
@@ -26,6 +27,18 @@ describe("parseTaskLink", () => {
     expect(parseTaskLink("test-vault|t-abc123", "Vault")).toBeNull();
     expect(parseTaskLink("Vault|", "Vault")).toBeNull();
     expect(parseTaskLink(null, "Vault")).toBeNull();
+  });
+
+  it("carries a Planner task's key through the same link, apart from every block id", () => {
+    const [task] = mapPlannerTasks([{ "@odata.etag": "e", id: "PT1", planId: "P" }]).tasks;
+    expect(linkKey(task)).toBe("planner:PT1");
+    // No vault name: the same Planner task is planned in the test vault and the live vault alike.
+    expect(parseTaskLink(plannerKey("PT1"), "Vault")).toBe("planner:PT1");
+    expect(parseTaskLink(plannerKey("PT1"), "test-vault")).toBe("planner:PT1");
+    expect(parseTaskLink("planner:", "Vault")).toBeNull();
+    expect(plannerIdOf("planner:PT1")).toBe("PT1");
+    // Tasks block ids are [a-zA-Z0-9-]: never a colon, so never a Planner key.
+    expect(plannerIdOf("t-abc123")).toBeNull();
   });
 });
 

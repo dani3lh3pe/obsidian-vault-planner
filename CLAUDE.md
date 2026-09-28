@@ -6,7 +6,7 @@ Detail besitzt, zeigt diese Datei darauf.
 ## Projekt
 
 Ein Obsidian-Plugin für **einen** Nutzer: links die offenen Tasks aus den Projektdateien des
-Vaults, rechts der eigene Outlook-Kalender. Zieht man einen Task in eine Lücke, entsteht in Outlook
+Vaults (per Schalter auch die eigenen Planner-Aufgaben), rechts der eigene Outlook-Kalender. Zieht man einen Task in eine Lücke, entsteht in Outlook
 ein Fokus-Block.
 
 > **Das Ziel in einem Satz:** Morgens in unter zwei Minuten die offenen Aufgaben sichten, die für
@@ -69,9 +69,15 @@ npm run dev            # esbuild im Watch-Modus nach build/main.js
 5. **Alle HTTP-Aufrufe über `requestUrl`, nie `fetch`**, und nur zu `login.microsoftonline.com`
    und `graph.microsoft.com`. Keine Telemetrie.
 6. **Tokens nie in `data.json`** — sie liegt im Vault und damit im OneDrive. Der Refresh-Token liegt
-   in `app.secretStorage`. Nur der Anmelde-Knopf öffnet den Browser, nie ein Timer.
+   in `app.secretStorage`. Nur ein Klick öffnet den Browser („Anmelden", „In Planner öffnen"), nie
+   ein Timer.
+7. **In Planner schreibt das Plugin genau zweierlei, beides nur auf eine Handlung des Nutzers
+   hin:** abschließen (`percentComplete: 100`) und den Bucket wechseln. Immer mit `If-Match`; ein
+   412 wird nie automatisch wiederholt. Ist die Aufgabe weiteren Personen zugewiesen, fragt vorher
+   ein Dialog.
 
-Die Verknüpfung Task ↔ Termin ist die Extended Property mit dem Wert `<vaultName>|<blockId>`.
+Die Verknüpfung Task ↔ Termin ist die Extended Property mit dem Wert `<vaultName>|<blockId>`, bei
+Planner-Aufgaben vault-unabhängig `planner:<taskId>`.
 Ihre GUID in `src/config.ts` wird **nie** geändert.
 
 ## Tasks-Plugin
@@ -121,8 +127,9 @@ Conventional Commits. Vor einem mehrdateiigen Commit `/ponytail-review`, jeden F
 entscheiden, dann `/code-review`. Keiner ersetzt den anderen: ponytail-review sucht keine Fehler.
 Die Stufe richtet sich danach, was ein Fehler kostet, nicht nach der Größe des Diffs:
 
-- **high** — alles, was schreibt: Outlook-Termine, die zwei Vault-Schreibvorgänge, Anmeldung
-- **medium** — Graph-Lesepfad, Task-Index
+- **high** — alles, was schreibt: Outlook-Termine, die zwei Vault- und die zwei
+  Planner-Schreibvorgänge, Anmeldung
+- **medium** — Graph-Lesepfad (Kalender, Planner), Task-Index
 - **low** — reine UI
 
 Berührt ein Diff mehrere Stufen, gilt die höchste. `/code-review` entfällt nur bei Doku- oder

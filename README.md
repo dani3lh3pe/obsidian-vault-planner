@@ -18,8 +18,9 @@ live aus dem Kalender an, auch nachdem du einen Block in Outlook verschoben oder
    - `obsidian://vault-planner-auth`
    - `http://localhost` (Reserve)
 3. „Öffentliche Clientflows zulassen" bleibt auf **Nein**.
-4. **API-Berechtigungen → Microsoft Graph → Delegiert:** `Calendars.ReadWrite`. Falls
-   Benutzerzustimmung gesperrt ist, die Administratorzustimmung erteilen.
+4. **API-Berechtigungen → Microsoft Graph → Delegiert:** `Calendars.ReadWrite`, für Planner-Aufgaben
+   zusätzlich `Tasks.ReadWrite`. Falls Benutzerzustimmung gesperrt ist, die Administratorzustimmung
+   erteilen.
 5. Kein Secret, keine Anwendungsberechtigung.
 6. **Anwendungs-ID (Client-ID)** und **Verzeichnis-ID (Tenant-ID)** notieren. Sie kommen in die
    Plugin-Einstellungen, nicht ins Repository.
@@ -44,6 +45,11 @@ live aus dem Kalender an, auch nachdem du einen Block in Outlook verschoben oder
 ### 4. Anmelden
 
 Einstellungen → Vault Planner: **Tenant-ID** und **Client-ID** eintragen, dann **Anmelden**.
+Der Schalter **Planner-Aufgaben** holt die dir zugewiesenen Planner-Aufgaben dazu. Fehlt dafür die
+Zustimmung, meldet sich das Plugin nach dem Einschalten ab; **Anmelden** holt sie ein. Wer nicht
+zustimmen kann, schaltet den Schalter wieder aus und meldet sich neu an. Ausschalten
+fordert `Tasks.ReadWrite` nicht mehr an, nimmt die einmal erteilte Zustimmung aber nicht zurück.
+Das geht nur in Entra bzw. unter myapps.microsoft.com.
 
 - Der Browser öffnet die Microsoft-Anmeldung und fragt am Ende, ob er Obsidian öffnen darf.
 - Beim Anmelden nur **einen** Vault mit dem Plugin offen haben: Der `obsidian://`-Link geht an das
@@ -71,6 +77,11 @@ Einstellungen → Vault Planner: **Tenant-ID** und **Client-ID** eintragen, dann
   stehen; gebuchte Zeit ist Geschichte.
 - **Abgelaufen:** Ein Task, dessen Blöcke alle vorbei sind, zeigt „abgelaufen: …" und gilt wieder
   als ungeplant.
+- **Planner-Aufgaben** stehen unter dem Kunden „Planner", mit Plan und Bucket. „Dringend" und
+  „Wichtig" aus Planner zählen als wichtig. Ein Klick öffnet die Aufgabe in Planner, ein Rechtsklick
+  wechselt den Bucket, die Checkbox schließt sie in Planner ab. Ist sie auch anderen zugewiesen,
+  fragt vorher ein Dialog, denn abgeschlossen ist sie dann für alle. Planner wird jede Minute und
+  bei der Rückkehr in die Ansicht (höchstens alle 30 s) neu gelesen.
 
 ## Was das Plugin in den Vault schreibt
 
@@ -81,7 +92,14 @@ Genau zweierlei, und nur, wenn du es auslöst:
    Aufteilen behält nur das Original sie.
 2. **Erledigen:** Das Tasks-Plugin schreibt die Zeile neu, bei `🔁` mit der Folgeaufgabe darüber.
 
-Sonst nichts: kein `⏳`, kein Datum, keine Termin-ID, kein Schreiben im Hintergrund.
+Sonst nichts: kein `⏳`, kein Datum, keine Termin-ID, kein Schreiben im Hintergrund. Eine
+Planner-Aufgabe einzuplanen schreibt nichts in den Vault.
+
+## Was das Plugin in Planner schreibt
+
+Genau zweierlei, und nur, wenn du es auslöst: abschließen und den Bucket wechseln. Hat jemand die
+Aufgabe inzwischen in Planner geändert, bricht das Plugin ab und liest neu, statt die Änderung zu
+überschreiben.
 
 ## Fehlerbilder
 
@@ -95,13 +113,16 @@ Sonst nichts: kein `⏳`, kein Datum, keine Termin-ID, kein Schreiben im Hinterg
 | „Diese Rückmeldung gehört zu keiner laufenden Anmeldung" | Der Link ging an ein anderes Vault-Fenster, oder Obsidian wurde neu gestartet | Nur einen Vault offen lassen, erneut „Anmelden" |
 | „Kalender nicht erreichbar – Planungsstatus unbekannt" | Netzwerk oder Graph gestört | „Erneut versuchen"; ziehen ist so lange gesperrt |
 | „Keine offenen Aufgaben", obwohl Tasks im Vault stehen | `10_Kunden` und `20_Intern` liegen nicht direkt im Vault-Ordner, z. B. eine Ebene tiefer nach dem Entpacken | Die Ordner eine Ebene hochschieben, dann das Plugin aus- und einschalten |
+| „Kein Zugriff auf Planner" | `Tasks.ReadWrite` fehlt in der App-Registrierung oder ist nicht zugestimmt | Berechtigung ergänzen, abmelden, neu anmelden |
+| „… zwischenzeitlich in Planner geändert" | Die Aufgabe wurde in Planner geändert, seit das Plugin sie gelesen hat | Nach dem Neuladen erneut versuchen |
 | „Block-ID doppelt" an einer Karte | Eine Zeile mit `^t-…` wurde kopiert | Bei der Kopie die Block-ID entfernen |
 | Block gestrichelt mit „Aufgabe nicht gefunden" | Die Task-Zeile mit dieser Block-ID gibt es nicht mehr | Block per Rechtsklick löschen oder die ID wiederherstellen |
 
 ## Grenzen
 
 Nur Desktop, nur das Hauptfenster (kein Pop-out), nur der Standardkalender, Montag bis Freitag.
-Keine Teilnehmer, keine Termine ohne Task.
+Keine Teilnehmer, keine Termine ohne Task. Aus Planner nur Basic-Pläne: Premium-Pläne liefert die
+API nicht.
 
 ## Entwicklung
 

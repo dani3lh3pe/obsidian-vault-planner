@@ -1,6 +1,7 @@
 /**
  * Everything the plugin does not ask the user for. One user, one vault: constants, not settings.
- * The only settings are the tenant and client id (see main.ts), because they must not live in git.
+ * The only settings (see main.ts) are the tenant and client id, which must not live in git, and the
+ * Planner switch.
  */
 
 /**
@@ -15,8 +16,14 @@ export const PLANNER_IANA_ZONE = "Europe/Berlin";
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 export const LOGIN_BASE = "https://login.microsoftonline.com";
 
-/** OIDC scopes for the id token and the refresh token, plus the one Graph permission. */
-export const SCOPES = "openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite";
+/**
+ * OIDC scopes for the id token and the refresh token, plus the Graph permissions. Tasks.ReadWrite
+ * only while Planner is switched on: without it the consent never asks for the task boards.
+ */
+export function scopes(planner: boolean): string {
+  const base = "openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite";
+  return planner ? `${base} https://graph.microsoft.com/Tasks.ReadWrite` : base;
+}
 
 /** `obsidian://vault-planner-auth` — registered as a custom redirect URI in Entra. */
 export const REDIRECT_ACTION = "vault-planner-auth";
@@ -44,6 +51,15 @@ export const TASK_PROPERTY_ID = "String {F81E8688-4C88-461E-AFDA-12127709C02B} N
 
 /** Background refresh while the view is visible; returning to it refreshes at once. */
 export const REFRESH_INTERVAL_MS = 15_000;
+/**
+ * Planner on its own, slower clock (web app M13): a board changes in minutes, and a 429 there must
+ * not take the calendar with it.
+ */
+export const PLANNER_REFRESH_INTERVAL_MS = 60_000;
+/** A broken nextLink loop would otherwise hang the list, like MAX_EVENT_PAGES for the calendar. */
+export const MAX_PLANNER_PAGES = 10;
+/** Planner tasks share one entry in the customer filter; the plan is their project. */
+export const PLANNER_LABEL = "Planner";
 /** `requestUrl` has no timeout of its own. */
 export const REQUEST_TIMEOUT_MS = 30_000;
 /** Renew the access token this long before it expires. */

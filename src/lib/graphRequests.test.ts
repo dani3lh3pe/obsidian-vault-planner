@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { TASK_PROPERTY_ID } from "../config";
-import { calendarViewUrl, createEventBody, eventUrl, isGraphUrl, moveEventBody } from "./graphRequests";
+import {
+  calendarViewUrl,
+  createEventBody,
+  eventUrl,
+  isGraphUrl,
+  isPlannerUrl,
+  moveEventBody,
+  PLANNER_TASKS_URL,
+  plannerTaskUrl,
+  planUrl,
+} from "./graphRequests";
 
 const RANGE = { start: new Date("2026-09-21T00:00:00Z"), end: new Date("2026-10-05T00:00:00Z") };
 
@@ -62,6 +72,16 @@ describe("move and address", () => {
 
   it("encodes the event id in the path", () => {
     expect(eventUrl("AAMk/abc=")).toBe("https://graph.microsoft.com/v1.0/me/events/AAMk%2Fabc%3D");
+  });
+});
+
+describe("planner urls", () => {
+  it("encode ids and are recognised as Planner's for their error texts", () => {
+    expect(plannerTaskUrl("a/b=")).toBe("https://graph.microsoft.com/v1.0/planner/tasks/a%2Fb%3D");
+    expect(isPlannerUrl(plannerTaskUrl("x"))).toBe(true);
+    expect(isPlannerUrl(`${planUrl("p")}/buckets`)).toBe(true);
+    expect(isPlannerUrl(PLANNER_TASKS_URL)).toBe(true);
+    expect(isPlannerUrl(eventUrl("x"))).toBe(false);
   });
 });
 

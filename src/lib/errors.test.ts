@@ -29,6 +29,14 @@ describe("getErrorMessage", () => {
     expect(getErrorMessage(graph(418))).toBe("Unerwarteter Fehler beim Kalenderzugriff.");
   });
 
+  it("reads a Planner status as Planner's, a 412 as a change made elsewhere", () => {
+    const planner = (status: number) => new GraphApiError(status, null, true);
+    expect(getErrorMessage(planner(403))).toContain("Tasks.ReadWrite");
+    expect(getErrorMessage(planner(412))).toContain("in Planner geändert");
+    expect(getErrorMessage(planner(404))).toContain("Planner-Aufgabe");
+    expect(getErrorMessage(planner(418))).toBe("Unerwarteter Fehler beim Planner-Zugriff.");
+  });
+
   it("never shows raw Graph text", () => {
     expect(getErrorMessage(graph(400, "SomethingNew"))).not.toContain("raw");
   });

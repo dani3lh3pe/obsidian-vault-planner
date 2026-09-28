@@ -1,6 +1,7 @@
-import { LOGIN_BASE, REDIRECT_URI, SCOPES } from "../config";
+import { LOGIN_BASE, REDIRECT_URI } from "../config";
 import { AuthError } from "./errors";
 import { encodeParams } from "./graphRequests";
+import { isRecord } from "./odata";
 
 /**
  * OAuth 2.0 authorization code + PKCE against Entra v2, as pure functions (auth.ts adds storage,
@@ -28,13 +29,14 @@ export function authorizeUrl(input: {
   clientId: string;
   challenge: string;
   state: string;
+  scope: string;
 }): string {
   return `${LOGIN_BASE}/${encodeURIComponent(input.tenantId)}/oauth2/v2.0/authorize?${encodeParams([
     ["client_id", input.clientId],
     ["response_type", "code"],
     ["redirect_uri", REDIRECT_URI],
     ["response_mode", "query"],
-    ["scope", SCOPES],
+    ["scope", input.scope],
     ["code_challenge", input.challenge],
     ["code_challenge_method", "S256"],
     ["state", input.state],
@@ -47,23 +49,23 @@ export function tokenUrl(tenantId: string): string {
   return `${LOGIN_BASE}/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`;
 }
 
-export function codeGrantBody(input: { clientId: string; code: string; verifier: string }): string {
+export function codeGrantBody(input: { clientId: string; code: string; verifier: string; scope: string }): string {
   return encodeParams([
     ["client_id", input.clientId],
     ["grant_type", "authorization_code"],
     ["code", input.code],
     ["redirect_uri", REDIRECT_URI],
     ["code_verifier", input.verifier],
-    ["scope", SCOPES],
+    ["scope", input.scope],
   ]);
 }
 
-export function refreshGrantBody(input: { clientId: string; refreshToken: string }): string {
+export function refreshGrantBody(input: { clientId: string; refreshToken: string; scope: string }): string {
   return encodeParams([
     ["client_id", input.clientId],
     ["grant_type", "refresh_token"],
     ["refresh_token", input.refreshToken],
-    ["scope", SCOPES],
+    ["scope", input.scope],
   ]);
 }
 
@@ -75,10 +77,6 @@ export interface TokenSet {
   refreshToken: string | null;
   /** preferred_username from the id token, for the settings tab. */
   account: string | null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** "AADSTS70008: The provided authorization code…" -> "70008". */

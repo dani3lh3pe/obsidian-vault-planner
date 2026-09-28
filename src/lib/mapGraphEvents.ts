@@ -1,3 +1,4 @@
+import { isRecord } from "./odata";
 import { fromGraphUtc } from "./time";
 import type { CalendarEvent, ShowAs } from "./types";
 
@@ -7,10 +8,6 @@ export interface MapResult {
   events: CalendarEvent[];
   /** Entries Graph sent that could not be narrowed. Surfaced, never swallowed. */
   droppedCount: number;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**

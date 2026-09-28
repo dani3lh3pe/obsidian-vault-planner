@@ -41,6 +41,22 @@ export function eventUrl(eventId: string): string {
   return `${GRAPH_BASE}/me/events/${encodeURIComponent(eventId)}`;
 }
 
+/** Everything assigned to the signed-in user, across plans. No $select: it would drop the etag. */
+export const PLANNER_TASKS_URL = `${GRAPH_BASE}/me/planner/tasks`;
+
+export function planUrl(planId: string): string {
+  return `${GRAPH_BASE}/planner/plans/${encodeURIComponent(planId)}`;
+}
+
+export function plannerTaskUrl(taskId: string): string {
+  return `${GRAPH_BASE}/planner/tasks/${encodeURIComponent(taskId)}`;
+}
+
+/** Planner answers need their own error texts: a 403 there is Tasks.ReadWrite, not the calendar. */
+export function isPlannerUrl(url: string): boolean {
+  return url.startsWith(`${GRAPH_BASE}/planner/`) || url.startsWith(`${GRAPH_BASE}/me/planner/`);
+}
+
 function slot(start: Date, end: Date) {
   return {
     start: { dateTime: toWallClock(start), timeZone: PLANNER_TIME_ZONE },
