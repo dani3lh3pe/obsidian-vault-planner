@@ -155,8 +155,12 @@ fields; the Prefer header not affecting the window parameters; `attendees` trigg
 **Documented by Microsoft, NOT verified here (M7):** masterCategories needs MailboxSettings.Read
 without admin consent; `categories` holds `displayName` values of the master list.
 
-**Open, to verify live:** `$expand` of the task property together with `$select` (M1.0); that
-`categories` comes back in `$select` on calendarView (M7).
+**Verified live in the plugin, 2026-09-28:** calendarView accepts `categories` in `$select`
+alongside the `$expand` — the week loads (a 400 would have shown the banner), and the sign-in with
+MailboxSettings.Read went through.
+
+**Open, to verify live:** `$expand` of the task property together with `$select` returning the
+value (M1.0); a categorized meeting actually tinted, i.e. masterCategories readable (M7).
 
 ## Rejected — do not re-attempt
 

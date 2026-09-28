@@ -34,7 +34,9 @@ seiner Graph-Details belegten Fallen. Beides ist unten korrigiert, und der Umfan
 ## Stand der Umsetzung (2026-09-24)
 
 - **M6 (Planner) als Code fertig (2026-09-28)**, auf Windows noch ungeprüft.
-- **M7 (Darstellung) als Code fertig (2026-09-28)**, auf Windows noch ungeprüft.
+- **M7 (Darstellung) als Code fertig (2026-09-28).** Auf Windows gesehen: die Anmeldung mit
+  `MailboxSettings.Read`, die Woche mit `categories` im `$select`, Liste und Ansichtsknöpfe. Der Rest
+  der Tabelle „Verifikation M7" ist offen.
 - **Als Code fertig:** M0 (der Repo-Teil: Gerüst, Gate, Testvault, Skills), M1–M4. `bash
   scripts/verify.sh` ist grün, 145 Tests. Der Build liegt in `release/vault-planner.zip`.
 - **Ein unabhängiger Review** gegen den Quelltext von FullCalendar 6.1.21 und `obsidian.d.ts` hat
@@ -932,8 +934,12 @@ Kalender. Fehlt die Zustimmung, meldet sich das Plugin ab und zeigt keinen Kalen
 erteilt ist. Anders als beim Planner-Schalter gibt es keinen Ausweg per Einstellung. Daniel
 verwaltet die Entra-App selbst, und ein Schalter wäre eine Einstellung mehr.
 
-**Offen, erst live prüfbar:** Kommt `categories` im `$select` von calendarView mit? Reicht die
-Benutzerzustimmung für `MailboxSettings.Read`?
+**Live geprüft (2026-09-28):** calendarView nimmt `categories` im `$select` an, die Anmeldung mit
+`MailboxSettings.Read` ging durch.
+
+**Offen, erst live prüfbar:** Wird ein Termin mit Kategorie wirklich eingefärbt, ist also
+masterCategories lesbar? Ein Fehler dort zeigt kein Banner, nur Blau. Kam die Zustimmung als
+Benutzer oder brauchte es die Administratorzustimmung?
 
 **Verifikation M7** (manuell):
 
