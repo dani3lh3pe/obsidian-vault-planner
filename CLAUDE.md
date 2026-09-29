@@ -15,12 +15,16 @@ ein Fokus-Block.
 
 ## Wichtige Dokumente
 
-- `docs/umsetzungsplan.md` — Meilensteine M0–M5, Stolperfallen mit Gegenmaßnahme, manuelle
+- `docs/umsetzungsplan.md` — Meilensteine, Stolperfallen mit Gegenmaßnahme, manuelle
   Verifikation je Meilenstein, belegte Fakten mit Quelle. Vor jedem Meilenstein den Abschnitt lesen.
+  Er ist auch der Ort für Entscheidungen (kein `docs/adr/`) und für zurückgestellte Ideen
+  („Offen, nicht blockierend").
 - `.claude/skills/graph-calendar/` — Graph-Regeln (UTC lesen, Wandzeit schreiben, Immutable IDs,
   Extended Property). **Vor jeder Änderung an einem Graph-Aufruf lesen.**
 - `.claude/skills/verify/` — das Gate und die Übergabe eines Builds.
 - `.claude/skills/retro/` — Abschluss-Durchgang einer Sitzung: jedes Learning an seinen einen Ort.
+- `.claude/grilling-seeds.md` — Fragen, die der `grilling`-Skill hier früh stellen muss, weil sie
+  sonst zu spät kamen.
 - `.claude/agents/invariant-reviewer.md` — prüft Token, HTTP und beide Schreibpfade gegen die
   Invarianten, ändert nichts. Pflicht vor M5.
 - `README.md` — Einrichtung (Entra-App, Einstellungen), Bedienung, Fehlerbilder.

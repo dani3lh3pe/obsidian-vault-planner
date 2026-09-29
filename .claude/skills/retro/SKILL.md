@@ -31,6 +31,7 @@ ONE canonical place. If nothing qualifies, say so and change nothing; forced lea
 | An Obsidian, Tasks or FullCalendar fact, or a trap with its countermeasure | "Belegt" or the milestone's trap table in `docs/umsetzungsplan.md` | Where the next milestone reads it |
 | A manual check passed or failed, a live probe answered | The milestone's section and "Stand der Umsetzung" in `docs/umsetzungsplan.md`; a Graph answer also into the skill | Which milestone is proven must be visible without this session |
 | An error the user can hit, with its fix | "Fehlerbilder" in `README.md` | Daniel reads that one, not CLAUDE.md |
+| A design question that came too late (an answer reshaped work already done) | `.claude/grilling-seeds.md`, with date and case | The next `grilling` asks it in round 1 |
 | Deferred work or a known gap | "Offen, nicht blockierend" in the plan; in code a `ponytail:` comment | Repo-visible, reviewable |
 | A preference or host fact invisible in the repo | Auto-memory (`~/.claude/projects/<project>/memory/` + `MEMORY.md`) | Persists, but only for Claude on this host |
 | Volatile state (today's build id, a check still pending) | **Nowhere permanent** | Stale "facts" are worse than none |
