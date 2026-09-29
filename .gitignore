@@ -3,3 +3,5 @@ build/
 release/
 # Obsidian writes these when the test vault is opened; plugin data.json would carry tenant and client ids.
 test-vault/.obsidian/
+# Working material for one feature (specs); the durable record is docs/umsetzungsplan.md.
+.scratch/

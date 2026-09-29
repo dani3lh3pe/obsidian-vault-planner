@@ -1008,6 +1008,31 @@ entscheidet Daniel, wenn er die neue Liste eine Weile benutzt hat.
 | Eine überfällige Aufgabe auf heute ziehen | Sie bleibt unter „Überfällig", die Statuszeile zeigt den Block |
 | „ADR-Liste aktualisieren" (hat `[aufwand:: 90m]`) in den Kalender ziehen | Der Block ist eine Stunde lang, Karte und Betreff zeigen kein `[aufwand::]` |
 
+## M9 — Microsoft To Do, privates Konto (in Planung)
+
+**Stand:** grilling abgeschlossen (2026-09-29), noch keine Spec, kein Code.
+
+**Bewusst so (mit Daniel, 2026-09-29): eine zweite App-Registrierung.** Das private
+Microsoft-Konto meldet sich über eine eigene Registrierung „Nur private Microsoft-Konten" an (eigene
+Client-ID, eigener Refresh-Token, eigener Schalter mit eigenem „Anmelden"). Die Arbeits-App bleibt
+auf den eigenen Tenant beschränkt.
+
+- **Verworfen:** die bestehende App auf „alle Organisationen und private Konten" umstellen. Sie
+  wäre dann für jeden Tenant offen, und beide Konten hingen an einer Registrierung.
+- **Folge:** Ein Zustimmungs- oder Anmeldeproblem beim privaten Konto meldet das Arbeitskonto nie
+  ab und blockiert den Kalender nie. Das ist das Gegenteil von `MailboxSettings.Read` (M7).
+- **Kosten:** eine weitere Client-ID in den Einstellungen.
+
+**Bewusst so (mit Daniel, 2026-09-29): private To Dos kommen in den privaten Kalender.** Daniel
+erledigt sie meist abends oder am Wochenende. Das Plugin liest deshalb den privaten Kalender mit:
+für den Planungsstatus (Invariante 1) und damit das Raster auch private Termine zeigt. Es schreibt
+dort Blöcke wie im Arbeitskalender.
+
+- **Verworfen:** alle To-Do-Blöcke „privat" markiert in den Arbeitskalender. Das wäre etwa halb so
+  groß und würde die Zeit auch für Kollegen blockieren. Für Aufgaben am Abend oder am Wochenende
+  gehört der Block aber nicht in den Arbeitskalender.
+- **Folge:** Ein Block im privaten Kalender zeigt Daniel im Arbeitskalender nicht als beschäftigt.
+
 ## M5 — Go-live im echten Vault
 
 1. **Task-Format im Vault** (Daniel mit Claude, geht auch früher): Die Vault-`CLAUDE.md` §3 und der
