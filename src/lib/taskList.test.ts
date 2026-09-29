@@ -28,7 +28,7 @@ function task(description: string, overrides: Partial<VaultTask> = {}): VaultTas
 const OPTIONS = { search: "", kunde: null, onlyUnplanned: false };
 
 describe("date groups", () => {
-  const at = (due: string | null, scheduled: string | null = null) => groupOf({ due, scheduled }, TODAY);
+  const at = (due: string | null, scheduled: string | null = null) => groupOf(due ?? scheduled, TODAY);
 
   it("puts overdue first, then today, the next seven days inclusive, later and undated", () => {
     expect(at("2026-09-23")).toBe("overdue");
@@ -128,6 +128,37 @@ describe("buildList", () => {
     expect(model.openCount).toBe(2);
     expect(model.kunden).toEqual(["K", "Planner"]);
     expect(buildList(planner, null, { ...OPTIONS, kunde: "Planner" }, TODAY).shownCount).toBe(1);
+  });
+
+  it("moves a task to the day of its next block, but never past its own date", () => {
+    const planned = (start: string): PlanStatus => ({
+      kind: "geplant",
+      next: { eventId: "e", start: new Date(start), end: new Date(new Date(start).getTime() + 3_600_000) },
+    });
+    const statuses: Record<string, PlanStatus> = {
+      "ohne Datum, Block heute": planned(`${TODAY}T09:00:00Z`),
+      "ohne Datum, Block Montag": planned("2026-09-28T09:00:00Z"),
+      // Started 23:30 Berlin yesterday, still running: today, not overdue.
+      "über Mitternacht": planned("2026-09-23T21:30:00Z"),
+      "überfällig, Block heute": planned(`${TODAY}T09:00:00Z`),
+      "fällig heute, Block Montag": planned("2026-09-28T09:00:00Z"),
+      "abgelaufen": { kind: "abgelaufen", last: { eventId: "e", start: new Date(`${TODAY}T06:00:00Z`), end: new Date(`${TODAY}T07:00:00Z`) } },
+    };
+    const tasks = [
+      task("ohne Datum, Block heute"),
+      task("ohne Datum, Block Montag"),
+      task("über Mitternacht"),
+      task("überfällig, Block heute", { due: "2026-09-20" }),
+      task("fällig heute, Block Montag", { due: TODAY }),
+      task("abgelaufen"),
+    ];
+    const model = buildList(tasks, (t) => statuses[t.description], OPTIONS, TODAY);
+    const group = (key: string) => model.groups.find((g) => g.key === key)?.tasks.map((t) => t.description);
+    expect(group("overdue")).toEqual(["überfällig, Block heute"]);
+    expect(group("today")).toEqual(["fällig heute, Block Montag", "ohne Datum, Block heute", "über Mitternacht"]);
+    expect(group("week")).toEqual(["ohne Datum, Block Montag"]);
+    // A block that is over no longer plans anything: the task falls back to its own date.
+    expect(group("none")).toEqual(["abgelaufen"]);
   });
 
   it("ignores 'nur ungeplante' while the status is unknown", () => {

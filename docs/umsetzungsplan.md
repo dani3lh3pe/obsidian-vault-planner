@@ -986,6 +986,12 @@ zeigt kein „Aufwand?" mehr. Alte Angaben in den Zeilen blendet `cleanTitle` we
 Outlook-Betreff aus. Der Triage-Ablauf des Vaults schreibt sie womöglich noch; das regelt die
 Vault-`CLAUDE.md`, nicht dieses Repo.
 
+**8.4 Eingeplant rückt vor (2026-09-29):** Daniel zog eine Aufgabe ohne Datum auf heute; sie blieb
+unter „Ohne Datum". Jetzt ist das Datum der Liste das frühere von eigenem Datum und dem Tag des
+nächsten Blocks (`buildList`, aus dem geladenen Kalender abgeleitet wie der Status, Invariante 1).
+Ein Block verschiebt nie nach hinten: überfällig bleibt überfällig, fällig heute bleibt heute. Ist
+der Block vorbei („abgelaufen"), gilt wieder das eigene Datum.
+
 **Offen:** Was soll das Ziehen einer Karte innerhalb der Liste ändern: Priorität, Datum oder nur
 die Reihenfolge? Jede Variante, die in die Aufgabe schreibt, erweitert Invariante 2 bzw. 7. Das
 entscheidet Daniel, wenn er die neue Liste eine Weile benutzt hat.
@@ -998,6 +1004,8 @@ entscheidet Daniel, wenn er die neue Liste eine Weile benutzt hat.
 | „Nur mit Sanduhr geplant" im Testvault ansehen | Die Aufgabe steht unter „Überfällig" und zeigt „⏳ Mi., 23.09." |
 | Zwei Aufgaben mit demselben Datum, eine davon ⏫ | Die ⏫-Aufgabe steht zuerst und trägt das Symbol vor dem Titel |
 | Eine Planner-Aufgabe mit Priorität „Dringend" | Sie trägt 🔺 |
+| Eine Aufgabe ohne Datum auf heute ziehen | Sie wechselt nach „Heute", sobald der Kalender neu gelesen ist |
+| Eine überfällige Aufgabe auf heute ziehen | Sie bleibt unter „Überfällig", die Statuszeile zeigt den Block |
 | „ADR-Liste aktualisieren" (hat `[aufwand:: 90m]`) in den Kalender ziehen | Der Block ist eine Stunde lang, Karte und Betreff zeigen kein `[aufwand::]` |
 
 ## M5 — Go-live im echten Vault

@@ -73,7 +73,9 @@ es sich deshalb einmal ab; **Anmelden** holt die Zustimmung ein.
   - dazu „Warten auf" für `WAITING`, eingeklappt
 
   Das Datum ist `📅`, fehlt es, dann `⏳`. Die Karte zeigt, welches: „bis Di., 22.09." oder
-  „⏳ Mi., 08.07.". Bei gleichem Datum kommt die höhere Priorität zuerst, ihr Symbol steht vor dem
+  „⏳ Mi., 08.07.". Ein eingeplanter Task rückt vor auf den Tag seines nächsten Blocks: heute
+  eingeplant steht unter „Heute". Nach hinten schiebt ein Block nie, eine überfällige Aufgabe
+  bleibt überfällig. Bei gleichem Datum kommt die höhere Priorität zuerst, ihr Symbol steht vor dem
   Titel.
 
   Suche, Kunden-Filter und „nur ungeplante" stehen darüber. Ein Klick öffnet die Aufgabe in einem

@@ -25,21 +25,20 @@ function addDays(day: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** The date the list groups and sorts by: 📅, else ⏳. */
+/** The task's own date: 📅, else ⏳. The list may move it earlier, to its next block (taskList). */
 export function listDate(task: Pick<AnyTask, "due" | "scheduled">): string | null {
   return task.due ?? task.scheduled;
 }
 
-export function groupOf(task: Pick<AnyTask, "due" | "scheduled">, today: string): Group {
-  const date = listDate(task);
+export function groupOf(date: string | null, today: string): Group {
   if (date === null) return "none";
   if (date < today) return "overdue";
   if (date === today) return "today";
   return date <= addDays(today, URGENT_WITHIN_DAYS) ? "week" : "later";
 }
 
-/** Strictly before today; a past ⏳ counts too, it is the date the list shows. */
-export const isOverdue = (task: Pick<AnyTask, "due" | "scheduled">, today: string): boolean => groupOf(task, today) === "overdue";
+/** The task's own date strictly before today; a past ⏳ counts too, it is the date the card shows. */
+export const isOverdue = (task: Pick<AnyTask, "due" | "scheduled">, today: string): boolean => groupOf(listDate(task), today) === "overdue";
 
 /**
  * The Tasks emoji and its name, for the card: without the quadrants nothing else shows a priority.
@@ -66,8 +65,8 @@ const origin = (task: AnyTask): { path: string; line: number } =>
  * The list date first (none last), then the priority, then "in progress" before open, then the
  * text. Total — the file and line settle the last tie — so the list never flickers between renders.
  */
-export function compareTasks(a: AnyTask, b: AnyTask): number {
-  const [dateA, dateB] = [listDate(a), listDate(b)];
+export function compareTasks(a: AnyTask, b: AnyTask, dateOf: (task: AnyTask) => string | null = listDate): number {
+  const [dateA, dateB] = [dateOf(a), dateOf(b)];
   if (dateA !== dateB) {
     if (dateA === null) return 1;
     if (dateB === null) return -1;

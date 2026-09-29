@@ -1,6 +1,7 @@
 import { OPEN_STATUSES } from "../config";
-import { compareTasks, GROUP_ORDER, groupOf, type Group } from "./priority";
+import { compareTasks, GROUP_ORDER, groupOf, listDate, type Group } from "./priority";
 import { cleanTitle } from "./subject";
+import { plannerDay } from "./time";
 import type { AnyTask, PlanStatus } from "./types";
 
 export interface ListOptions {
@@ -34,6 +35,17 @@ export function buildList(
   options: ListOptions,
   today: string,
 ): ListModel {
+  // The earlier of the task's own date and the day of its next block: planned for today is today.
+  // A block never moves a task past its deadline — an overdue one stays overdue.
+  const dateOf = (task: AnyTask): string | null => {
+    const own = listDate(task);
+    const plan = statusOf?.(task);
+    if (plan?.kind !== "geplant") return own;
+    // Not before today: a block still running past midnight started "yesterday".
+    const start = plannerDay(plan.next.start);
+    const day = start < today ? today : start;
+    return own === null || day < own ? day : own;
+  };
   const open = tasks.filter(isOpen);
   const kunden = [...new Set(open.map((task) => task.kunde))].sort((a, b) => a.localeCompare(b, "de"));
   const needle = options.search.trim().toLocaleLowerCase("de");
@@ -48,13 +60,13 @@ export function buildList(
       if (options.onlyUnplanned && statusOf !== null && statusOf(task).kind === "geplant") return false;
       return true;
     })
-    .sort(compareTasks);
+    .sort((a, b) => compareTasks(a, b, dateOf));
 
   const groups = GROUP_ORDER.map((key) => ({ key, tasks: [] as AnyTask[] }));
   const waiting: AnyTask[] = [];
   for (const task of visible) {
     if (task.isWaiting) waiting.push(task);
-    else groups[GROUP_ORDER.indexOf(groupOf(task, today))].tasks.push(task);
+    else groups[GROUP_ORDER.indexOf(groupOf(dateOf(task), today))].tasks.push(task);
   }
   return { groups, waiting, kunden, openCount: open.length, shownCount: visible.length };
 }
