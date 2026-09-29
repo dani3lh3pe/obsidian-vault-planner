@@ -43,7 +43,7 @@ export interface VaultTask {
   raw: string;
   /** The checkbox character: " " open, "/" in progress, "x" done, … */
   status: string;
-  /** Text left of the Tasks fields, block link removed. Still carries links and `[aufwand::]`. */
+  /** Text left of the Tasks fields, block link removed. Still carries links and old `[aufwand::]` notes. */
   description: string;
   priority: Priority;
   /** yyyy-mm-dd from 📅, or null. */
@@ -53,8 +53,6 @@ export interface VaultTask {
    * never the plan status (Invariant 1).
    */
   scheduled: string | null;
-  /** Hours from `[aufwand:: …]`, or undefined. */
-  aufwand: number | undefined;
   blockId: string | null;
   isWaiting: boolean;
   isRecurring: boolean;
@@ -80,7 +78,6 @@ export interface PlannerTask {
   priority: Priority;
   due: string | null;
   scheduled: null;
-  aufwand: undefined;
   isWaiting: false;
   kunde: string;
   /** The plan's title, or null while it is unknown. */

@@ -83,7 +83,6 @@ export function mapPlannerTasks(raw: readonly unknown[]): { tasks: PlannerTask[]
       priority: plannerPriority(item.priority),
       due: plannerDue(item.dueDateTime),
       scheduled: null,
-      aufwand: undefined,
       isWaiting: false,
       kunde: PLANNER_LABEL,
       projekt: null,

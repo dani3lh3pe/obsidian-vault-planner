@@ -74,8 +74,7 @@ es sich deshalb einmal ab; **Anmelden** holt die Zustimmung ein.
 
   Das Datum ist `📅`, fehlt es, dann `⏳`. Die Karte zeigt, welches: „bis Di., 22.09." oder
   „⏳ Mi., 08.07.". Bei gleichem Datum kommt die höhere Priorität zuerst, ihr Symbol steht vor dem
-  Titel. Die Dauer beim Ziehen kommt aus `[aufwand:: …]`, einer eigenen Angabe dieses Plugins, die
-  Tasks nicht kennt.
+  Titel.
 
   Suche, Kunden-Filter und „nur ungeplante" stehen darüber. Ein Klick öffnet die Aufgabe in einem
   neuen Tab.
@@ -85,8 +84,8 @@ es sich deshalb einmal ab; **Anmelden** holt die Zustimmung ein.
 - **Ansicht:** Die Knöpfe rechts über dem Kalender schalten zwischen 1, 2, 3 oder 4 Arbeitstagen,
   der Arbeitswoche und der ganzen Woche mit Wochenende um. In der Tagesansicht blättern die Pfeile
   um so viele Arbeitstage, wie zu sehen sind. Die Wahl bleibt auf diesem Gerät gespeichert.
-- **Einplanen:** eine Karte in den Kalender ziehen. Die Dauer ist `[aufwand:: …]`, sonst eine
-  Stunde. Die Karte zeigt „Wird gespeichert…", bis der Termin im Kalender auftaucht.
+- **Einplanen:** eine Karte in den Kalender ziehen. Ein Block ist eine Stunde lang; am Rand ziehen
+  ändert die Länge. Die Karte zeigt „Wird gespeichert…", bis der Termin im Kalender auftaucht.
 - **Verschieben oder Größe ändern:** den Block im Kalender ziehen bzw. am Rand ziehen.
 - **Block löschen:** Rechtsklick auf den Block → „Block löschen…".
 - **Erledigen:** die Checkbox an der Karte (über das Tasks-Plugin). Die Blöcke bleiben in Outlook

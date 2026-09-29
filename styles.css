@@ -203,10 +203,6 @@ body {
   margin-right: var(--size-2-2);
 }
 
-.vp-card .vp-effort.is-missing {
-  color: var(--text-faint);
-}
-
 .vp-card .vp-chip {
   padding: 0 var(--size-2-2);
   border-radius: var(--radius-s);

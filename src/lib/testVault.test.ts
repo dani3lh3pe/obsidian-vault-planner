@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseFileTasks, taskSource } from "./parseTask";
+import { cleanTitle, eventSubject } from "./subject";
 
 /**
  * The test vault's fixture files, read through the real parser — so the vault Daniel tests with and
@@ -41,8 +42,14 @@ describe("test vault fixtures", () => {
     expect(fixed.due).toBe("2026-09-25");
   });
 
-  it("reads effort, recurrence, block ids and the variation selector", () => {
-    expect(byText("ADR-Liste").aufwand).toBe(1.5);
+  it("keeps an old effort note out of title and subject, and still sees the date behind it", () => {
+    const adr = byText("ADR-Liste");
+    expect(adr.due).toBe("2026-09-29");
+    expect(cleanTitle(adr.description)).toBe("ADR-Liste aktualisieren");
+    expect(eventSubject(adr.description)).toBe("ADR-Liste aktualisieren");
+  });
+
+  it("reads recurrence, block ids and the variation selector", () => {
     expect(byText("Timesheet").isRecurring).toBe(true);
     expect(byText("Mit Block-ID").blockId).toBe("t-demo01");
     expect(byText("Mit fremder").blockId).toBe("abc123");

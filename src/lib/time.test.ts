@@ -2,8 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   toWallClock,
   fromGraphUtc,
-  aufwandToDuration,
-  aufwandToMinutes,
   formatSlot,
   formatSlotWithDate,
   plannerDay,
@@ -74,28 +72,6 @@ describe("fromGraphUtc", () => {
   });
 });
 
-describe("aufwandToDuration", () => {
-  it("converts whole and half hours", () => {
-    expect(aufwandToDuration(3)).toBe("03:00");
-    expect(aufwandToDuration(0.5)).toBe("00:30");
-  });
-
-  it("clamps a too-small effort up to 15 minutes", () => {
-    // A 6-minute block cannot be hit while dragging.
-    expect(aufwandToDuration(0.1)).toBe("00:15");
-  });
-
-  it("clamps a too-large effort down to 8 hours", () => {
-    expect(aufwandToDuration(12)).toBe("08:00");
-  });
-
-  it("falls back to the minimum for nonsense input", () => {
-    // aufwand comes from a hand-edited task line; NaN must not produce "NaN:NaN".
-    expect(aufwandToDuration(Number.NaN)).toBe("00:15");
-    expect(aufwandToDuration(-3)).toBe("00:15");
-  });
-});
-
 describe("formatSlot", () => {
   it("names the weekday and both times in Berlin time", () => {
     // Proves the list can report a block that sits outside the visible grid hours.
@@ -103,20 +79,6 @@ describe("formatSlot", () => {
     expect(slot).toContain("06:00");
     expect(slot).toContain("08:00");
     expect(slot).toMatch(/^Mo/);
-  });
-});
-
-describe("aufwandToMinutes", () => {
-  it("pins the clamp, because both scheduling paths book by this number", () => {
-    // Values, not an identity against aufwandToDuration: that function is now
-    // implemented BY this one, so comparing them would hold by construction and
-    // a broken clamp would book short blocks with the suite still green.
-    expect(aufwandToMinutes(0.1)).toBe(15); // below the floor
-    expect(aufwandToMinutes(0.25)).toBe(15);
-    expect(aufwandToMinutes(1.6)).toBe(90); // snapped to the quarter hour
-    expect(aufwandToMinutes(8)).toBe(480);
-    expect(aufwandToMinutes(12)).toBe(480); // above the ceiling
-    expect(aufwandToMinutes(Number.NaN)).toBe(15);
   });
 });
 

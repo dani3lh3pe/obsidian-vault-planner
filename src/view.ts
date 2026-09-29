@@ -13,7 +13,7 @@ import {
   BUSINESS_HOURS,
   CALENDAR_VIEW_KEY,
   CLICK_SLOP_PX,
-  DEFAULT_AUFWAND_HOURS,
+  BLOCK_DURATION,
   PLANNER_REFRESH_INTERVAL_MS,
   REFRESH_INTERVAL_MS,
   VIEW_TYPE,
@@ -28,7 +28,7 @@ import { ReadGate } from "./lib/readGate";
 import { blocksByTask, fetchRange, inRange, linkKey, plannerIdOf, plannerKey, planStatus, statusWindow } from "./lib/schedule";
 import { cleanTitle, eventBody, eventSubject, plannerEventBody } from "./lib/subject";
 import { buildList, isOpen, type ListOptions } from "./lib/taskList";
-import { aufwandToDuration, formatDue, formatSlot, formatSlotWithDate, plannerDay, shiftWorkdays } from "./lib/time";
+import { formatDue, formatSlot, formatSlotWithDate, plannerDay, shiftWorkdays } from "./lib/time";
 import { toFullCalendarEvents, type BlockState, type EventProps } from "./lib/toFullCalendarEvents";
 import type { AnyTask, CalendarEvent, PlannerBucket, PlannerTask, PlanStatus, TimeRange, VaultTask } from "./lib/types";
 import { visibleHours } from "./lib/visibleHours";
@@ -66,8 +66,6 @@ interface CardData {
   /** The Tasks emoji of a set priority, and its name for screen readers. */
   priority: { mark: string; name: string } | null;
   title: string;
-  /** "1,5 h", or null while the task has no [aufwand::]. */
-  effort: string | null;
   /** Customer · project. */
   meta: string;
   bucket: string | null;
@@ -79,7 +77,6 @@ interface CardData {
   status: { text: string; muted: boolean } | null;
   conflict: string | null;
   pending: boolean;
-  duration: string;
 }
 
 /** A real dialog naming the thing, never window.confirm (UX rule 3). */
@@ -278,7 +275,9 @@ export class PlannerView extends ItemView {
       itemSelector: ".vp-card[data-drag]",
       eventData: (el) => ({
         title: el.dataset.title ?? "",
-        duration: el.dataset.duration ?? "01:00",
+        // Required: without it FullCalendar gives the drop no end (hasEnd, interaction/index.js:1942),
+        // and onEventReceive returns silently — every drop would vanish.
+        duration: BLOCK_DURATION,
         create: true,
         extendedProps: { path: el.dataset.path, raw: el.dataset.raw, blockId: el.dataset.blockId, plannerId: el.dataset.plannerId },
       }),
@@ -642,7 +641,6 @@ export class PlannerView extends ItemView {
       plannerId: planner?.id ?? null,
       priority: PRIORITY_MARK[task.priority],
       title: cleanTitle(task.description) || task.description,
-      effort: task.aufwand === undefined ? null : `${String(task.aufwand).replace(".", ",")} h`,
       meta: task.projekt === null ? task.kunde : `${task.kunde} · ${task.projekt}`,
       bucket: bucket?.name ?? null,
       shared: planner === null || !planner.othersAssigned ? null : `mit ${others(planner.othersAssigned)}`,
@@ -654,8 +652,6 @@ export class PlannerView extends ItemView {
         (key !== null && this.gate.isPending(key)) ||
         (vault !== null && this.gate.isPending(rawKey(vault))) ||
         (planner !== null && this.plannerWriting.has(planner.id)),
-      // The drag preview shows the length that will be booked: effort, or one hour without it.
-      duration: aufwandToDuration(task.aufwand ?? DEFAULT_AUFWAND_HOURS),
     };
   }
 
@@ -743,7 +739,6 @@ export class PlannerView extends ItemView {
         if (card.blockId !== null) el.dataset.blockId = card.blockId;
       }
       el.dataset.title = card.title;
-      el.dataset.duration = card.duration;
     }
 
     const check = el.createEl("input", { type: "checkbox", cls: "vp-check", attr: { "aria-label": "Erledigen", title: "Erledigen" } });
@@ -763,10 +758,7 @@ export class PlannerView extends ItemView {
       title.createSpan({ cls: "vp-priority", text: card.priority.mark, attr: { title: label, "aria-label": label } });
     }
     title.appendText(card.title);
-    const meta = body.createDiv({ cls: "vp-meta" });
-    // A missing effort is a prompt, not information: it stays, but quiet.
-    meta.createSpan({ cls: card.effort === null ? "vp-effort is-missing" : "vp-effort", text: card.effort ?? "Aufwand?" });
-    meta.appendText(` · ${card.meta}`);
+    const meta = body.createDiv({ cls: "vp-meta", text: card.meta });
     if (card.bucket !== null) {
       meta.appendText(" ");
       meta.createSpan({ cls: "vp-chip", text: card.bucket });

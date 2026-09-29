@@ -84,7 +84,7 @@ seiner Graph-Details belegten Fallen. Beides ist unten korrigiert, und der Umfan
 | 19 | Popover für fremde Termine, „In Outlook öffnen", „Task erledigen" im Block-Menü, Refresh-Knopf | Block-Menü mit „Aufgabe öffnen" und „Block löschen…", fremde Termine bekommen einen Tooltip | Nichts davon beschleunigt den Morgenablauf. Erledigen sitzt an der Karte, die Aktualisierung läuft von selbst |
 | 20 | Auth erst in Phase 3 | In M1, zusammen mit dem Lesen des Kalenders | Risiko zuerst: Die Unbekannten sind die Tenant-Policy und FullCalendar in Obsidian, nicht die Taskliste |
 | 21 | Beispielzeile `… 📅 2026-09-25 ➕ 2026-09-24 ([[…capture]])` | Die Triage-Regel setzt den Quelllink **vor** die Emoji-Felder, bestehende Zeilen werden einmalig bereinigt (M5) | Tasks liest die Zeile „backwards from the end", und hinter den Feldern sind nur Block-Links und Tags erlaubt. Mit dem Link am Ende sind `📅` **und** `➕` unsichtbar. Das verstößt gegen die eigene Regel aus Abschnitt 1.2 |
-| 22 | Vault-`CLAUDE.md`: „`⏳` verwaltet der Planner" | Entfällt. Es bleiben die Regeln zu Block-ID, Aufwand und Einrückung | Es gibt kein `⏳` mehr |
+| 22 | Vault-`CLAUDE.md`: „`⏳` verwaltet der Planner" | Entfällt. Es bleiben die Regeln zu Block-ID und Einrückung (die zum Aufwand entfällt seit M8) | Es gibt kein `⏳` mehr |
 | 23 | ESLint | Kein Linter. Das Gate ist `tsc` im strict-Modus | So wie in der Web-App |
 | 24 | Nicht-Ziel: wiederkehrende Tasks einplanen | Geht ohne Sonderfall | Beim Erledigen bleibt die Block-ID an der erledigten Zeile, die Folgeaufgabe bekommt keine (Tasks-Quelltext `createNextOccurrence`: `blockLink: ''`). Beim nächsten Einplanen erhält sie eine eigene. Ein Verbot bräuchte Code, das Zulassen nicht |
 
@@ -138,18 +138,16 @@ Der Live-Vault läuft auf 1.13.x.
 **Task-Zeile.** Das Plugin hängt nur die Block-ID an:
 
 ```markdown
-- [ ] ADR-Liste aktualisieren [aufwand:: 2h] ⏫ 📅 2026-09-28 ^t-3f9a1c
+- [ ] ADR-Liste aktualisieren ⏫ 📅 2026-09-28 ^t-3f9a1c
 ```
 
 - **Block-ID:** `^t-` plus 6 Zeichen `[a-z0-9]`. Sie wird beim ersten Drop gesetzt und nie
   geändert. Hat die Zeile schon eine Block-ID (etwa über „Link zum Block kopieren"), wird **diese**
   verwendet.
-- **Aufwand:** `[aufwand:: 2h]`, `90m` oder `1.5h` in der Beschreibung, vor den Emoji-Feldern
-  (Entwurf, Entscheidung 2). Der Parser liefert Stunden. Die Drag-Dauer ist
-  `aufwandToDuration(aufwand ?? PROPOSED_AUFWAND)`, ohne Aufwand also 60 min. **Achtung:**
-  `aufwandToMinutes(undefined)` ergibt absichtlich 15 min („NOT a scheduling default", Web-App
-  `time.ts:93–95`). Der Fallback gehört deshalb an die Aufrufstelle. Der POST verwendet das
-  `end`, das `eventReceive` liefert.
+- **Aufwand:** Seit M8 entfernt. Bis dahin las der Parser `[aufwand:: 2h]` (Entwurf,
+  Entscheidung 2) als Drag-Dauer. Jetzt ist jeder Block `BLOCK_DURATION` lang, eine Stunde, und
+  alte Angaben blendet nur `cleanTitle` aus. Der POST verwendet das `end`, das `eventReceive`
+  liefert.
 - **Kunde und Projekt:** Kunde ist der erste Ordner unter `10_Kunden/`, für `20_Intern/` ist es
   „junis intern". Projekt ist der Ordner der Datei, sofern er nicht der Kunde selbst ist. Beispiel:
   `10_Kunden/<K>/<K>.md` ergibt Kunde K ohne Projekt, `10_Kunden/<K>/<P>/<P>.md` ergibt Kunde K,
@@ -255,7 +253,7 @@ Die reine Logik steckt in `lib/readGate.ts` und hat einen Test.
 
 | Datei in daily-planner | Übernahme |
 | --- | --- |
-| `src/lib/time.ts` (+Test) | Unverändert: `toWallClock`, `fromGraphUtc`, `plannerDay`, `formatSlot` (Berliner Zeit), `aufwandToMinutes`, `aufwandToDuration`, `PROPOSED_AUFWAND` |
+| `src/lib/time.ts` (+Test) | Unverändert: `toWallClock`, `fromGraphUtc`, `plannerDay`, `formatSlot` (Berliner Zeit), `aufwandToMinutes`, `aufwandToDuration`, `PROPOSED_AUFWAND` (die drei letzten seit M8 entfernt) |
 | `src/lib/calendar/mapGraphEvents.ts` (+Test) | Neu ist das Feld `vaultTaskId` aus der ersten expandierten Property. Die Property-ID nicht exakt vergleichen, denn der `$filter` hat schon ausgewählt |
 | `src/lib/calendar/toFullCalendarEvents.ts` (+Test) | Nur der Mapper: Eigene Blöcke erkennt er an `vaultTaskId`, dazu die Varianten „nicht gefunden" und „Konflikt". **Nicht** übernommen werden `blocksTime` und `blocksDay`, die nur „Heute einplanen" braucht |
 | `src/lib/calendar/visibleHours.ts` (+Test) | Unverändert |
@@ -545,12 +543,12 @@ liest „backwards from the end of the line" und hört beim ersten unbekannten W
   3. Der Rest ist die Beschreibung. Tasks schreibt beim Erledigen in eigener Reihenfolge neu,
      deshalb muss der Parser jede Reihenfolge lesen können.
 - **Ergebnis:** Status, Beschreibung, Priorität, `due`, `isRecurring`, `blockId`, Aufwand (in
-  Stunden) und `isWaiting`. Dazu Kunde und Projekt aus dem Pfad, nach der Quellregel.
+  Stunden, seit M8 entfernt; dafür `scheduled` aus `⏳`) und `isWaiting`. Dazu Kunde und Projekt aus dem Pfad, nach der Quellregel.
 
 Fixture-Zeilen (auch im Testvault):
 
 - die drei Beispiele aus dem Entwurf, dazu dieselbe Zeile mit dem Quelllink vor den Feldern
-- `[aufwand:: 90m]` und `[aufwand:: 1.5h]`
+- `[aufwand:: 90m]` und `[aufwand:: 1.5h]` (seit M8 nur noch für die Titelbereinigung)
 - eine vorhandene `^t-…` und eine fremde `^abc123`
 - `🔁 every week` vor und nach `📅`
 - `[/]`, `[x] … ✅`, `[-]`
@@ -585,7 +583,7 @@ Tasks-Abfrage gegengeprüft: gleiches `due`, gleiche Priorität.
   Beschreibung nach `de`-Kollation. Seit M8 zählt ersatzweise `⏳`, und die Priorität kommt vor `[/]`.
 - **Karte:**
   - Beschreibung.
-  - Zeile 2: „Aufwand · Kunde · Projekt · bis `due`", überfällig rot **und** fett.
+  - Zeile 2: „Aufwand · Kunde · Projekt · bis `due`", überfällig rot **und** fett. Seit M8 ohne Aufwand.
   - Statuszeile, nur wenn der Kalender bereit ist.
   - Checkbox, ab M4 aktiv.
   - Konfliktkarten zeigen stattdessen den Konflikthinweis.
@@ -621,15 +619,15 @@ Tasks-Abfrage gegengeprüft: gleiches `due`, gleiche Priorität.
 
 ## M3 — Einplanen per Drag & Drop (der erste Schreibpfad)
 
-**Ziel:** Einen Task auf Mi 10:00 ziehen ergibt einen Outlook-Termin 10:00–11:00 (bzw. so lang wie
-der Aufwand) mit Property. In der Task-Zeile ist nur `^t-…` dazugekommen.
+**Ziel:** Einen Task auf Mi 10:00 ziehen ergibt einen Outlook-Termin 10:00–11:00 mit Property (bis
+M8 so lang wie der Aufwand). In der Task-Zeile ist nur `^t-…` dazugekommen.
 
 **3.1 Draggable** (Vorlage `useTaskDraggable.ts`):
 
 - Genau ein `new Draggable(listScrollEl, { itemSelector: ".vp-card[data-drag]", eventData })`.
 - **Was eine Karte trägt:** `data-path`, `data-raw` (die Rohzeile, ohne Zeilennummer),
-  gegebenenfalls `data-block-id`, `data-title` und `data-duration`. Letzteres ist
-  `aufwandToDuration(aufwand ?? PROPOSED_AUFWAND)`.
+  gegebenenfalls `data-block-id` und `data-title`. Die Dauer steht seit M8 nicht mehr an der Karte:
+  `eventData` gibt fest `BLOCK_DURATION` (eine Stunde) mit, und ohne sie hätte der Drop kein Ende.
 - `data-drag` fehlt, solange die Karte speichert oder einen Block-ID-Konflikt hat.
 - **Die Checkbox** stoppt `mousedown`, `touchstart` und `click`. Den Drag startet FullCalendar über
   `mousedown`/`touchstart` am Container (`interaction/index.js:119–120`); `pointerdown` zu stoppen
@@ -701,7 +699,7 @@ Fehler erscheinen im Klartext aus `errors.ts`.
 | Mittwoch buchen, auf nächste Woche blättern | Die Karte zeigt weiter „geplant" |
 | WLAN aus bzw. nach einem gescheiterten Lesevorgang ziehen | Der Drop wird abgelehnt, nichts wird geschrieben |
 | Eine Zeile mit `^t-…` in eine andere Projektdatei kopieren | Beide Karten zeigen den Konflikt, keine ist ziehbar |
-| Einen Task mit `[aufwand:: 90m]` bzw. ohne Aufwand ziehen | 90 bzw. 60 min |
+| Einen Task ziehen (seit M8 gibt es keinen Aufwand mehr) | 60 min |
 | In die Zeile tippen, innerhalb von 2 s ziehen, 5 s warten | Die Zeile enthält den Text **und** `^t-…`, der Block wird erkannt |
 | Einen Task mit Link und Umlauten ziehen | Der Betreff ist bereinigt, die Umlaute stimmen |
 
@@ -841,7 +839,7 @@ Planner darf den Kalender nicht mitnehmen.
 
 **6.5 Oberfläche:**
 
-- Die Karte zeigt „Aufwand? · Planner · Planname · Bucket" und gegebenenfalls „mit N weiteren".
+- Die Karte zeigt „Planner · Planname · Bucket" und gegebenenfalls „mit N weiteren" (bis M8 mit „Aufwand?" vorn).
 - Ein Klick öffnet die Aufgabe in Planner im Browser.
 - Rechtsklick öffnet ein Menü mit „In Planner öffnen" und den Buckets des Plans; der aktuelle ist
   abgehakt.
@@ -911,7 +909,7 @@ Nicht-Arbeitszeit, und alle Karten waren gleich grau. Mit Daniel entschieden:
 **7.2 Liste:**
 
 - Datum „bis Di., 22.09." im Stil der Statuszeile, mit Jahr nur außerhalb des laufenden Jahres (`formatDue`).
-- „Aufwand?" blass.
+- „Aufwand?" blass (seit M8 ganz entfernt).
 - Bucket als Chip.
 
 **7.3 Ansichten:**
@@ -982,6 +980,12 @@ Daniel entschieden:
 | Eine Aufgabe mit `📅` und `⏳` nach `⏳` einsortieren | `📅` gewinnt. `⏳` zählt nur, wo `📅` fehlt |
 | Ohne Quadranten verschwindet die Priorität | Nebenkriterium beim Sortieren und Symbol an der Karte |
 
+**8.3 Aufwand entfällt (2026-09-29):** Daniel nutzt ihn nicht, er war überdimensioniert. Das Plugin
+liest `[aufwand::]` nicht mehr, jeder Block ist eine Stunde lang (`BLOCK_DURATION`), und die Karte
+zeigt kein „Aufwand?" mehr. Alte Angaben in den Zeilen blendet `cleanTitle` weiter aus Titel und
+Outlook-Betreff aus. Der Triage-Ablauf des Vaults schreibt sie womöglich noch; das regelt die
+Vault-`CLAUDE.md`, nicht dieses Repo.
+
 **Offen:** Was soll das Ziehen einer Karte innerhalb der Liste ändern: Priorität, Datum oder nur
 die Reihenfolge? Jede Variante, die in die Aufgabe schreibt, erweitert Invariante 2 bzw. 7. Das
 entscheidet Daniel, wenn er die neue Liste eine Weile benutzt hat.
@@ -994,6 +998,7 @@ entscheidet Daniel, wenn er die neue Liste eine Weile benutzt hat.
 | „Nur mit Sanduhr geplant" im Testvault ansehen | Die Aufgabe steht unter „Überfällig" und zeigt „⏳ Mi., 23.09." |
 | Zwei Aufgaben mit demselben Datum, eine davon ⏫ | Die ⏫-Aufgabe steht zuerst und trägt das Symbol vor dem Titel |
 | Eine Planner-Aufgabe mit Priorität „Dringend" | Sie trägt 🔺 |
+| „ADR-Liste aktualisieren" (hat `[aufwand:: 90m]`) in den Kalender ziehen | Der Block ist eine Stunde lang, Karte und Betreff zeigen kein `[aufwand::]` |
 
 ## M5 — Go-live im echten Vault
 
@@ -1004,7 +1009,6 @@ entscheidet Daniel, wenn er die neue Liste eine Weile benutzt hat.
 2. **Vault-`CLAUDE.md` §3 ergänzen:**
    - Block-IDs `^…` am Zeilenende nie entfernen oder ändern, auch beim Umformulieren nicht.
    - **Beim Kopieren oder Aufteilen behält nur das Original die Block-ID.**
-   - Aufwand als `[aufwand:: 2h]` vor den Emoji-Feldern, und nur, wenn er genannt wurde.
    - Eingerückte Blöcke unter Tasks bleiben unverändert.
 3. **Sichern:** den Vault als Zip, als Stand vor dem ersten Schreibzugriff.
 4. **Installieren:** erst, wenn alle Verifikationstabellen M1–M4 und M6 auf Windows bestanden sind, der
@@ -1094,7 +1098,7 @@ beweist.
   - „Heute einplanen" mit `blocksTime`/`blocksDay`: aus `nextGap.ts` portierbar, wenn das Ziehen
     zu langsam wird.
   - Aufwand beim Drop abfragen wie im `AufwandDialog` der Web-App. Stattdessen gelten 60 min, und
-    man ändert die Größe im Raster.
+    man ändert die Größe im Raster. Seit M8 wird auch `[aufwand::]` nicht mehr gelesen.
   - Hinweis bei einer Rechner-Zeitzone ungleich Berlin (Web-App `App.tsx:809–817`). Auf Reisen
     weichen dann Raster (lokal) und Statuszeilen (Berlin) voneinander ab.
 - **Außerhalb des Umfangs:**

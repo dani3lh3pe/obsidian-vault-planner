@@ -49,28 +49,15 @@ const PRIORITIES: Record<string, Priority> = {
   "⏬": "lowest",
 };
 
-const AUFWAND = /\[aufwand::\s*([0-9]+(?:[.,][0-9]+)?)\s*(h|m|min)?\s*\]/iu;
-
 export interface ParsedLine {
   status: string;
   description: string;
   priority: Priority;
   due: string | null;
   scheduled: string | null;
-  aufwand: number | undefined;
   blockId: string | null;
   isWaiting: boolean;
   isRecurring: boolean;
-}
-
-/** Hours from `[aufwand:: 2h]`, `[aufwand:: 90m]`, `[aufwand:: 1,5h]`; a bare number is hours. */
-export function parseAufwand(text: string): number | undefined {
-  const match = AUFWAND.exec(text);
-  if (match === null) return undefined;
-  const value = Number.parseFloat(match[1].replace(",", "."));
-  const unit = (match[2] ?? "h").toLowerCase();
-  const hours = unit === "h" ? value : value / 60;
-  return Number.isFinite(hours) && hours > 0 ? hours : undefined;
 }
 
 export function parseTaskLine(line: string, globalFilter: string = TASKS_GLOBAL_FILTER): ParsedLine | null {
@@ -144,7 +131,6 @@ export function parseTaskLine(line: string, globalFilter: string = TASKS_GLOBAL_
     priority,
     due,
     scheduled,
-    aufwand: parseAufwand(description),
     blockId,
     isWaiting: /^WAITING\b/u.test(description),
     isRecurring,

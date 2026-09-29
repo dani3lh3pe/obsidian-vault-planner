@@ -7,7 +7,7 @@ function linkText(target: string): string {
   return withoutHeading.split("/").pop() ?? withoutHeading;
 }
 
-/** Links become their text, the effort field and the WAITING marker go. */
+/** Links become their text; an old `[aufwand::]` note (no longer read, M8) and the WAITING marker go. */
 export function cleanTitle(description: string): string {
   return description
     .replace(/!\[\[[^\]]*\]\]/gu, "") // embeds

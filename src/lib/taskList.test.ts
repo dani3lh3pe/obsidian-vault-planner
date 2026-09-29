@@ -16,7 +16,6 @@ function task(description: string, overrides: Partial<VaultTask> = {}): VaultTas
     priority: "none",
     due: null,
     scheduled: null,
-    aufwand: undefined,
     blockId: null,
     isWaiting: false,
     isRecurring: false,

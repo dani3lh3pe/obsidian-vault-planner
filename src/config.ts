@@ -92,8 +92,8 @@ export const OPEN_STATUSES: readonly string[] = [" ", "/"];
 /** A date this close lands in "Nächste 7 Tage" — the web app's urgency horizon. */
 export const URGENT_WITHIN_DAYS = 7;
 
-/** Without `[aufwand::]` a block is booked for one hour, the same proposal as the web app. */
-export const DEFAULT_AUFWAND_HOURS = 1;
+/** Every block is booked for one hour, the web app's proposal; resizing in the grid changes it. */
+export const BLOCK_DURATION = "01:00";
 
 /** Device-local storage keys. Never in data.json: that file lives in the synced vault. */
 export const SECRET_REFRESH_TOKEN = "vault-planner-refresh-token";

@@ -58,27 +58,6 @@ export function fromGraphUtc(dateTime: string): Date {
   return new Date(`${dateTime.slice(0, 19)}Z`);
 }
 
-const MIN_HOURS = 0.25;
-const MAX_HOURS = 8;
-
-/**
- * Hours -> block length in minutes, clamped to 15 min – 8 h and snapped to the quarter hour.
- *
- * An unknown effort falls to the floor so one missing value cannot break a render. It is NOT a
- * scheduling default: callers pass `aufwand ?? DEFAULT_AUFWAND_HOURS`.
- */
-export function aufwandToMinutes(hours: number | undefined): number {
-  const safe = hours !== undefined && Number.isFinite(hours) && hours > 0 ? hours : MIN_HOURS;
-  const clamped = Math.min(MAX_HOURS, Math.max(MIN_HOURS, safe));
-  return Math.round((clamped * 60) / 15) * 15;
-}
-
-/** The same length as the "HH:MM" string FullCalendar's Draggable expects. */
-export function aufwandToDuration(hours: number | undefined): string {
-  const minutes = aufwandToMinutes(hours);
-  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-}
-
 const DAY_AND_TIME = new Intl.DateTimeFormat("de-DE", {
   timeZone: PLANNER_IANA_ZONE,
   weekday: "short",

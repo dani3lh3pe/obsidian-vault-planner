@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAufwand, parseFileTasks, parseTaskLine, taskSource } from "./parseTask";
+import { parseFileTasks, parseTaskLine, taskSource } from "./parseTask";
 
 /** The shape every case is checked against; only the fields a case names are compared. */
 function parse(line: string) {
@@ -57,7 +57,8 @@ describe("parseTaskLine — fields", () => {
 
   it("reads ⏳ as the scheduled date, apart from 📅 — the live vault's import format", () => {
     const task = parse("- [ ] Rollen aufräumen [aufwand:: 3h] ⏳ 2026-07-08 ^t-ops-rollen-aufraeumen");
-    expect(task).toMatchObject({ scheduled: "2026-07-08", due: null, aufwand: 3, blockId: "t-ops-rollen-aufraeumen" });
+    expect(task).toMatchObject({ scheduled: "2026-07-08", due: null, blockId: "t-ops-rollen-aufraeumen" });
+    // The old effort note stays description text; cleanTitle hides it (subject.test.ts).
     expect(task.description).toBe("Rollen aufräumen [aufwand:: 3h]");
     expect(parse("- [ ] a ⌛ 2026-07-08 📅 2026-07-10")).toMatchObject({ scheduled: "2026-07-08", due: "2026-07-10" });
   });
@@ -137,22 +138,6 @@ describe("parseTaskLine — what is a task", () => {
   it("honours a global filter", () => {
     expect(parseTaskLine("- [ ] ohne Filter", "#task")).toBeNull();
     expect(parseTaskLine("- [ ] mit #task", "#task")?.description).toBe("mit #task");
-  });
-});
-
-describe("parseAufwand", () => {
-  it("reads hours and minutes", () => {
-    expect(parseAufwand("x [aufwand:: 2h] y")).toBe(2);
-    expect(parseAufwand("[aufwand:: 90m]")).toBe(1.5);
-    expect(parseAufwand("[aufwand:: 1.5h]")).toBe(1.5);
-    expect(parseAufwand("[aufwand:: 1,5 h]")).toBe(1.5);
-    expect(parseAufwand("[Aufwand:: 30 min]")).toBe(0.5);
-    expect(parseAufwand("[aufwand:: 3]")).toBe(3);
-  });
-
-  it("has no effort for nonsense or absence", () => {
-    expect(parseAufwand("keins")).toBeUndefined();
-    expect(parseAufwand("[aufwand:: 0h]")).toBeUndefined();
   });
 });
 
