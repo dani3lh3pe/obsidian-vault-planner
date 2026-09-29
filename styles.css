@@ -104,28 +104,32 @@ body {
   z-index: 1;
   margin: var(--size-4-3) 0 var(--size-4-2);
   padding: var(--size-2-2) var(--size-4-2);
-  border-left: 3px solid var(--vp-quadrant, transparent);
+  border-left: 3px solid var(--vp-group, transparent);
   background: var(--background-primary);
   color: var(--text-normal);
   font-size: var(--font-ui-small);
   font-weight: var(--font-semibold);
 }
 
-/* The quadrant's urgency, on its title only: the cards keep their source colour. */
-.vault-planner-view .vp-q-now {
-  --vp-quadrant: var(--color-red);
+/* How close the group's date is, on its title only: the cards keep their source colour. */
+.vault-planner-view .vp-g-overdue {
+  --vp-group: var(--color-red);
 }
 
-.vault-planner-view .vp-q-schedule {
-  --vp-quadrant: var(--color-orange);
+.vault-planner-view .vp-g-today {
+  --vp-group: var(--color-orange);
 }
 
-.vault-planner-view .vp-q-quick {
-  --vp-quadrant: var(--color-yellow);
+.vault-planner-view .vp-g-week {
+  --vp-group: var(--color-yellow);
 }
 
-.vault-planner-view .vp-q-rest {
-  --vp-quadrant: var(--text-faint);
+.vault-planner-view .vp-g-later {
+  --vp-group: var(--text-faint);
+}
+
+.vault-planner-view .vp-g-none {
+  --vp-group: var(--background-modifier-border);
 }
 
 .vault-planner-view .vp-waiting summary {
@@ -193,6 +197,10 @@ body {
 
 .vp-card .vp-meta {
   color: var(--text-muted);
+}
+
+.vp-card .vp-priority {
+  margin-right: var(--size-2-2);
 }
 
 .vp-card .vp-effort.is-missing {

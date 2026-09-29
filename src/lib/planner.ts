@@ -14,7 +14,7 @@ export function isPlannerTask(task: AnyTask): task is PlannerTask {
 
 /**
  * Planner's 0–10 scale as a Tasks priority. Planner reads 0–1 as "urgent" and 2–4 as "important" —
- * both are what the quadrants call important. A missing value is Planner's default 5 ("medium"), so
+ * both rank first among tasks due the same day. A missing value is Planner's default 5 ("medium"), so
  * absence must read as NOT important: the other reading fills the top row with unrated tasks.
  */
 export function plannerPriority(value: unknown): Priority {
@@ -82,6 +82,7 @@ export function mapPlannerTasks(raw: readonly unknown[]): { tasks: PlannerTask[]
       status: plannerStatus(item.percentComplete),
       priority: plannerPriority(item.priority),
       due: plannerDue(item.dueDateTime),
+      scheduled: null,
       aufwand: undefined,
       isWaiting: false,
       kunde: PLANNER_LABEL,

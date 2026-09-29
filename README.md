@@ -64,12 +64,18 @@ es sich deshalb einmal ab; **Anmelden** holt die Zustimmung ein.
 ## Bedienung
 
 - **Öffnen:** das Kalender-Symbol in der linken Leiste oder der Befehl „Planner öffnen".
-- **Liste:** Gruppiert wie in der Web-App:
-  - „Wichtig & dringend": 🔺/⏫ **und** fällig innerhalb von 7 Tagen oder überfällig
-  - „Wichtig": nur 🔺/⏫
-  - „Dringend": nur die Fälligkeit
-  - „Rest"
+- **Liste:** Gruppiert nach Datum:
+  - „Überfällig": das älteste Datum oben
+  - „Heute"
+  - „Nächste 7 Tage"
+  - „Später"
+  - „Ohne Datum"
   - dazu „Warten auf" für `WAITING`, eingeklappt
+
+  Das Datum ist `📅`, fehlt es, dann `⏳`. Die Karte zeigt, welches: „bis Di., 22.09." oder
+  „⏳ Mi., 08.07.". Bei gleichem Datum kommt die höhere Priorität zuerst, ihr Symbol steht vor dem
+  Titel. Die Dauer beim Ziehen kommt aus `[aufwand:: …]`, einer eigenen Angabe dieses Plugins, die
+  Tasks nicht kennt.
 
   Suche, Kunden-Filter und „nur ungeplante" stehen darüber. Ein Klick öffnet die Aufgabe in einem
   neuen Tab.

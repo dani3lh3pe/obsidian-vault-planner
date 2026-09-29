@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareTasks, isOverdue, isUrgent, quadrantOf } from "./priority";
+import { compareTasks, groupOf, isOverdue } from "./priority";
 import { buildList } from "./taskList";
 import { mapPlannerTasks } from "./planner";
 import type { PlanStatus, VaultTask } from "./types";
@@ -15,6 +15,7 @@ function task(description: string, overrides: Partial<VaultTask> = {}): VaultTas
     description,
     priority: "none",
     due: null,
+    scheduled: null,
     aufwand: undefined,
     blockId: null,
     isWaiting: false,
@@ -27,24 +28,23 @@ function task(description: string, overrides: Partial<VaultTask> = {}): VaultTas
 
 const OPTIONS = { search: "", kunde: null, onlyUnplanned: false };
 
-describe("quadrants", () => {
-  it("counts a deadline up to seven days out as urgent, inclusive", () => {
-    expect(isUrgent({ due: "2026-10-01" }, TODAY)).toBe(true);
-    expect(isUrgent({ due: "2026-10-02" }, TODAY)).toBe(false);
-    expect(isUrgent({ due: null }, TODAY)).toBe(false);
+describe("date groups", () => {
+  const at = (due: string | null, scheduled: string | null = null) => groupOf({ due, scheduled }, TODAY);
+
+  it("puts overdue first, then today, the next seven days inclusive, later and undated", () => {
+    expect(at("2026-09-23")).toBe("overdue");
+    expect(at(TODAY)).toBe("today");
+    expect(at("2026-09-25")).toBe("week");
+    expect(at("2026-10-01")).toBe("week");
+    expect(at("2026-10-02")).toBe("later");
+    expect(at(null)).toBe("none");
   });
 
-  it("treats overdue as urgent, and only strictly past as overdue", () => {
-    expect(isUrgent({ due: "2026-09-01" }, TODAY)).toBe(true);
-    expect(isOverdue({ due: "2026-09-23" }, TODAY)).toBe(true);
-    expect(isOverdue({ due: TODAY }, TODAY)).toBe(false);
-  });
-
-  it("maps priority and due date onto the four quadrants", () => {
-    expect(quadrantOf({ priority: "high", due: "2026-09-25" }, TODAY)).toBe("now");
-    expect(quadrantOf({ priority: "highest", due: null }, TODAY)).toBe("schedule");
-    expect(quadrantOf({ priority: "medium", due: "2026-09-25" }, TODAY)).toBe("quick");
-    expect(quadrantOf({ priority: "none", due: null }, TODAY)).toBe("rest");
+  it("falls back to ⏳ only where 📅 is missing — and a past ⏳ is overdue", () => {
+    expect(at(null, "2026-07-08")).toBe("overdue");
+    expect(at("2026-10-20", "2026-09-01")).toBe("later");
+    expect(isOverdue({ due: null, scheduled: "2026-09-23" }, TODAY)).toBe(true);
+    expect(isOverdue({ due: TODAY, scheduled: null }, TODAY)).toBe(false);
   });
 });
 
@@ -57,6 +57,22 @@ describe("compareTasks", () => {
       task("früh in Arbeit", { due: "2026-09-25", status: "/" }),
     ].sort(compareTasks);
     expect(sorted.map((t) => t.description)).toEqual(["früh in Arbeit", "früh offen", "spät", "ohne"]);
+  });
+
+  it("ranks the priority after the date, also among undated tasks", () => {
+    const sorted = [
+      task("ohne, niedrig", { priority: "low" }),
+      task("ohne, höchste", { priority: "highest" }),
+      task("früh, normal", { due: "2026-09-25" }),
+      task("früh, hoch", { due: "2026-09-25", priority: "high" }),
+      task("später, höchste", { due: "2026-09-26", priority: "highest" }),
+    ].sort(compareTasks);
+    expect(sorted.map((t) => t.description)).toEqual(["früh, hoch", "früh, normal", "später, höchste", "ohne, höchste", "ohne, niedrig"]);
+  });
+
+  it("sorts a ⏳-only task by its ⏳ date", () => {
+    const sorted = [task("fällig", { due: "2026-09-30" }), task("nur geplant", { scheduled: "2026-09-26" })].sort(compareTasks);
+    expect(sorted.map((t) => t.description)).toEqual(["nur geplant", "fällig"]);
   });
 });
 
@@ -109,7 +125,7 @@ describe("buildList", () => {
       { "@odata.etag": "e", id: "PT2", planId: "P", title: "Planner erledigt", percentComplete: 100 },
     ]).tasks;
     const model = buildList([task("Vault offen"), ...planner], null, OPTIONS, TODAY);
-    expect(model.groups.find((g) => g.quadrant === "now")?.tasks.map((t) => t.description)).toEqual(["Planner dringend"]);
+    expect(model.groups.find((g) => g.key === "week")?.tasks.map((t) => t.description)).toEqual(["Planner dringend"]);
     expect(model.openCount).toBe(2);
     expect(model.kunden).toEqual(["K", "Planner"]);
     expect(buildList(planner, null, { ...OPTIONS, kunde: "Planner" }, TODAY).shownCount).toBe(1);

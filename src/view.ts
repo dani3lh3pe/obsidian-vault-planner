@@ -23,7 +23,7 @@ import type VaultPlannerPlugin from "./main";
 import type { ChangeReason } from "./main";
 import { getErrorMessage, isAuthExpired } from "./lib/errors";
 import { isPlannerTask, plannerWebUrl, type PlannerSnapshot } from "./lib/planner";
-import { isOverdue, QUADRANT_TITLE } from "./lib/priority";
+import { GROUP_TITLE, isOverdue, listDate, PRIORITY_MARK } from "./lib/priority";
 import { ReadGate } from "./lib/readGate";
 import { blocksByTask, fetchRange, inRange, linkKey, plannerIdOf, plannerKey, planStatus, statusWindow } from "./lib/schedule";
 import { cleanTitle, eventBody, eventSubject, plannerEventBody } from "./lib/subject";
@@ -63,6 +63,8 @@ interface CardData {
   raw: string;
   blockId: string | null;
   plannerId: string | null;
+  /** The Tasks emoji of a set priority, and its name for screen readers. */
+  priority: { mark: string; name: string } | null;
   title: string;
   /** "1,5 h", or null while the task has no [aufwand::]. */
   effort: string | null;
@@ -71,8 +73,8 @@ interface CardData {
   bucket: string | null;
   /** "mit 2 weiteren Personen", Planner only. */
   shared: string | null;
-  /** "Di., 22.09." */
-  due: string | null;
+  /** "bis Di., 22.09." from 📅, "⏳ Mi., 08.07." from ⏳ where 📅 is missing. */
+  date: string | null;
   overdue: boolean;
   status: { text: string; muted: boolean } | null;
   conflict: string | null;
@@ -630,6 +632,7 @@ export class PlannerView extends ItemView {
     const bucket =
       planner === null ? undefined : this.planner?.buckets.get(planner.planId)?.find((b) => b.id === planner.bucketId);
     const key = linkKey(task);
+    const date = listDate(task);
 
     return {
       path: vault?.path ?? "",
@@ -637,12 +640,13 @@ export class PlannerView extends ItemView {
       raw: vault?.raw ?? "",
       blockId: vault?.blockId ?? null,
       plannerId: planner?.id ?? null,
+      priority: PRIORITY_MARK[task.priority],
       title: cleanTitle(task.description) || task.description,
       effort: task.aufwand === undefined ? null : `${String(task.aufwand).replace(".", ",")} h`,
       meta: task.projekt === null ? task.kunde : `${task.kunde} · ${task.projekt}`,
       bucket: bucket?.name ?? null,
       shared: planner === null || !planner.othersAssigned ? null : `mit ${others(planner.othersAssigned)}`,
-      due: task.due === null ? null : formatDue(task.due, today),
+      date: date === null ? null : `${task.due === null ? "⏳" : "bis"} ${formatDue(date, today)}`,
       overdue: isOverdue(task, today),
       status,
       conflict,
@@ -677,7 +681,7 @@ export class PlannerView extends ItemView {
 
     const toRows = (tasks: AnyTask[]) =>
       tasks.map((task) => ({ task, card: this.cardData(task, statusOf, byBlock, today, weekEnd) }));
-    const groups = model.groups.map((group) => ({ quadrant: group.quadrant, rows: toRows(group.tasks) }));
+    const groups = model.groups.map((group) => ({ key: group.key, rows: toRows(group.tasks) }));
     const waiting = toRows(model.waiting);
     const { auth, settings } = this.plugin;
     const plannerLoading =
@@ -694,7 +698,7 @@ export class PlannerView extends ItemView {
     // position and the open "Warten auf" section in the middle of reading.
     const cardsOf = (rows: { card: CardData }[]) => rows.map((row) => row.card);
     const signature = JSON.stringify({
-      groups: groups.map((group) => [group.quadrant, cardsOf(group.rows)]),
+      groups: groups.map((group) => [group.key, cardsOf(group.rows)]),
       waiting: cardsOf(waiting),
       empty,
     });
@@ -707,7 +711,7 @@ export class PlannerView extends ItemView {
     for (const group of groups) {
       if (group.rows.length === 0) continue;
       const section = list.createDiv({ cls: "vp-group" });
-      section.createEl("h4", { cls: `vp-group-title vp-q-${group.quadrant}`, text: `${QUADRANT_TITLE[group.quadrant]} · ${group.rows.length}` });
+      section.createEl("h4", { cls: `vp-group-title vp-g-${group.key}`, text: `${GROUP_TITLE[group.key]} · ${group.rows.length}` });
       for (const row of group.rows) this.buildCard(section, row.task, row.card);
     }
     if (waiting.length > 0) {
@@ -753,7 +757,12 @@ export class PlannerView extends ItemView {
       cls: "vp-card-body",
       attr: { role: "button", tabindex: "0", title: isPlannerTask(task) ? "In Planner öffnen" : "Öffnen" },
     });
-    body.createDiv({ cls: "vp-title", text: card.title });
+    const title = body.createDiv({ cls: "vp-title" });
+    if (card.priority !== null) {
+      const label = `Priorität ${card.priority.name}`;
+      title.createSpan({ cls: "vp-priority", text: card.priority.mark, attr: { title: label, "aria-label": label } });
+    }
+    title.appendText(card.title);
     const meta = body.createDiv({ cls: "vp-meta" });
     // A missing effort is a prompt, not information: it stays, but quiet.
     meta.createSpan({ cls: card.effort === null ? "vp-effort is-missing" : "vp-effort", text: card.effort ?? "Aufwand?" });
@@ -763,10 +772,10 @@ export class PlannerView extends ItemView {
       meta.createSpan({ cls: "vp-chip", text: card.bucket });
     }
     if (card.shared !== null) meta.appendText(` · ${card.shared}`);
-    if (card.due !== null) {
+    if (card.date !== null) {
       meta.appendText(" · ");
       // Red is an addition, not the message: the date itself says what is wrong.
-      meta.createSpan({ cls: card.overdue ? "vp-due is-overdue" : "vp-due", text: `bis ${card.due}` });
+      meta.createSpan({ cls: card.overdue ? "vp-due is-overdue" : "vp-due", text: card.date });
     }
     if (card.pending) body.createDiv({ cls: "vp-status", text: "Wird gespeichert…" });
     else if (card.conflict !== null) body.createDiv({ cls: "vp-status is-warning", text: card.conflict });

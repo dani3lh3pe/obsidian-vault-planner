@@ -31,7 +31,7 @@ describe("test vault fixtures", () => {
   };
 
   it("has every case the plan lists, and the code block is not one", () => {
-    expect(migration).toHaveLength(20); // 18 open incl. the indented sub-task, 2 done
+    expect(migration).toHaveLength(21); // 19 open incl. the indented sub-task, 2 done
     expect(migration.some((task) => task.description.includes("kein Task"))).toBe(false);
   });
 
@@ -48,6 +48,8 @@ describe("test vault fixtures", () => {
     expect(byText("Mit fremder").blockId).toBe("abc123");
     expect(byText("Mit Variation").due).toBe("2026-09-28");
     expect(byText("Firewall").status).toBe("/");
+    // The live vault's shape: only ⏳, and a long slug as block id.
+    expect(byText("Nur mit Sanduhr")).toMatchObject({ scheduled: "2026-09-23", due: null, blockId: "t-ops-nur-mit-sanduhr-geplant" });
   });
 
   it("reads the CRLF file", () => {

@@ -1,20 +1,21 @@
 import { URGENT_WITHIN_DAYS } from "../config";
 import { isPlannerTask } from "./planner";
-import type { AnyTask } from "./types";
+import type { AnyTask, Priority } from "./types";
 
 /**
- * The Eisenhower quadrants, as in the web app: same rules, same order, same titles — only
- * "important" now comes from the Tasks priority instead of a flag.
+ * The list's groups, by date: what is overdue on top, then what is due soonest. The date is 📅, or
+ * ⏳ where a line has none — the live vault's imports carry only ⏳.
  */
-export type Quadrant = "now" | "schedule" | "quick" | "rest";
+export type Group = "overdue" | "today" | "week" | "later" | "none";
 
-export const QUADRANT_ORDER: readonly Quadrant[] = ["now", "schedule", "quick", "rest"];
+export const GROUP_ORDER: readonly Group[] = ["overdue", "today", "week", "later", "none"];
 
-export const QUADRANT_TITLE: Record<Quadrant, string> = {
-  now: "Wichtig & dringend",
-  schedule: "Wichtig",
-  quick: "Dringend",
-  rest: "Rest",
+export const GROUP_TITLE: Record<Group, string> = {
+  overdue: "Überfällig",
+  today: "Heute",
+  week: `Nächste ${URGENT_WITHIN_DAYS} Tage`,
+  later: "Später",
+  none: "Ohne Datum",
 };
 
 /** Day arithmetic on a date-ONLY value; UTC is safe because "yyyy-mm-dd" has no zone. */
@@ -24,27 +25,36 @@ function addDays(day: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function isImportant(task: Pick<AnyTask, "priority">): boolean {
-  return task.priority === "highest" || task.priority === "high";
+/** The date the list groups and sorts by: 📅, else ⏳. */
+export function listDate(task: Pick<AnyTask, "due" | "scheduled">): string | null {
+  return task.due ?? task.scheduled;
 }
 
-/** Due within URGENT_WITHIN_DAYS, inclusive; overdue is urgent too (a past date is <= the cutoff). */
-export function isUrgent(task: Pick<AnyTask, "due">, today: string): boolean {
-  return task.due !== null && task.due <= addDays(today, URGENT_WITHIN_DAYS);
+export function groupOf(task: Pick<AnyTask, "due" | "scheduled">, today: string): Group {
+  const date = listDate(task);
+  if (date === null) return "none";
+  if (date < today) return "overdue";
+  if (date === today) return "today";
+  return date <= addDays(today, URGENT_WITHIN_DAYS) ? "week" : "later";
 }
 
-export function isOverdue(task: Pick<AnyTask, "due">, today: string): boolean {
-  return task.due !== null && task.due < today;
-}
+/** Strictly before today; a past ⏳ counts too, it is the date the list shows. */
+export const isOverdue = (task: Pick<AnyTask, "due" | "scheduled">, today: string): boolean => groupOf(task, today) === "overdue";
 
-export function quadrantOf(task: Pick<AnyTask, "priority" | "due">, today: string): Quadrant {
-  const important = isImportant(task);
-  const urgent = isUrgent(task, today);
-  if (important && urgent) return "now";
-  if (important) return "schedule";
-  if (urgent) return "quick";
-  return "rest";
-}
+/**
+ * The Tasks emoji and its name, for the card: without the quadrants nothing else shows a priority.
+ * Planner's "urgent" and "important" arrive as highest and high.
+ */
+export const PRIORITY_MARK: Record<Priority, { mark: string; name: string } | null> = {
+  highest: { mark: "🔺", name: "höchste" },
+  high: { mark: "⏫", name: "hoch" },
+  medium: { mark: "🔼", name: "mittel" },
+  none: null,
+  low: { mark: "🔽", name: "niedrig" },
+  lowest: { mark: "⏬", name: "niedrigste" },
+};
+
+const PRIORITY_RANK: Record<Priority, number> = { highest: 0, high: 1, medium: 2, none: 3, low: 4, lowest: 5 };
 
 const statusRank = (task: AnyTask): number => (task.status === "/" ? 0 : 1);
 
@@ -53,15 +63,17 @@ const origin = (task: AnyTask): { path: string; line: number } =>
   isPlannerTask(task) ? { path: `planner:${task.id}`, line: 0 } : task;
 
 /**
- * Due date first (none last), then "in progress" before open, then the text. Total — the file and
- * line settle the last tie — so the list never flickers between renders.
+ * The list date first (none last), then the priority, then "in progress" before open, then the
+ * text. Total — the file and line settle the last tie — so the list never flickers between renders.
  */
 export function compareTasks(a: AnyTask, b: AnyTask): number {
-  if (a.due !== b.due) {
-    if (a.due === null) return 1;
-    if (b.due === null) return -1;
-    return a.due < b.due ? -1 : 1;
+  const [dateA, dateB] = [listDate(a), listDate(b)];
+  if (dateA !== dateB) {
+    if (dateA === null) return 1;
+    if (dateB === null) return -1;
+    return dateA < dateB ? -1 : 1;
   }
+  if (a.priority !== b.priority) return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
   if (statusRank(a) !== statusRank(b)) return statusRank(a) - statusRank(b);
   const byText = a.description.localeCompare(b.description, "de");
   if (byText !== 0) return byText;

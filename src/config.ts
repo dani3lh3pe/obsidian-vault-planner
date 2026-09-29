@@ -89,7 +89,7 @@ export const TASKS_GLOBAL_FILTER = "";
 /** Checkbox characters that count as open: Tasks' "todo" and "in progress". */
 export const OPEN_STATUSES: readonly string[] = [" ", "/"];
 
-/** A deadline this close counts as urgent — the same horizon as the web app. */
+/** A date this close lands in "Nächste 7 Tage" — the web app's urgency horizon. */
 export const URGENT_WITHIN_DAYS = 7;
 
 /** Without `[aufwand::]` a block is booked for one hour, the same proposal as the web app. */

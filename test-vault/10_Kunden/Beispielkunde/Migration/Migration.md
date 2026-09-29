@@ -20,6 +20,7 @@ Projektnotiz. Jede Zeile unter „Offene Tasks“ ist ein Prüffall aus dem Umse
 - [ ] Getaggte Aufgabe 📅 2026-09-28 #review ➕ 2026-09-01
 - [ ] Mit Variation Selector 📅️ 2026-09-28
 - [ ] 🚀 Rollout für Müller & Söhne vorbereiten 📅 2026-10-01
+- [ ] Nur mit Sanduhr geplant [aufwand:: 2h] ⏳ 2026-09-23 ^t-ops-nur-mit-sanduhr-geplant
 - [ ] Aufgabe mit Zeiterfassung darunter
     ```yaml
     zeiterfassung: 2026-09-23 1h

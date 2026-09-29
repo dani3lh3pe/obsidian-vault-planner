@@ -1,5 +1,5 @@
 import { OPEN_STATUSES } from "../config";
-import { compareTasks, QUADRANT_ORDER, quadrantOf, type Quadrant } from "./priority";
+import { compareTasks, GROUP_ORDER, groupOf, type Group } from "./priority";
 import { cleanTitle } from "./subject";
 import type { AnyTask, PlanStatus } from "./types";
 
@@ -11,7 +11,7 @@ export interface ListOptions {
 }
 
 export interface ListModel {
-  groups: { quadrant: Quadrant; tasks: AnyTask[] }[];
+  groups: { key: Group; tasks: AnyTask[] }[];
   /** WAITING tasks: their own group, collapsed at the end — waiting is not something to plan. */
   waiting: AnyTask[];
   /** Every customer with an open task, for the dropdown — independent of the filters. */
@@ -50,11 +50,11 @@ export function buildList(
     })
     .sort(compareTasks);
 
-  const groups = QUADRANT_ORDER.map((quadrant) => ({ quadrant, tasks: [] as AnyTask[] }));
+  const groups = GROUP_ORDER.map((key) => ({ key, tasks: [] as AnyTask[] }));
   const waiting: AnyTask[] = [];
   for (const task of visible) {
     if (task.isWaiting) waiting.push(task);
-    else groups[QUADRANT_ORDER.indexOf(quadrantOf(task, today))].tasks.push(task);
+    else groups[GROUP_ORDER.indexOf(groupOf(task, today))].tasks.push(task);
   }
   return { groups, waiting, kunden, openCount: open.length, shownCount: visible.length };
 }

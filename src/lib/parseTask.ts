@@ -21,12 +21,12 @@ const TASK_ID = "[a-zA-Z0-9-_]+";
 
 const PRIORITY = field("([🔺⏫🔼🔽⏬])", null);
 const DUE = field("(?:📅|📆|🗓)", DATE);
+const SCHEDULED = field("(?:⏳|⌛)", DATE);
 const RECURRENCE = field("🔁", "([a-zA-Z0-9, !]+)");
 /** Fields the planner does not use but must strip, or the scan would stop at them. */
 const OTHER_FIELDS: readonly RegExp[] = [
   field("🛫", DATE),
   field("➕", DATE),
-  field("(?:⏳|⌛)", DATE),
   field("✅", DATE),
   field("❌", DATE),
   field("🏁", "([a-zA-Z]+)"),
@@ -56,6 +56,7 @@ export interface ParsedLine {
   description: string;
   priority: Priority;
   due: string | null;
+  scheduled: string | null;
   aufwand: number | undefined;
   blockId: string | null;
   isWaiting: boolean;
@@ -88,6 +89,7 @@ export function parseTaskLine(line: string, globalFilter: string = TASKS_GLOBAL_
 
   let priority: Priority = "none";
   let due: string | null = null;
+  let scheduled: string | null = null;
   let isRecurring = false;
   const trailingTags: string[] = [];
 
@@ -107,6 +109,12 @@ export function parseTaskLine(line: string, globalFilter: string = TASKS_GLOBAL_
     if (dueMatch !== null) {
       due = dueMatch[1];
       body = body.replace(DUE, "").trim();
+      matched = true;
+    }
+    const scheduledMatch = SCHEDULED.exec(body);
+    if (scheduledMatch !== null) {
+      scheduled = scheduledMatch[1];
+      body = body.replace(SCHEDULED, "").trim();
       matched = true;
     }
     if (RECURRENCE.test(body)) {
@@ -135,6 +143,7 @@ export function parseTaskLine(line: string, globalFilter: string = TASKS_GLOBAL_
     description,
     priority,
     due,
+    scheduled,
     aufwand: parseAufwand(description),
     blockId,
     isWaiting: /^WAITING\b/u.test(description),

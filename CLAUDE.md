@@ -84,6 +84,10 @@ Ihre GUID in `src/config.ts` wird **nie** geändert.
 
 - Der Parser (`lib/parseTask.ts`) liest wie Tasks: Felder vom Zeilenende her, hinter den Feldern
   nur Block-Link und Tags. Ein Link hinter `📅` macht das Datum unsichtbar — in Tasks wie hier.
+- `⏳` wird nur **gelesen**: als Datum der Liste, wo `📅` fehlt (die Importe im Live-Vault haben nur
+  `⏳`). Nie geschrieben und nie der Planungsstatus — der kommt aus dem Kalender (Invariante 1).
+- `[aufwand:: …]` ist unsere Konvention in Dataview-Schreibweise, kein Feld von Tasks. Tasks hält es
+  für Beschreibung; nur dieses Plugin liest es.
 - Quelldateien sind nur `<Ordner>/<Ordner>.md` unter `10_Kunden/` und `20_Intern/`.
 - Ein globaler Filter der Tasks-Einstellungen gehört nach `TASKS_GLOBAL_FILTER` in `src/config.ts`.
 - Erledigen nur über `apiV1.executeToggleTaskDoneCommand` — sie gibt Text zurück und schreibt

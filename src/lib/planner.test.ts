@@ -15,7 +15,7 @@ const entry = (overrides: Record<string, unknown> = {}): Record<string, unknown>
 });
 
 describe("plannerPriority", () => {
-  it("reads 0–1 as urgent and 2–4 as important — both important for the quadrants", () => {
+  it("reads 0–1 as urgent and 2–4 as important — the two ranks above an unrated task", () => {
     expect([0, 1].map(plannerPriority)).toEqual(["highest", "highest"]);
     expect([2, 3, 4].map(plannerPriority)).toEqual(["high", "high", "high"]);
   });

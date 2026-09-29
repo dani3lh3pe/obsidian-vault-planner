@@ -34,6 +34,7 @@ seiner Graph-Details belegten Fallen. Beides ist unten korrigiert, und der Umfan
 ## Stand der Umsetzung (2026-09-24)
 
 - **M6 (Planner) als Code fertig (2026-09-28)**, auf Windows noch ungeprüft.
+- **M8 (Liste nach Datum) als Code fertig (2026-09-29)**, auf Windows noch ungeprüft.
 - **M7 (Darstellung) als Code fertig (2026-09-28).** Auf Windows gesehen: die Anmeldung mit
   `MailboxSettings.Read`, die Woche mit `categories` im `$select`, Liste und Ansichtsknöpfe. Der Rest
   der Tabelle „Verifikation M7" ist offen.
@@ -579,9 +580,9 @@ Tasks-Abfrage gegengeprüft: gleiches `due`, gleiche Priorität.
 **2.3 Liste** (`view.ts`):
 
 - **Gruppen** aus `priority.ts`: „Wichtig & dringend", „Wichtig", „Dringend", „Rest", danach
-  „Warten auf" als zugeklapptes `<details>`.
+  „Warten auf" als zugeklapptes `<details>`. **Seit M8 nach Datum gruppiert**, siehe dort.
 - **Sortierung** je Gruppe: `due` aufsteigend (ohne `due` zuletzt), dann `[/]` vor `[ ]`, dann die
-  Beschreibung nach `de`-Kollation.
+  Beschreibung nach `de`-Kollation. Seit M8 zählt ersatzweise `⏳`, und die Priorität kommt vor `[/]`.
 - **Karte:**
   - Beschreibung.
   - Zeile 2: „Aufwand · Kunde · Projekt · bis `due`", überfällig rot **und** fett.
@@ -898,7 +899,7 @@ Nicht-Arbeitszeit, und alle Karten waren gleich grau. Mit Daniel entschieden:
 | Fremder Termin | hell getönt in der ersten Outlook-Kategorie, ohne Kategorie blau; mit Vorbehalt schraffiert | Titel |
 | Eigener Block | gefüllt in der Quelle: Vault in der Akzentfarbe, Planner `oklch(0.52 0.12 155)` (aus daily-planner) | Icon |
 | Karte | getönt in der Quelle, mit Randstreifen | „Planner" in der Meta-Zeile |
-| Quadranten-Titel | Randmarke rot, orange, gelb, grau | Titeltext |
+| Gruppen-Titel | Randmarke rot, orange, gelb, grau (seit M8: nach Datum, dazu blass für „Ohne Datum") | Titeltext |
 
 **7.1 Kategoriefarben** (`graph.readCategoryColors`, `lib/mapGraphEvents.ts` + Test):
 
@@ -951,6 +952,48 @@ Benutzer oder brauchte es die Administratorzustimmung?
 | Die Knöpfe 1–4, Arbeitswoche und Woche durchklicken | Die 3-Tage-Ansicht blättert Mo–Mi → Do, Fr, Mo, die Woche zeigt Sa/So, nach einem Neustart ist die Ansicht wieder da |
 | In die 1-Tages-Ansicht und auf einen Samstag ziehen | Der Block entsteht auch in den neuen Ansichten |
 | Dunkles Theme | Getönte Termine, grüne Blöcke und Karten bleiben lesbar |
+
+## M8 — Liste nach Datum statt nach Quadranten
+
+**Anlass (2026-09-29):** Daniel will morgens sehen, was überfällig und was als Nächstes fällig ist.
+Die Eisenhower-Gruppen setzen gepflegte Prioritäten voraus, und die meisten Aufgaben haben keine.
+Außerdem haben die Importe im Live-Vault nur `⏳` und kein `📅`, bisher also gar kein Datum. Mit
+Daniel entschieden:
+
+- fünf Gruppen: Überfällig, Heute, Nächste 7 Tage, Später, Ohne Datum;
+- `⏳` ersatzweise lesen;
+- Priorität als Nebenkriterium mit einer Marke an der Karte;
+- Ziehen innerhalb der Liste erst später.
+
+**8.1 Datum** (`lib/parseTask.ts`, `lib/priority.ts` + Tests):
+
+- Der Parser liest `⏳` als `scheduled`.
+- Das Listendatum ist `📅 ?? ⏳` (`listDate`). Ein vergangenes `⏳` ist überfällig, die Karte schreibt „⏳ Mi., 08.07." statt „bis …".
+- Geschrieben wird `⏳` nie, und Planungsstatus ist es nicht (Invariante 1, CLAUDE.md „Tasks-Plugin").
+
+**8.2 Reihenfolge:**
+
+- Erst das Listendatum, dann die Priorität (🔺 ⏫ 🔼 keine 🔽 ⏬), dann `[/]` vor `[ ]`, dann der Text.
+- Die Priorität steht als Tasks-Symbol vor dem Titel. Planner „dringend" und „wichtig" erscheinen als 🔺 und ⏫.
+
+| Falle | Gegenmaßnahme |
+| --- | --- |
+| `⏳` als Planungsstatus lesen | Es ist nur ein Datum der Liste. „geplant" heißt weiter: ein Block im Kalender |
+| Eine Aufgabe mit `📅` und `⏳` nach `⏳` einsortieren | `📅` gewinnt. `⏳` zählt nur, wo `📅` fehlt |
+| Ohne Quadranten verschwindet die Priorität | Nebenkriterium beim Sortieren und Symbol an der Karte |
+
+**Offen:** Was soll das Ziehen einer Karte innerhalb der Liste ändern: Priorität, Datum oder nur
+die Reihenfolge? Jede Variante, die in die Aufgabe schreibt, erweitert Invariante 2 bzw. 7. Das
+entscheidet Daniel, wenn er die neue Liste eine Weile benutzt hat.
+
+**Verifikation M8** (manuell):
+
+| Handlung | Was sie beweist |
+| --- | --- |
+| Die Liste öffnen | Die Gruppen stehen in der Reihenfolge Überfällig, Heute, Nächste 7 Tage, Später, Ohne Datum, und die Titelmarken sind rot, orange, gelb, grau, blass |
+| „Nur mit Sanduhr geplant" im Testvault ansehen | Die Aufgabe steht unter „Überfällig" und zeigt „⏳ Mi., 23.09." |
+| Zwei Aufgaben mit demselben Datum, eine davon ⏫ | Die ⏫-Aufgabe steht zuerst und trägt das Symbol vor dem Titel |
+| Eine Planner-Aufgabe mit Priorität „Dringend" | Sie trägt 🔺 |
 
 ## M5 — Go-live im echten Vault
 

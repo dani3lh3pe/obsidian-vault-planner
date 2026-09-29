@@ -48,6 +48,11 @@ export interface VaultTask {
   priority: Priority;
   /** yyyy-mm-dd from 📅, or null. */
   due: string | null;
+  /**
+   * yyyy-mm-dd from ⏳, or null. Read only, as the list's date where 📅 is missing — never written,
+   * never the plan status (Invariant 1).
+   */
+  scheduled: string | null;
   /** Hours from `[aufwand:: …]`, or undefined. */
   aufwand: number | undefined;
   blockId: string | null;
@@ -59,7 +64,7 @@ export interface VaultTask {
 
 /**
  * A Planner task assigned to the signed-in user. Resolved on every read, never stored. Carries the
- * list fields under the same names as VaultTask, so quadrants, sorting and filters apply as they are.
+ * list fields under the same names as VaultTask, so groups, sorting and filters apply as they are.
  */
 export interface PlannerTask {
   source: "planner";
@@ -74,6 +79,7 @@ export interface PlannerTask {
   status: string;
   priority: Priority;
   due: string | null;
+  scheduled: null;
   aufwand: undefined;
   isWaiting: false;
   kunde: string;

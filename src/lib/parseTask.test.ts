@@ -55,6 +55,13 @@ describe("parseTaskLine — fields", () => {
     expect(task).toMatchObject({ priority: "high", due: "2026-09-28", description: "Mischung" });
   });
 
+  it("reads ⏳ as the scheduled date, apart from 📅 — the live vault's import format", () => {
+    const task = parse("- [ ] Rollen aufräumen [aufwand:: 3h] ⏳ 2026-07-08 ^t-ops-rollen-aufraeumen");
+    expect(task).toMatchObject({ scheduled: "2026-07-08", due: null, aufwand: 3, blockId: "t-ops-rollen-aufraeumen" });
+    expect(task.description).toBe("Rollen aufräumen [aufwand:: 3h]");
+    expect(parse("- [ ] a ⌛ 2026-07-08 📅 2026-07-10")).toMatchObject({ scheduled: "2026-07-08", due: "2026-07-10" });
+  });
+
   it("accepts the alternative due symbols and a variation selector", () => {
     expect(parse("- [ ] a 📆 2026-09-28").due).toBe("2026-09-28");
     expect(parse("- [ ] a 🗓 2026-09-28").due).toBe("2026-09-28");
