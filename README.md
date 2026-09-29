@@ -61,6 +61,22 @@ es sich deshalb einmal ab; **Anmelden** holt die Zustimmung ein.
 - Die Anmeldung gilt auf diesem Gerät etwa 90 Tage ab der letzten Nutzung. Der Token liegt
   verschlüsselt in Obsidians Schlüsselbund, nicht im Vault.
 
+### 5. Privates Konto für Microsoft To Do (optional, in Arbeit: M9)
+
+Eine **zweite** App-Registrierung, getrennt von der für das Arbeitskonto:
+
+1. Entra Admin Center → App-Registrierungen → **Neue Registrierung** „Obsidian Vault Planner
+   (privat)", unterstützte Kontotypen: **Nur private Microsoft-Konten**.
+2. **Authentifizierung → Plattform hinzufügen → Mobile- und Desktopanwendungen**, benutzerdefinierte
+   Umleitungs-URI `obsidian://vault-planner-auth`.
+3. **API-Berechtigungen → Microsoft Graph → Delegiert:** `Tasks.ReadWrite` und `Calendars.ReadWrite`.
+   Kein Secret.
+4. Die **Anwendungs-ID** in den Plugin-Einstellungen unter „Client-ID (privat)" eintragen, „To Do
+   (privat)" einschalten, beim privaten Konto **Anmelden** und mit dem privaten Konto zustimmen.
+
+Ein Problem mit dem privaten Konto meldet das Arbeitskonto nie ab. Ausschalten blendet To Do und
+den privaten Kalender aus, meldet das private Konto aber nicht ab.
+
 ## Bedienung
 
 - **Öffnen:** das Kalender-Symbol in der linken Leiste oder der Befehl „Planner öffnen".

@@ -13,6 +13,9 @@ import {
   PLANNER_TASKS_URL,
   plannerTaskUrl,
   planUrl,
+  TODO_LISTS_URL,
+  todoTaskUrl,
+  todoTasksUrl,
   type NewBlock,
 } from "./lib/graphRequests";
 import { mapGraphEvents, readCategoryColors, type MapResult } from "./lib/mapGraphEvents";
@@ -116,14 +119,7 @@ export class Graph {
    * title or buckets this round — a plan the user has left must not hide every other task.
    */
   async readPlanner(): Promise<PlannerSnapshot> {
-    const raw: unknown[] = [];
-    let url: string | null = PLANNER_TASKS_URL;
-    for (let page = 0; url !== null && page < MAX_PLANNER_PAGES; page += 1) {
-      const { value, nextLink } = readPage(await this.send("GET", url, undefined, {}));
-      raw.push(...value);
-      url = nextLink;
-    }
-    const truncated = url !== null;
+    const { raw, truncated } = await this.readAll(PLANNER_TASKS_URL);
     const { tasks, droppedCount } = mapPlannerTasks(raw);
 
     const planIds = [...new Set(tasks.filter((task) => task.status !== "x").map((task) => task.planId))];
@@ -156,6 +152,34 @@ export class Graph {
   /** Planner write #2: the bucket, nothing else. */
   async movePlannerTask(task: Pick<PlannerTask, "id" | "etag">, bucketId: string): Promise<void> {
     await this.send("PATCH", plannerTaskUrl(task.id), { bucketId }, { "If-Match": task.etag });
+  }
+
+  /**
+   * Every page of a Planner or To Do collection, the nextLink followed as returned. No IdType
+   * preference: that one is the calendar's. `truncated`: the page limit cut it short — say so.
+   */
+  private async readAll(first: string): Promise<{ raw: unknown[]; truncated: boolean }> {
+    const raw: unknown[] = [];
+    let url: string | null = first;
+    for (let page = 0; url !== null && page < MAX_PLANNER_PAGES; page += 1) {
+      const { value, nextLink } = readPage(await this.send("GET", url, undefined, {}));
+      raw.push(...value);
+      url = nextLink;
+    }
+    return { raw, truncated: url !== null };
+  }
+
+  async readTodoLists(): Promise<{ raw: unknown[]; truncated: boolean }> {
+    return this.readAll(TODO_LISTS_URL);
+  }
+
+  async readTodoTasks(listId: string, openOnly = false): Promise<{ raw: unknown[]; truncated: boolean }> {
+    return this.readAll(todoTasksUrl(listId, openOnly));
+  }
+
+  /** The one To Do write (M9). `ifMatch` only once M9.0 has shown that To Do honours it. */
+  async completeTodoTask(listId: string, taskId: string, ifMatch: string | null): Promise<void> {
+    await this.send("PATCH", todoTaskUrl(listId, taskId), { status: "completed" }, ifMatch === null ? {} : { "If-Match": ifMatch });
   }
 
   /** A 404 counts as success: the block is gone, which is what the caller wanted. */

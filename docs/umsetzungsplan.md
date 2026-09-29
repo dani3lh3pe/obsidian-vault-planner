@@ -1010,7 +1010,29 @@ entscheidet Daniel, wenn er die neue Liste eine Weile benutzt hat.
 
 ## M9 — Microsoft To Do, privates Konto (in Planung)
 
-**Stand:** grilling abgeschlossen (2026-09-29), noch keine Spec, kein Code.
+**Stand:** grilling und Spec abgeschlossen (2026-09-29, Spec in `.scratch/m9-todo/spec.md`, nicht
+versioniert). M9.0 ist als Code fertig, auf Windows noch nicht gelaufen.
+
+**M9.0 — Probe vor dem Bau.** Gebaut sind die private Anmeldung (Authority `consumers`, eigener
+Token, eigener Schalter, Rückleitung an das Konto, dessen Anmeldung läuft) und ein befristeter
+Befehl „M9.0-Probe: privates Konto prüfen". Er zeigt einen Bericht zum Kopieren.
+
+- **Vorbereitung durch Daniel:**
+  - die zweite App-Registrierung (README, Einrichtung 5);
+  - in To Do zwei Aufgaben: „M9-Probe einmalig" mit Fälligkeit morgen und „M9-Probe
+    wiederkehrend" mit täglicher Wiederholung.
+- **Die Probe prüft:**
+  - Listen lesen, gekennzeichnete und geteilte Listen erkennen;
+  - ob `$filter=status ne 'completed'` angenommen wird (die Doku sagt nur „some OData parameters");
+  - die Fälligkeit als Berliner Tag;
+  - ob `If-Match` mit veraltetem etag abgelehnt wird;
+  - ob beim Abschließen der wiederkehrenden Aufgabe die nächste Wiederholung entsteht;
+  - im privaten Kalender einen Testtermin morgen 06:00 anlegen, per Property wiederfinden,
+    verschieben (ID gleich?) und löschen.
+- **Schon die Anmeldung beweist** die Rückleitung über `obsidian://` für private Konten.
+
+Kommt sie nicht an, wird vor dem Bau über `http://localhost` entschieden (Spec Nr. 33). Die
+Antworten kommen hierher und in den graph-calendar-Skill, dann wird der Probe-Befehl entfernt.
 
 **Bewusst so (mit Daniel, 2026-09-29): eine zweite App-Registrierung.** Das private
 Microsoft-Konto meldet sich über eine eigene Registrierung „Nur private Microsoft-Konten" an (eigene

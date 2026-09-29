@@ -27,6 +27,15 @@ export function scopes(planner: boolean): string {
   return planner ? `${base} https://graph.microsoft.com/Tasks.ReadWrite` : base;
 }
 
+/**
+ * The personal Microsoft account (M9): its own app registration ("personal Microsoft accounts
+ * only"), signed in at the consumers authority. To Do plus the private calendar — never the work
+ * mailbox, and a failure here never signs the work account out.
+ */
+export const TODO_AUTHORITY = "consumers";
+export const TODO_SCOPES =
+  "openid profile offline_access https://graph.microsoft.com/Tasks.ReadWrite https://graph.microsoft.com/Calendars.ReadWrite";
+
 /** `obsidian://vault-planner-auth` — registered as a custom redirect URI in Entra. */
 export const REDIRECT_ACTION = "vault-planner-auth";
 export const REDIRECT_URI = `obsidian://${REDIRECT_ACTION}`;
@@ -98,6 +107,9 @@ export const BLOCK_DURATION = "01:00";
 /** Device-local storage keys. Never in data.json: that file lives in the synced vault. */
 export const SECRET_REFRESH_TOKEN = "vault-planner-refresh-token";
 export const LOCAL_ACCOUNT_KEY = "vault-planner-account";
+/** The same pair for the personal account (M9): its own refresh token, its own account name. */
+export const SECRET_TODO_REFRESH_TOKEN = "vault-planner-todo-refresh-token";
+export const LOCAL_TODO_ACCOUNT_KEY = "vault-planner-todo-account";
 /** The calendar view last chosen in the toolbar ("workWeek", "days3", …). */
 export const CALENDAR_VIEW_KEY = "vault-planner-calendar-view";
 

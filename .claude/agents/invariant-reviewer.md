@@ -27,7 +27,9 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
 
 - [ ] The refresh token goes only to `app.secretStorage` (`SECRET_REFRESH_TOKEN`). Grep `saveData`,
       `saveLocalStorage`, `setSecret`, `new Notice`, `throw new` for anything token-shaped;
-      `saveLocalStorage` is plaintext and holds the account name and the calendar view name only
+      `saveLocalStorage` is plaintext and holds the two account names (work, personal) and the
+      calendar view name only. Each account has its own secret key; signing out of one never
+      touches the other
 - [ ] `state` is checked before the code is exchanged; PKCE uses S256; a redirect without a
       pending sign-in changes nothing
 - [ ] `window.open` is reachable only from a click — the sign-in button and "In Planner öffnen";
@@ -47,8 +49,11 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
 - [ ] No telemetry, no request the user did not cause apart from the reads: calendar every 15 s,
       Planner every 60 s, both on returning to the view; the category colours on opening the view
       and after sign-in (`/me/outlook/masterCategories`, read only)
-- [ ] The scope string asks for nothing beyond `Calendars.ReadWrite`, `MailboxSettings.Read` and,
-      with the Planner switch on, `Tasks.ReadWrite` (plus the OIDC scopes)
+- [ ] The work scope asks for nothing beyond `Calendars.ReadWrite`, `MailboxSettings.Read` and,
+      with the Planner switch on, `Tasks.ReadWrite`; the personal scope (M9, `consumers`) for nothing
+      beyond `Tasks.ReadWrite` and `Calendars.ReadWrite` (plus the OIDC scopes each). The personal
+      token goes to `graph.microsoft.com` only, its token requests to `LOGIN_BASE/consumers`
+- [ ] Nothing reads the personal account while the "To Do (privat)" switch is off
 
 ## Outlook writes (`src/graph.ts`, `src/lib/graphRequests.ts`, `src/view.ts`)
 

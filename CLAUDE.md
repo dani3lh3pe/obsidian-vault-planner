@@ -72,8 +72,9 @@ npm run dev            # esbuild im Watch-Modus nach build/main.js
 4. **Graph folgt dem graph-calendar-Skill.** Nie `attendees`.
 5. **Alle HTTP-Aufrufe über `requestUrl`, nie `fetch`**, und nur zu `login.microsoftonline.com`
    und `graph.microsoft.com`. Keine Telemetrie.
-6. **Tokens nie in `data.json`** — sie liegt im Vault, und ein Vault-Sync kann sie mitnehmen. Der
-   Refresh-Token liegt in `app.secretStorage`. Nur ein Klick öffnet den Browser („Anmelden", „In
+6. **Tokens nie in `data.json`** — sie liegt im Vault, und ein Vault-Sync kann sie mitnehmen. Die
+   Refresh-Tokens liegen in `app.secretStorage`, je Konto unter eigenem Namen (Arbeitskonto, seit M9
+   das private Konto). Abmelden oder ein Fehler bei einem Konto lässt das andere unberührt. Nur ein Klick öffnet den Browser („Anmelden", „In
    Planner öffnen"), nie ein Timer.
 7. **In Planner schreibt das Plugin genau zweierlei, beides nur auf eine Handlung des Nutzers
    hin:** abschließen (`percentComplete: 100`) und den Bucket wechseln. Immer mit `If-Match`; ein
@@ -116,9 +117,11 @@ Geister-Block.
 - Kein `console.log`, kein `alert()`, kein `confirm()`. Rückmeldung über `Notice`, Bestätigung
   über ein `Modal`, das die Sache beim Namen nennt.
 - FullCalendar bleibt exakt auf 6.1.21 (v7 hat andere Pakete und kein automatisches CSS).
-- **Keine Methode der Ansicht darf wie eine interne von Obsidian heißen** (`open`, `close`, `load`,
-  `unload` …). `View` hat Methoden, die in `obsidian.d.ts` fehlen; eine gleichnamige ersetzt sie still,
+- **Kein Feld und keine Methode einer von Obsidian abgeleiteten Klasse (`View`, `Modal`,
+  `PluginSettingTab`) darf wie ein internes Mitglied heißen** (`open`, `close`, `load`, `unload` …).
+  Diese Klassen haben Mitglieder, die in `obsidian.d.ts` fehlen; ein gleichnamiges ersetzt sie still,
   `tsc` merkt nichts. So hat `open(task)` einmal das Öffnen der Ansicht verhindert: weiße Seite.
+  Eigene Namen tragen deshalb ihren Zweck (`openCard`, `probeReport`, `stopListening`).
 - **Bezeichner, Kommentare, Skills, Commit-Nachrichten: Englisch. Oberflächentexte, diese Datei,
   `README.md`, `docs/` und Antworten an den Nutzer: Deutsch.** Jede Datei bleibt beim Bearbeiten in
   ihrer Sprache; nie nebenbei übersetzen.

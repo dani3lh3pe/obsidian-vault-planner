@@ -9,8 +9,9 @@ import {
   randomVerifier,
   redirectError,
   refreshGrantBody,
+  tokenUrl,
 } from "./oauth";
-import { scopes } from "../config";
+import { scopes, TODO_AUTHORITY, TODO_SCOPES } from "../config";
 import { AuthError } from "./errors";
 
 describe("PKCE", () => {
@@ -29,7 +30,7 @@ describe("PKCE", () => {
 
 describe("authorizeUrl", () => {
   it("carries PKCE, state and the obsidian redirect for this tenant", () => {
-    const url = new URL(authorizeUrl({ tenantId: "tenant-guid", clientId: "client-guid", challenge: "abc", state: "xyz", scope: scopes(false) }));
+    const url = new URL(authorizeUrl({ authority: "tenant-guid", clientId: "client-guid", challenge: "abc", state: "xyz", scope: scopes(false) }));
     expect(url.origin + url.pathname).toBe("https://login.microsoftonline.com/tenant-guid/oauth2/v2.0/authorize");
     expect(Object.fromEntries(url.searchParams)).toMatchObject({
       client_id: "client-guid",
@@ -47,6 +48,19 @@ describe("authorizeUrl", () => {
     expect(scopes(true)).toBe(
       "openid profile offline_access https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/MailboxSettings.Read https://graph.microsoft.com/Tasks.ReadWrite",
     );
+  });
+});
+
+describe("the personal account (M9)", () => {
+  it("signs in at the consumers authority on the same host, for To Do and the calendar only", () => {
+    const url = new URL(authorizeUrl({ authority: TODO_AUTHORITY, clientId: "c", challenge: "abc", state: "xyz", scope: TODO_SCOPES }));
+    expect(url.origin + url.pathname).toBe("https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize");
+    expect(url.searchParams.get("scope")).toBe(
+      "openid profile offline_access https://graph.microsoft.com/Tasks.ReadWrite https://graph.microsoft.com/Calendars.ReadWrite",
+    );
+    expect(tokenUrl(TODO_AUTHORITY)).toBe("https://login.microsoftonline.com/consumers/oauth2/v2.0/token");
+    // The work account's endpoint stays its tenant's.
+    expect(tokenUrl("tenant-guid")).toBe("https://login.microsoftonline.com/tenant-guid/oauth2/v2.0/token");
   });
 });
 

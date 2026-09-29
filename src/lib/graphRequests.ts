@@ -55,6 +55,22 @@ export function plannerTaskUrl(taskId: string): string {
   return `${GRAPH_BASE}/planner/tasks/${encodeURIComponent(taskId)}`;
 }
 
+/** The personal account's To Do lists (M9). Not an event request: no IdType preference. */
+export const TODO_LISTS_URL = `${GRAPH_BASE}/me/todo/lists`;
+
+/**
+ * `openOnly` filters out completed tasks server-side — the docs only say "some" OData parameters
+ * work here, so M9.0 tries it before the list relies on it.
+ */
+export function todoTasksUrl(listId: string, openOnly = false): string {
+  const base = `${TODO_LISTS_URL}/${encodeURIComponent(listId)}/tasks`;
+  return openOnly ? `${base}?${encodeParams([["$filter", "status ne 'completed'"]])}` : base;
+}
+
+export function todoTaskUrl(listId: string, taskId: string): string {
+  return `${TODO_LISTS_URL}/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`;
+}
+
 /** Planner answers need their own error texts: a 403 there is Tasks.ReadWrite, not the calendar. */
 export function isPlannerUrl(url: string): boolean {
   return url.startsWith(`${GRAPH_BASE}/planner/`) || url.startsWith(`${GRAPH_BASE}/me/planner/`);

@@ -1,11 +1,5 @@
 import { requestUrl, type App, type ObsidianProtocolData } from "obsidian";
-import {
-  LOCAL_ACCOUNT_KEY,
-  REQUEST_TIMEOUT_MS,
-  scopes,
-  SECRET_REFRESH_TOKEN,
-  TOKEN_REFRESH_MARGIN_MS,
-} from "./config";
+import { REQUEST_TIMEOUT_MS, TOKEN_REFRESH_MARGIN_MS } from "./config";
 import { AuthError, SignedOutError, withTimeout } from "./lib/errors";
 import {
   authorizeUrl,
@@ -19,11 +13,23 @@ import {
   type TokenSet,
 } from "./lib/oauth";
 
-export interface AuthSettings {
-  tenantId: string;
+/**
+ * Which account an Auth signs in, read anew on every call: the settings can change underneath.
+ * The work account: its tenant and the scope of the Planner switch. The personal account (M9): the
+ * consumers authority and To Do plus the private calendar.
+ */
+export interface AuthProfile {
+  authority: string;
   clientId: string;
-  /** Adds Tasks.ReadWrite to the scope (umsetzungsplan M6). */
-  plannerEnabled: boolean;
+  scope: string;
+  /** What login() says while authority or client id is empty. */
+  missing: string;
+}
+
+/** Where this account's refresh token and account name live — one pair per account. */
+export interface AuthKeys {
+  secret: string;
+  account: string;
 }
 
 /**
@@ -49,13 +55,14 @@ export class Auth {
 
   constructor(
     private readonly app: App,
-    private readonly settings: () => AuthSettings,
+    private readonly profile: () => AuthProfile,
+    private readonly keys: AuthKeys,
     private readonly changed: () => void,
   ) {}
 
   get configured(): boolean {
-    const { tenantId, clientId } = this.settings();
-    return tenantId.trim() !== "" && clientId.trim() !== "";
+    const { authority, clientId } = this.profile();
+    return authority.trim() !== "" && clientId.trim() !== "";
   }
 
   get signedIn(): boolean {
@@ -63,29 +70,34 @@ export class Auth {
   }
 
   get account(): string | null {
-    const value: unknown = this.app.loadLocalStorage(LOCAL_ACCOUNT_KEY);
+    const value: unknown = this.app.loadLocalStorage(this.keys.account);
     return typeof value === "string" ? value : null;
   }
 
   private scope(): string {
-    return scopes(this.settings().plannerEnabled);
+    return this.profile().scope;
+  }
+
+  /** Whether a redirect belongs to this account's sign-in — two accounts share one redirect URI. */
+  expects(state: unknown): boolean {
+    return this.pending !== null && state === this.pending.state;
   }
 
   private refreshToken(): string | null {
-    const value = this.app.secretStorage.getSecret(SECRET_REFRESH_TOKEN);
+    const value = this.app.secretStorage.getSecret(this.keys.secret);
     return value === null || value === "" ? null : value;
   }
 
   async login(): Promise<void> {
-    if (!this.configured) throw new Error("Zuerst Tenant-ID und Client-ID in den Einstellungen eintragen.");
-    const { tenantId, clientId } = this.settings();
+    const { authority, clientId, missing } = this.profile();
+    if (!this.configured) throw new Error(missing);
     const verifier = randomVerifier();
     const state = randomVerifier();
     // The code is redeemed for the scope it was granted for, even if the switch flips meanwhile.
     const scope = this.scope();
     this.pending = { verifier, state, scope };
     window.open(
-      authorizeUrl({ tenantId: tenantId.trim(), clientId: clientId.trim(), challenge: await challengeFor(verifier), state, scope }),
+      authorizeUrl({ authority: authority.trim(), clientId: clientId.trim(), challenge: await challengeFor(verifier), state, scope }),
     );
   }
 
@@ -104,7 +116,7 @@ export class Auth {
     this.generation += 1;
     this.refreshing = null;
     const { scope } = pending;
-    await this.redeem(codeGrantBody({ clientId: this.settings().clientId.trim(), code, verifier: pending.verifier, scope }), this.generation, scope);
+    await this.redeem(codeGrantBody({ clientId: this.profile().clientId.trim(), code, verifier: pending.verifier, scope }), this.generation, scope);
     this.changed();
   }
 
@@ -139,7 +151,7 @@ export class Auth {
     const generation = this.generation;
     try {
       const tokens = await this.redeem(
-        refreshGrantBody({ clientId: this.settings().clientId.trim(), refreshToken, scope }),
+        refreshGrantBody({ clientId: this.profile().clientId.trim(), refreshToken, scope }),
         generation,
         scope,
       );
@@ -156,7 +168,7 @@ export class Auth {
   private async redeem(body: string, generation: number, scope: string): Promise<TokenSet> {
     const response = await withTimeout(
       requestUrl({
-        url: tokenUrl(this.settings().tenantId.trim()),
+        url: tokenUrl(this.profile().authority.trim()),
         method: "POST",
         contentType: "application/x-www-form-urlencoded",
         body,
@@ -169,8 +181,8 @@ export class Auth {
     // Signed out, or in again, while this request ran: its tokens belong to a session that is over.
     if (generation !== this.generation) throw new SignedOutError();
     // Every refresh returns a new refresh token with a fresh 90-day lifetime: keep the newest.
-    if (tokens.refreshToken !== null) this.app.secretStorage.setSecret(SECRET_REFRESH_TOKEN, tokens.refreshToken);
-    if (tokens.account !== null) this.app.saveLocalStorage(LOCAL_ACCOUNT_KEY, tokens.account);
+    if (tokens.refreshToken !== null) this.app.secretStorage.setSecret(this.keys.secret, tokens.refreshToken);
+    if (tokens.account !== null) this.app.saveLocalStorage(this.keys.account, tokens.account);
     // A late answer for a scope the switch has left since must not replace the current token.
     if (scope === this.scope()) this.access = { token: tokens.accessToken, expiresAt: tokens.expiresAt, scope };
     return tokens;
@@ -180,8 +192,8 @@ export class Auth {
     this.generation += 1;
     this.refreshing = null;
     // There is no public deleteSecret; an empty value reads as "no token" above.
-    this.app.secretStorage.setSecret(SECRET_REFRESH_TOKEN, "");
-    this.app.saveLocalStorage(LOCAL_ACCOUNT_KEY, null);
+    this.app.secretStorage.setSecret(this.keys.secret, "");
+    this.app.saveLocalStorage(this.keys.account, null);
     this.access = null;
     this.changed();
   }

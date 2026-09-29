@@ -1,34 +1,74 @@
 import { Notice, Plugin, PluginSettingTab, Setting, type App } from "obsidian";
 import { Auth } from "./auth";
-import { REDIRECT_ACTION, VIEW_TYPE } from "./config";
+import {
+  LOCAL_ACCOUNT_KEY,
+  LOCAL_TODO_ACCOUNT_KEY,
+  REDIRECT_ACTION,
+  scopes,
+  SECRET_REFRESH_TOKEN,
+  SECRET_TODO_REFRESH_TOKEN,
+  TODO_AUTHORITY,
+  TODO_SCOPES,
+  VIEW_TYPE,
+} from "./config";
 import { Graph } from "./graph";
 import { getErrorMessage } from "./lib/errors";
+import { ProbeModal } from "./probe";
 import { TaskIndex } from "./vault";
 import { PlannerView } from "./view";
 
 /**
- * Public ids that must not live in git, and the Planner switch. Tokens never go here (data.json is
+ * Public ids that must not live in git, and the two switches. Tokens never go here (data.json is
  * in the vault).
  */
 interface Settings {
   tenantId: string;
   clientId: string;
   plannerEnabled: boolean;
+  /** The personal account's own app registration (M9). */
+  todoClientId: string;
+  /** To Do and the private calendar together. Off reads nothing, and signs nobody out. */
+  todoEnabled: boolean;
 }
 
-export type ChangeReason = "index" | "auth" | "settings";
+export type ChangeReason = "index" | "auth" | "settings" | "todo";
 
 export default class VaultPlannerPlugin extends Plugin {
-  settings: Settings = { tenantId: "", clientId: "", plannerEnabled: false };
+  settings: Settings = { tenantId: "", clientId: "", plannerEnabled: false, todoClientId: "", todoEnabled: false };
   auth!: Auth;
   graph!: Graph;
+  /** The personal Microsoft account (M9): its own sign-in, its own token, its own Graph client. */
+  todoAuth!: Auth;
+  todoGraph!: Graph;
   index!: TaskIndex;
   private readonly listeners = new Set<(reason: ChangeReason) => void>();
 
   async onload(): Promise<void> {
     await this.loadSettings();
-    this.auth = new Auth(this.app, () => this.settings, () => this.emit("auth"));
+    this.auth = new Auth(
+      this.app,
+      () => ({
+        authority: this.settings.tenantId,
+        clientId: this.settings.clientId,
+        scope: scopes(this.settings.plannerEnabled),
+        missing: "Zuerst Tenant-ID und Client-ID in den Einstellungen eintragen.",
+      }),
+      { secret: SECRET_REFRESH_TOKEN, account: LOCAL_ACCOUNT_KEY },
+      () => this.emit("auth"),
+    );
     this.graph = new Graph(this.auth);
+    this.todoAuth = new Auth(
+      this.app,
+      () => ({
+        authority: TODO_AUTHORITY,
+        clientId: this.settings.todoClientId,
+        scope: TODO_SCOPES,
+        missing: "Zuerst die Client-ID für das private Konto in den Einstellungen eintragen.",
+      }),
+      { secret: SECRET_TODO_REFRESH_TOKEN, account: LOCAL_TODO_ACCOUNT_KEY },
+      () => this.emit("todo"),
+    );
+    this.todoGraph = new Graph(this.todoAuth);
     this.index = new TaskIndex(this.app, () => this.emit("index"));
     this.index.start(this);
 
@@ -37,11 +77,28 @@ export default class VaultPlannerPlugin extends Plugin {
     this.addCommand({ id: "open-planner", name: "Planner öffnen", callback: () => void this.openPlanner() });
 
     // Registered once: a second registration of the same action throws.
+    // Both accounts share the redirect: it goes to the one whose sign-in is waiting for this state.
     this.registerObsidianProtocolHandler(REDIRECT_ACTION, (params) => {
-      this.auth.handleRedirect(params).then(
-        () => new Notice(`Angemeldet${this.auth.account === null ? "" : ` als ${this.auth.account}`}.`),
-        (error: unknown) => new Notice(getErrorMessage(error)),
+      const personal = this.todoAuth.expects(params.state);
+      const auth = personal ? this.todoAuth : this.auth;
+      // ponytail: "Privates Konto:" in front of the work account's texts — own texts come with M9.1 (spec).
+      const label = personal ? "Privates Konto angemeldet" : "Angemeldet";
+      auth.handleRedirect(params).then(
+        () => new Notice(`${label}${auth.account === null ? "" : ` als ${auth.account}`}.`),
+        (error: unknown) => new Notice(personal ? `Privates Konto: ${getErrorMessage(error)}` : getErrorMessage(error)),
       );
+    });
+    // ponytail: the M9.0 probe command goes once its answers are in the plan.
+    this.addCommand({
+      id: "m9-probe",
+      name: "M9.0-Probe: privates Konto prüfen",
+      callback: () => {
+        if (!this.settings.todoEnabled || !this.todoAuth.signedIn) {
+          new Notice("Zuerst „To Do (privat)“ einschalten und das private Konto anmelden.");
+          return;
+        }
+        new ProbeModal(this.app, this.todoGraph).open();
+      },
     });
     this.addSettingTab(new VaultPlannerSettingTab(this.app, this));
   }
@@ -52,7 +109,8 @@ export default class VaultPlannerPlugin extends Plugin {
   }
 
   emit(reason: ChangeReason): void {
-    for (const listener of this.listeners) listener(reason);
+    // A copy: a listener that subscribes anew while being called must not be called again.
+    for (const listener of [...this.listeners]) listener(reason);
   }
 
   async openPlanner(): Promise<void> {
@@ -75,6 +133,8 @@ export default class VaultPlannerPlugin extends Plugin {
       tenantId: typeof record.tenantId === "string" ? record.tenantId : "",
       clientId: typeof record.clientId === "string" ? record.clientId : "",
       plannerEnabled: record.plannerEnabled === true,
+      todoClientId: typeof record.todoClientId === "string" ? record.todoClientId : "",
+      todoEnabled: record.todoEnabled === true,
     };
   }
 
@@ -84,6 +144,9 @@ export default class VaultPlannerPlugin extends Plugin {
 }
 
 class VaultPlannerSettingTab extends PluginSettingTab {
+  /** Named apart from PluginSettingTab's own members, which obsidian.d.ts does not list in full. */
+  private stopListening: (() => void) | null = null;
+
   constructor(
     app: App,
     private readonly plugin: VaultPlannerPlugin,
@@ -94,6 +157,11 @@ class VaultPlannerSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl, plugin } = this;
     containerEl.empty();
+    // A sign-in comes back through the browser: redraw, or the tab keeps saying "Nicht angemeldet".
+    // Subscribed once per showing — a new subscription on every redraw would redraw forever.
+    this.stopListening ??= plugin.onChange((reason) => {
+      if (reason === "auth" || reason === "todo") this.display();
+    });
 
     new Setting(containerEl)
       .setName("Tenant-ID")
@@ -136,9 +204,49 @@ class VaultPlannerSettingTab extends PluginSettingTab {
         }),
       );
 
-    const { auth } = plugin;
+    this.addAccountRow(containerEl, "Microsoft-Konto", plugin.auth);
+
+    new Setting(containerEl).setName("Microsoft To Do (privates Konto)").setHeading();
+
+    new Setting(containerEl)
+      .setName("Client-ID (privat)")
+      .setDesc("Anwendungs-ID der zweiten Registrierung „Nur private Microsoft-Konten“.")
+      .addText((text) =>
+        text
+          .setPlaceholder("00000000-0000-0000-0000-000000000000")
+          .setValue(plugin.settings.todoClientId)
+          .onChange(async (value) => {
+            plugin.settings.todoClientId = value.trim();
+            await plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("To Do (privat)")
+      .setDesc(
+        "Zeigt die Aufgaben aus deinem privaten Microsoft To Do und deinen privaten Kalender. Ausschalten " +
+          "blendet beides aus, meldet das private Konto aber nicht ab.",
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(plugin.settings.todoEnabled).onChange(async (value) => {
+          plugin.settings.todoEnabled = value;
+          await plugin.saveSettings();
+          plugin.emit("todo");
+        }),
+      );
+
+    this.addAccountRow(containerEl, "Privates Microsoft-Konto", plugin.todoAuth);
+  }
+
+  hide(): void {
+    this.stopListening?.();
+    this.stopListening = null;
+    super.hide();
+  }
+
+  private addAccountRow(containerEl: HTMLElement, name: string, auth: Auth): void {
     const account = new Setting(containerEl)
-      .setName("Microsoft-Konto")
+      .setName(name)
       .setDesc(auth.signedIn ? `Angemeldet als ${auth.account ?? "unbekannt"}.` : "Nicht angemeldet.");
     if (auth.signedIn) {
       account.addButton((button) =>

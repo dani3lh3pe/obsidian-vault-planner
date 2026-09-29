@@ -10,6 +10,9 @@ import {
   PLANNER_TASKS_URL,
   plannerTaskUrl,
   planUrl,
+  TODO_LISTS_URL,
+  todoTaskUrl,
+  todoTasksUrl,
 } from "./graphRequests";
 
 const RANGE = { start: new Date("2026-09-21T00:00:00Z"), end: new Date("2026-10-05T00:00:00Z") };
@@ -96,5 +99,16 @@ describe("isGraphUrl", () => {
     expect(isGraphUrl("https://example.com/v1.0/me/calendarView")).toBe(false);
     expect(isGraphUrl("https://graph.microsoft.com.example.com/v1.0/me")).toBe(false);
     expect(isGraphUrl("http://graph.microsoft.com/v1.0/me")).toBe(false);
+  });
+});
+
+describe("To Do URLs (M9)", () => {
+  it("encodes list and task ids, and To Do is no Planner endpoint", () => {
+    expect(TODO_LISTS_URL).toBe("https://graph.microsoft.com/v1.0/me/todo/lists");
+    expect(todoTasksUrl("AAMk/a=")).toBe("https://graph.microsoft.com/v1.0/me/todo/lists/AAMk%2Fa%3D/tasks");
+    expect(todoTaskUrl("L=", "T/1")).toBe("https://graph.microsoft.com/v1.0/me/todo/lists/L%3D/tasks/T%2F1");
+    expect(todoTasksUrl("L", true)).toBe("https://graph.microsoft.com/v1.0/me/todo/lists/L/tasks?$filter=status%20ne%20'completed'");
+    expect(isPlannerUrl(todoTaskUrl("L", "T"))).toBe(false);
+    expect(isGraphUrl(todoTaskUrl("L", "T"))).toBe(true);
   });
 });

@@ -24,14 +24,18 @@ export async function challengeFor(verifier: string): Promise<string> {
   return base64Url(new Uint8Array(digest));
 }
 
+/**
+ * `authority` is the tenant id for the work account, or "consumers" for the personal Microsoft
+ * account (M9) — the same host either way (Invariant 5).
+ */
 export function authorizeUrl(input: {
-  tenantId: string;
+  authority: string;
   clientId: string;
   challenge: string;
   state: string;
   scope: string;
 }): string {
-  return `${LOGIN_BASE}/${encodeURIComponent(input.tenantId)}/oauth2/v2.0/authorize?${encodeParams([
+  return `${LOGIN_BASE}/${encodeURIComponent(input.authority)}/oauth2/v2.0/authorize?${encodeParams([
     ["client_id", input.clientId],
     ["response_type", "code"],
     ["redirect_uri", REDIRECT_URI],
@@ -45,8 +49,8 @@ export function authorizeUrl(input: {
   ])}`;
 }
 
-export function tokenUrl(tenantId: string): string {
-  return `${LOGIN_BASE}/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`;
+export function tokenUrl(authority: string): string {
+  return `${LOGIN_BASE}/${encodeURIComponent(authority)}/oauth2/v2.0/token`;
 }
 
 export function codeGrantBody(input: { clientId: string; code: string; verifier: string; scope: string }): string {
