@@ -1029,7 +1029,10 @@ Befehl „M9.0-Probe: privates Konto prüfen". Er zeigt einen Bericht zum Kopier
   - ob beim Abschließen der wiederkehrenden Aufgabe die nächste Wiederholung entsteht;
   - im privaten Kalender einen Testtermin morgen 06:00 anlegen, per Property wiederfinden,
     verschieben (ID gleich?) und löschen.
-- **Schon die Anmeldung beweist** die Rückleitung über `obsidian://` für private Konten.
+- **Schon die Anmeldung beweist** die Rückleitung über `obsidian://` für private Konten. **Live
+  geprüft (2026-09-30):** Die Anmeldung des privaten Kontos über `consumers` mit der gemeinsamen
+  Registrierung kommt über `obsidian://` zurück, die Einstellungen zeigen das outlook.com-Konto.
+  Die Arbeitsanmeldung blieb dabei bestehen.
 
 Kommt sie nicht an, wird vor dem Bau über `http://localhost` entschieden (Spec Nr. 33). Die
 Antworten kommen hierher und in den graph-calendar-Skill, dann wird der Probe-Befehl entfernt.
