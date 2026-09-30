@@ -43,8 +43,13 @@ seiner Graph-Details belegten Fallen. Beides ist unten korrigiert, und der Umfan
 - **Ein unabhängiger Review** gegen den Quelltext von FullCalendar 6.1.21 und `obsidian.d.ts` hat
   eine ernste und zehn kleinere Lücken gefunden, alle behoben. Die ernste (Geister-Block) steht in
   der Fallentabelle von M4.
-- **Offen, nur auf Windows prüfbar:** M0.1 (Entra-App), M0.2 (Tasks-Einstellungen), die Live-Probe
-  M1.0 und alle manuellen Verifikationen M1–M4. Danach kommt M5.
+- **Live erledigt (2026-09-30):**
+  - M0.1: Die Entra-App läuft, Arbeits- und privates Konto melden sich an.
+  - M1.0: Die Extended Property kommt mit `$select` zurück, eingeplante Blöcke erscheinen als
+    eigene.
+- **Offen, nur auf Windows prüfbar:** M0.2 (Tasks-Einstellungen, globaler Filter) und die
+  manuellen Verifikationen M1–M4, M6–M8 und M9.1a. Daniel meldete „funktioniert alles", aber nicht,
+  welche Zeilen er geprüft hat.
 
 ## Entscheidungen (mit Daniel geklärt, 2026-09-24)
 

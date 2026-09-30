@@ -159,8 +159,11 @@ without admin consent; `categories` holds `displayName` values of the master lis
 alongside the `$expand` — the week loads (a 400 would have shown the banner), and the sign-in with
 MailboxSettings.Read went through.
 
-**Open, to verify live:** `$expand` of the task property together with `$select` returning the
-value (M1.0); a categorized meeting actually tinted, i.e. masterCategories readable (M7).
+**Verified live in the plugin, 2026-09-30:** `$expand` of the task property together with
+`$select` returns the value (M1.0) — booked blocks come back filled, with the task icon, as our own.
+
+**Open, to verify live:** a categorized meeting actually tinted, i.e. masterCategories readable
+(M7).
 
 ## Rejected — do not re-attempt
 
