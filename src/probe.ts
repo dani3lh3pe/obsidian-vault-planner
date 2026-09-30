@@ -1,6 +1,6 @@
 import { Modal, Notice, type App } from "obsidian";
 import type { Graph } from "./graph";
-import { getErrorMessage, GraphApiError } from "./lib/errors";
+import { getPersonalErrorMessage, GraphApiError } from "./lib/errors";
 import { isRecord } from "./lib/odata";
 import { fromGraphUtc, plannerDay } from "./lib/time";
 
@@ -38,7 +38,7 @@ interface ProbeTask {
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 const failure = (error: unknown): string =>
-  error instanceof GraphApiError ? `HTTP ${error.status} (${error.body?.error?.code ?? "ohne Code"})` : getErrorMessage(error);
+  error instanceof GraphApiError ? `HTTP ${error.status} (${error.body?.error?.code ?? "ohne Code"})` : getPersonalErrorMessage(error);
 
 function readTask(listId: string, item: unknown): ProbeTask | null {
   if (!isRecord(item) || typeof item.id !== "string" || typeof item.title !== "string") return null;

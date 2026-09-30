@@ -1,7 +1,7 @@
 /**
  * Everything the plugin does not ask the user for. One user, one vault: constants, not settings.
- * The only settings (see main.ts) are the tenant and client id, which must not live in git, and the
- * Planner switch.
+ * The only settings (see main.ts) are the tenant and client id, which must not live in git, the
+ * Planner switch and the To Do switch (M9).
  */
 
 /**
@@ -28,9 +28,9 @@ export function scopes(planner: boolean): string {
 }
 
 /**
- * The personal Microsoft account (M9): its own app registration ("personal Microsoft accounts
- * only"), signed in at the consumers authority. To Do plus the private calendar — never the work
- * mailbox, and a failure here never signs the work account out.
+ * The personal Microsoft account (M9): the same app registration, opened to personal accounts
+ * (2026-09-30), signed in at the consumers authority. To Do plus the private calendar — never the
+ * work mailbox, and a failure here never signs the work account out.
  */
 export const TODO_AUTHORITY = "consumers";
 export const TODO_SCOPES =

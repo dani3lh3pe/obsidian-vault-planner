@@ -12,7 +12,7 @@ import {
   VIEW_TYPE,
 } from "./config";
 import { Graph } from "./graph";
-import { getErrorMessage } from "./lib/errors";
+import { getErrorMessage, getPersonalErrorMessage } from "./lib/errors";
 import { ProbeModal } from "./probe";
 import { TaskIndex } from "./vault";
 import { PlannerView } from "./view";
@@ -25,8 +25,6 @@ interface Settings {
   tenantId: string;
   clientId: string;
   plannerEnabled: boolean;
-  /** The personal account's own app registration (M9). */
-  todoClientId: string;
   /** To Do and the private calendar together. Off reads nothing, and signs nobody out. */
   todoEnabled: boolean;
 }
@@ -34,7 +32,7 @@ interface Settings {
 export type ChangeReason = "index" | "auth" | "settings" | "todo";
 
 export default class VaultPlannerPlugin extends Plugin {
-  settings: Settings = { tenantId: "", clientId: "", plannerEnabled: false, todoClientId: "", todoEnabled: false };
+  settings: Settings = { tenantId: "", clientId: "", plannerEnabled: false, todoEnabled: false };
   auth!: Auth;
   graph!: Graph;
   /** The personal Microsoft account (M9): its own sign-in, its own token, its own Graph client. */
@@ -61,9 +59,10 @@ export default class VaultPlannerPlugin extends Plugin {
       this.app,
       () => ({
         authority: TODO_AUTHORITY,
-        clientId: this.settings.todoClientId,
+        // The same registration, opened to personal accounts (umsetzungsplan M9, 2026-09-30).
+        clientId: this.settings.clientId,
         scope: TODO_SCOPES,
-        missing: "Zuerst die Client-ID für das private Konto in den Einstellungen eintragen.",
+        missing: "Zuerst die Client-ID in den Einstellungen eintragen.",
       }),
       { secret: SECRET_TODO_REFRESH_TOKEN, account: LOCAL_TODO_ACCOUNT_KEY },
       () => this.emit("todo"),
@@ -81,11 +80,10 @@ export default class VaultPlannerPlugin extends Plugin {
     this.registerObsidianProtocolHandler(REDIRECT_ACTION, (params) => {
       const personal = this.todoAuth.expects(params.state);
       const auth = personal ? this.todoAuth : this.auth;
-      // ponytail: "Privates Konto:" in front of the work account's texts — own texts come with M9.1 (spec).
       const label = personal ? "Privates Konto angemeldet" : "Angemeldet";
       auth.handleRedirect(params).then(
         () => new Notice(`${label}${auth.account === null ? "" : ` als ${auth.account}`}.`),
-        (error: unknown) => new Notice(personal ? `Privates Konto: ${getErrorMessage(error)}` : getErrorMessage(error)),
+        (error: unknown) => new Notice(personal ? getPersonalErrorMessage(error) : getErrorMessage(error)),
       );
     });
     // ponytail: the M9.0 probe command goes once its answers are in the plan.
@@ -133,7 +131,6 @@ export default class VaultPlannerPlugin extends Plugin {
       tenantId: typeof record.tenantId === "string" ? record.tenantId : "",
       clientId: typeof record.clientId === "string" ? record.clientId : "",
       plannerEnabled: record.plannerEnabled === true,
-      todoClientId: typeof record.todoClientId === "string" ? record.todoClientId : "",
       todoEnabled: record.todoEnabled === true,
     };
   }
@@ -178,7 +175,7 @@ class VaultPlannerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Client-ID")
-      .setDesc("Anwendungs-ID der Registrierung „Obsidian Vault Planner“.")
+      .setDesc("Anwendungs-ID der Registrierung „Obsidian Vault Planner“ — für das Arbeitskonto und das private Konto.")
       .addText((text) =>
         text
           .setPlaceholder("00000000-0000-0000-0000-000000000000")
@@ -209,22 +206,10 @@ class VaultPlannerSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Microsoft To Do (privates Konto)").setHeading();
 
     new Setting(containerEl)
-      .setName("Client-ID (privat)")
-      .setDesc("Anwendungs-ID der zweiten Registrierung „Nur private Microsoft-Konten“.")
-      .addText((text) =>
-        text
-          .setPlaceholder("00000000-0000-0000-0000-000000000000")
-          .setValue(plugin.settings.todoClientId)
-          .onChange(async (value) => {
-            plugin.settings.todoClientId = value.trim();
-            await plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
       .setName("To Do (privat)")
       .setDesc(
-        "Zeigt die Aufgaben aus deinem privaten Microsoft To Do und deinen privaten Kalender. Ausschalten " +
+        "Zeigt die Aufgaben aus deinem privaten Microsoft To Do und deinen privaten Kalender. Setzt voraus, " +
+          "dass die App-Registrierung für private Konten geöffnet ist (README, Einrichtung 5). Ausschalten " +
           "blendet beides aus, meldet das private Konto aber nicht ab.",
       )
       .addToggle((toggle) =>
@@ -261,7 +246,9 @@ class VaultPlannerSettingTab extends PluginSettingTab {
           .setButtonText("Anmelden")
           .setCta()
           .onClick(() => {
-            auth.login().catch((error: unknown) => new Notice(getErrorMessage(error)));
+            auth.login().catch((error: unknown) =>
+              new Notice(auth === this.plugin.todoAuth ? getPersonalErrorMessage(error) : getErrorMessage(error)),
+            );
           }),
       );
     }

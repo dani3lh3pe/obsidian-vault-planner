@@ -3,6 +3,7 @@ import {
   AuthError,
   EmptyToggleError,
   getErrorMessage,
+  getPersonalErrorMessage,
   GraphApiError,
   isAuthExpired,
   LineChangedError,
@@ -83,5 +84,17 @@ describe("withTimeout", () => {
 
   it("gives up with a TimeoutError", async () => {
     await expect(withTimeout(new Promise(() => {}), 5)).rejects.toBeInstanceOf(TimeoutError);
+  });
+});
+
+describe("getPersonalErrorMessage (M9)", () => {
+  it("reads AADSTS700016 as a registration not opened to personal accounts, never as a tenant id", () => {
+    const text = getPersonalErrorMessage(new AuthError("unauthorized_client", "700016"));
+    expect(text).toContain("nicht für private Microsoft-Konten geöffnet");
+    expect(text).not.toContain("Tenant");
+  });
+
+  it("names the account in front of every other text", () => {
+    expect(getPersonalErrorMessage(new SignedOutError())).toBe("Privates Konto: Nicht angemeldet. Bitte anmelden.");
   });
 });

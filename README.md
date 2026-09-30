@@ -12,14 +12,15 @@ live aus dem Kalender an, auch nachdem du einen Block in Outlook verschoben oder
 ### 1. Entra-App-Registrierung (einmalig)
 
 1. Entra Admin Center → App-Registrierungen → **Neue Registrierung** „Obsidian Vault Planner",
-   *Nur Konten in diesem Organisationsverzeichnis*.
+   *Nur Konten in diesem Organisationsverzeichnis*. Für To Do mit dem privaten Konto wird das später
+   umgestellt (Einrichtung 5).
 2. **Authentifizierung → Plattform hinzufügen → Mobile- und Desktopanwendungen**, dort zwei
    benutzerdefinierte Umleitungs-URIs:
    - `obsidian://vault-planner-auth`
    - `http://localhost` (Reserve)
 3. „Öffentliche Clientflows zulassen" bleibt auf **Nein**.
 4. **API-Berechtigungen → Microsoft Graph → Delegiert:** `Calendars.ReadWrite` und
-   `MailboxSettings.Read` (nur für die Farben der Outlook-Kategorien), für Planner-Aufgaben
+   `MailboxSettings.Read` (nur für die Farben der Outlook-Kategorien), für Planner-Aufgaben oder To Do
    zusätzlich `Tasks.ReadWrite`. Falls Benutzerzustimmung gesperrt ist, die Administratorzustimmung
    erteilen.
 5. Kein Secret, keine Anwendungsberechtigung.
@@ -63,16 +64,17 @@ es sich deshalb einmal ab; **Anmelden** holt die Zustimmung ein.
 
 ### 5. Privates Konto für Microsoft To Do (optional, in Arbeit: M9)
 
-Eine **zweite** App-Registrierung, getrennt von der für das Arbeitskonto:
+Dieselbe App-Registrierung wie für das Arbeitskonto, für private Konten geöffnet:
 
-1. Entra Admin Center → App-Registrierungen → **Neue Registrierung** „Obsidian Vault Planner
-   (privat)", unterstützte Kontotypen: **Nur private Microsoft-Konten**.
-2. **Authentifizierung → Plattform hinzufügen → Mobile- und Desktopanwendungen**, benutzerdefinierte
-   Umleitungs-URI `obsidian://vault-planner-auth`.
-3. **API-Berechtigungen → Microsoft Graph → Delegiert:** `Tasks.ReadWrite` und `Calendars.ReadWrite`.
-   Kein Secret.
-4. Die **Anwendungs-ID** in den Plugin-Einstellungen unter „Client-ID (privat)" eintragen, „To Do
-   (privat)" einschalten, beim privaten Konto **Anmelden** und mit dem privaten Konto zustimmen.
+1. **Authentifizierung → Unterstützte Kontotypen:** „Konten in allen Organisationsverzeichnissen und
+   persönliche Microsoft-Konten". Die App ist damit für jeden Entra-Tenant offen; an deine Daten
+   kommt dadurch niemand, andere Tenants sehen sie als „nicht verifiziert". Lehnt Entra das
+   Umstellen ab, zuerst die Eigenschaft ändern, die die Fehlermeldung nennt; laut Doku kann das
+   nötig sein.
+2. **API-Berechtigungen → Microsoft Graph → Delegiert:** `Tasks.ReadWrite` und `Calendars.ReadWrite`
+   müssen in der Liste stehen, auch ohne Planner.
+3. Im Plugin „To Do (privat)" einschalten, beim privaten Konto **Anmelden** und mit dem privaten
+   Konto zustimmen. Die Client-ID ist dieselbe.
 
 Ein Problem mit dem privaten Konto meldet das Arbeitskonto nie ab. Ausschalten blendet To Do und
 den privaten Kalender aus, meldet das private Konto aber nicht ab.
@@ -141,6 +143,7 @@ Aufgabe inzwischen in Planner geändert, bricht das Plugin ab und liest neu, sta
 | „Die Redirect-URI passt nicht" (AADSTS50011) | `obsidian://vault-planner-auth` fehlt oder steht unter der falschen Plattform | Unter „Mobile- und Desktopanwendungen" eintragen |
 | „Entra verlangt ein Client-Secret" (AADSTS7000218) | Die App wird als vertraulicher Client behandelt | „Öffentliche Clientflows zulassen" auf Ja |
 | „Die App wurde nicht gefunden" (AADSTS700016) | Client-ID oder Tenant-ID falsch | Mit der Übersichtsseite der Registrierung vergleichen |
+| „Privates Konto: Die App-Registrierung ist nicht für private Microsoft-Konten geöffnet" | Kontotyp der Registrierung steht noch auf „Nur Konten in diesem Organisationsverzeichnis" | Einrichtung 5, Schritt 1 |
 | „Die Zustimmung fehlt" (AADSTS65001) | Benutzerzustimmung gesperrt | Administratorzustimmung erteilen |
 | „Conditional Access blockiert …" (AADSTS53003/53000) | Eine CA-Richtlinie greift | In den Anmeldeprotokollen die Richtlinie suchen |
 | „Diese Rückmeldung gehört zu keiner laufenden Anmeldung" | Der Link ging an ein anderes Vault-Fenster, oder Obsidian wurde neu gestartet | Nur einen Vault offen lassen, erneut „Anmelden" |

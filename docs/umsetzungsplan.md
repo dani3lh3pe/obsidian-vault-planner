@@ -1018,7 +1018,7 @@ Token, eigener Schalter, Rückleitung an das Konto, dessen Anmeldung läuft) und
 Befehl „M9.0-Probe: privates Konto prüfen". Er zeigt einen Bericht zum Kopieren.
 
 - **Vorbereitung durch Daniel:**
-  - die zweite App-Registrierung (README, Einrichtung 5);
+  - die App-Registrierung für private Konten öffnen (README, Einrichtung 5);
   - in To Do zwei Aufgaben: „M9-Probe einmalig" mit Fälligkeit morgen und „M9-Probe
     wiederkehrend" mit täglicher Wiederholung.
 - **Die Probe prüft:**
@@ -1034,16 +1034,21 @@ Befehl „M9.0-Probe: privates Konto prüfen". Er zeigt einen Bericht zum Kopier
 Kommt sie nicht an, wird vor dem Bau über `http://localhost` entschieden (Spec Nr. 33). Die
 Antworten kommen hierher und in den graph-calendar-Skill, dann wird der Probe-Befehl entfernt.
 
-**Bewusst so (mit Daniel, 2026-09-29): eine zweite App-Registrierung.** Das private
-Microsoft-Konto meldet sich über eine eigene Registrierung „Nur private Microsoft-Konten" an (eigene
-Client-ID, eigener Refresh-Token, eigener Schalter mit eigenem „Anmelden"). Die Arbeits-App bleibt
-auf den eigenen Tenant beschränkt.
+**Bewusst so (mit Daniel, 2026-09-30, ersetzt die Entscheidung vom 2026-09-29): eine
+App-Registrierung für beide Konten.** Daniel hat die bestehende Registrierung auf „Konten in allen
+Organisationsverzeichnissen und persönliche Microsoft-Konten" umgestellt. Das private Konto meldet
+sich mit derselben Client-ID an, über die Authority `consumers`, mit eigenem Refresh-Token und
+eigenem Schalter mit eigenem „Anmelden". Entra kennt keinen Kontotyp „nur mein Tenant plus private
+Konten".
 
-- **Verworfen:** die bestehende App auf „alle Organisationen und private Konten" umstellen. Sie
-  wäre dann für jeden Tenant offen, und beide Konten hingen an einer Registrierung.
-- **Folge:** Ein Zustimmungs- oder Anmeldeproblem beim privaten Konto meldet das Arbeitskonto nie
-  ab und blockiert den Kalender nie. Das ist das Gegenteil von `MailboxSettings.Read` (M7).
-- **Kosten:** eine weitere Client-ID in den Einstellungen.
+- **Verworfen (vorher geplant):** eine zweite Registrierung „Nur private Microsoft-Konten". Sie hätte
+  die Arbeits-App auf den eigenen Tenant beschränkt, kostet aber einen Einrichtungsschritt und eine
+  zweite Client-ID. Daniel nimmt dafür in Kauf, dass die App für jeden Tenant offen ist.
+- **Folge:** Die Arbeitsanmeldung läuft unverändert über die Tenant-ID. Ein Zustimmungs- oder
+  Anmeldeproblem beim privaten Konto meldet das Arbeitskonto trotzdem nie ab und blockiert den
+  Kalender nie, weil Token und Anmeldung getrennt bleiben.
+- **Kosten:** Beide Konten hängen an einer Registrierung und einer Client-ID. Wer die Kontotypen
+  zurückstellt, eine Berechtigung entfernt oder die Client-ID ändert, trifft beide.
 
 **Bewusst so (mit Daniel, 2026-09-29): private To Dos kommen in den privaten Kalender.** Daniel
 erledigt sie meist abends oder am Wochenende. Das Plugin liest deshalb den privaten Kalender mit:
@@ -1114,6 +1119,7 @@ beweist.
 | Behauptung | Befund | Quelle |
 | --- | --- | --- |
 | `loadLocalStorage` / `saveLocalStorage` | Gibt es seit 1.8.7, vault-spezifisch, **im Klartext** | `obsidian.d.ts` |
+| Kontotypen einer App-Registrierung (M9, 2026-09-29) | Vier Werte: `AzureADMyOrg`, `AzureADMultipleOrgs`, `AzureADandPersonalMicrosoftAccount`, `PersonalMicrosoftAccount`. Keiner heißt „eigener Tenant plus private Konten". Beim Umstellen „you may need to change other properties first". Mit privaten Konten: keine Query-Parameter in Umleitungs-URIs, höchstens 100 | learn.microsoft.com: Entra, „Validation differences by supported account types" und „Redirect URI best practices" |
 | `app.secretStorage` | `setSecret`, `getSecret` und `listSecrets` seit 1.11.4, verschlüsselt (safeStorage) seit 1.11.5, gerätelokal. ID nach `^[a-z0-9-]+$`, höchstens 64 Zeichen. Andere Plugins können mitlesen; unter Einstellungen → Schlüsselbund ist der Wert sichtbar | d.ts, Changelog 1.11.5, Obsidian-Code 1.13.7 |
 | `requestUrl` | Wirft ab 400 und verliert dabei den Body. Kein `Origin`, Header kleingeschrieben, kein Timeout; `.json` wirft bei leerem Body | d.ts, Obsidian-Code 1.13.7, Electron `url_loader` |
 | `vault.process` | Atomar, das Callback läuft synchron. Die Editor-API ist nur für die aktive Notiz vorgeschrieben | d.ts, Plugin guidelines |

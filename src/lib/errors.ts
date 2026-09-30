@@ -157,6 +157,18 @@ export function isAuthExpired(error: unknown): boolean {
   return error instanceof AuthError && (error.code === "invalid_grant" || error.code === "interaction_required");
 }
 
+/**
+ * The personal account (M9) shares the work account's registration. There, AADSTS700016 means the
+ * registration is not opened to personal accounts — not a wrong tenant id, which it has none of.
+ * ponytail: only this one differs so far; the rest of the private texts come with M9.1 (spec Nr. 34).
+ */
+export function getPersonalErrorMessage(error: unknown): string {
+  if (error instanceof AuthError && error.aadsts === "700016") {
+    return "Privates Konto: Die App-Registrierung ist nicht für private Microsoft-Konten geöffnet (README, Einrichtung 5).";
+  }
+  return `Privates Konto: ${getErrorMessage(error)}`;
+}
+
 export function getErrorMessage(error: unknown): string {
   if (error instanceof GraphApiError) return mapGraphError(error.status, error.body, error.planner);
   if (error instanceof AuthError) return mapAuthError(error);
