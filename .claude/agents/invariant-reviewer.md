@@ -32,7 +32,8 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
       touches the other
 - [ ] `state` is checked before the code is exchanged; PKCE uses S256; a redirect without a
       pending sign-in changes nothing
-- [ ] `window.open` is reachable only from a click — the sign-in button and "In Planner öffnen";
+- [ ] `window.open` is reachable only from a click — the two sign-in buttons, "In Planner öffnen",
+      a Planner or To Do card;
       trace every caller. No timer, no 401 path, no failed refresh opens the browser (Invariant 6)
 - [ ] A refresh still in flight after sign-out or a new sign-in neither stores its token nor
       clears the new one
@@ -47,7 +48,7 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
 - [ ] Every URL that carries the bearer token starts with `GRAPH_BASE`, including a followed
       `@odata.nextLink`; the token endpoint under `LOGIN_BASE` is the only other host
 - [ ] No telemetry, no request the user did not cause apart from the reads: calendar every 15 s,
-      Planner every 60 s, both on returning to the view; the category colours on opening the view
+      Planner and To Do every 60 s, all on returning to the view; the category colours on opening the view
       and after sign-in (`/me/outlook/masterCategories`, read only)
 - [ ] The work scope asks for nothing beyond `Calendars.ReadWrite`, `MailboxSettings.Read` and,
       with the Planner switch on, `Tasks.ReadWrite`; the personal scope (M9, `consumers`) for nothing
@@ -73,6 +74,14 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
 - [ ] A 412 ends in a Notice and a re-read — never a second PATCH with the fresh etag
 - [ ] A task shared with others asks in a `Modal` before completing
 - [ ] Booking a Planner task writes nothing to the vault
+
+## To Do writes (`src/graph.ts`, `src/view.ts`, Invariant 8)
+
+- [ ] Exactly one To Do write exists: `completeTodoTask`, a PATCH with `{ status: "completed" }`
+      and nothing else, through the PERSONAL account's Graph client (`todoGraph`) only
+- [ ] It follows a click on a To Do card; a task in a shared list asks in a `Modal` first
+- [ ] `If-Match` only once the M9.0 report says To Do honours it; no automatic retry either way
+- [ ] Nothing reads or writes the personal account while the "To Do (privat)" switch is off
 
 ## Vault writes (`src/vault.ts`, `src/lib/taskLine.ts`, Invariants 2–3)
 

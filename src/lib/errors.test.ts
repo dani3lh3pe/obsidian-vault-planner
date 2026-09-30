@@ -31,11 +31,13 @@ describe("getErrorMessage", () => {
   });
 
   it("reads a Planner status as Planner's, a 412 as a change made elsewhere", () => {
-    const planner = (status: number) => new GraphApiError(status, null, true);
+    const planner = (status: number) => new GraphApiError(status, null, "planner");
     expect(getErrorMessage(planner(403))).toContain("Tasks.ReadWrite");
     expect(getErrorMessage(planner(412))).toContain("in Planner geändert");
     expect(getErrorMessage(planner(404))).toContain("Planner-Aufgabe");
     expect(getErrorMessage(planner(418))).toBe("Unerwarteter Fehler beim Planner-Zugriff.");
+    // Spec Nr. 42: the area's reading wins over the generic code — a Planner 403 is not the calendar's.
+    expect(getErrorMessage(new GraphApiError(403, { error: { code: "ErrorAccessDenied", message: "raw" } }, "planner"))).toContain("Kein Zugriff auf Planner");
   });
 
   it("never shows raw Graph text", () => {
@@ -96,5 +98,20 @@ describe("getPersonalErrorMessage (M9)", () => {
 
   it("names the account in front of every other text", () => {
     expect(getPersonalErrorMessage(new SignedOutError())).toBe("Privates Konto: Nicht angemeldet. Bitte anmelden.");
+  });
+});
+
+describe("To Do errors (M9)", () => {
+  const todo = (status: number, code?: string) =>
+    new GraphApiError(status, code === undefined ? null : { error: { code, message: "raw" } }, "todo");
+
+  it("names To Do, not the calendar, even when Graph answers with a calendar-sounding code", () => {
+    expect(getErrorMessage(todo(403, "ErrorAccessDenied"))).toContain("Kein Zugriff auf To Do");
+    expect(getErrorMessage(todo(404))).toBe("Die To-Do-Aufgabe gibt es nicht mehr.");
+    expect(getErrorMessage(todo(418))).toBe("Unerwarteter Fehler beim To-Do-Zugriff.");
+  });
+
+  it("leaves the shared answers alone: throttling is throttling everywhere", () => {
+    expect(getErrorMessage(todo(429))).toContain("Zu viele Anfragen");
   });
 });

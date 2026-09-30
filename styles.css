@@ -4,6 +4,9 @@
    because a card's drag preview lives there too. This line is the tuning knob. */
 body {
   --vp-planner: oklch(0.52 0.12 155);
+  /* To Do (M9): turquoise at the same lightness, so white text reads on its blocks too. Blue is the
+     meetings' colour. */
+  --vp-todo: oklch(0.52 0.09 205);
 }
 
 .vault-planner-view {
@@ -155,6 +158,24 @@ body {
 
 .vp-card.is-planner {
   --vp-source: var(--vp-planner);
+}
+
+.vp-card.is-todo {
+  --vp-source: var(--vp-todo);
+}
+
+/* A recurring To Do task has no checkbox (spec Nr. 30): a repeat icon of the same size keeps the
+   titles in one column and says why. */
+.vp-card .vp-check-spacer {
+  display: flex;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--text-muted);
+}
+
+.vp-card .vp-check-spacer svg {
+  width: var(--checkbox-size, 15px);
+  height: var(--checkbox-size, 15px);
 }
 
 .vp-card[data-drag] {

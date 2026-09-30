@@ -9,7 +9,7 @@ import type { AnyTask, PlannerBucket, PlannerTask, Priority } from "./types";
  */
 
 export function isPlannerTask(task: AnyTask): task is PlannerTask {
-  return "source" in task;
+  return "source" in task && task.source === "planner";
 }
 
 /**

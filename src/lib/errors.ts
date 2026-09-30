@@ -11,8 +11,8 @@ export class GraphApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly body: GraphErrorResponse | null,
-    /** Came from a Planner endpoint: the same status means something else there. */
-    public readonly planner = false,
+    /** Which endpoint answered: the same status means something else in Planner or To Do. */
+    public readonly area: GraphArea = "calendar",
   ) {
     super(`Graph API error ${status}: ${body?.error?.code ?? "Unknown"}`);
     this.name = "GraphApiError";
@@ -93,6 +93,8 @@ const GRAPH_CODES: Record<string, string> = {
   ErrorAccessDenied: "Kein Zugriff auf den Kalender. Fehlt die Berechtigung Calendars.ReadWrite?",
 };
 
+export type GraphArea = "calendar" | "planner" | "todo";
+
 /** Planner's own readings of a status (umsetzungsplan M6). */
 const PLANNER_STATUS: Record<number, string> = {
   403: "Kein Zugriff auf Planner. Fehlt die Berechtigung Tasks.ReadWrite? Dann abmelden, neu anmelden und zustimmen.",
@@ -101,17 +103,32 @@ const PLANNER_STATUS: Record<number, string> = {
   412: "Die Aufgabe wurde zwischenzeitlich in Planner geändert. Die Liste wird neu geladen – bitte erneut versuchen.",
 };
 
-function mapGraphError(status: number, body: GraphErrorResponse | null, planner: boolean): string {
+/** To Do's, for the personal account (M9, spec Nr. 42). */
+const TODO_STATUS: Record<number, string> = {
+  403: "Kein Zugriff auf To Do. Fehlt die Berechtigung Tasks.ReadWrite? Dann beim privaten Konto abmelden, neu anmelden und zustimmen.",
+  404: "Die To-Do-Aufgabe gibt es nicht mehr.",
+};
+
+const AREA_STATUS: Record<GraphArea, Record<number, string>> = { calendar: {}, planner: PLANNER_STATUS, todo: TODO_STATUS };
+const AREA_FALLBACK: Record<GraphArea, string> = {
+  calendar: "Unerwarteter Fehler beim Kalenderzugriff.",
+  planner: "Unerwarteter Fehler beim Planner-Zugriff.",
+  todo: "Unerwarteter Fehler beim To-Do-Zugriff.",
+};
+
+function mapGraphError(status: number, body: GraphErrorResponse | null, area: GraphArea): string {
+  // The area's own reading first: a 403 from To Do with ErrorAccessDenied is not the calendar's.
+  const own = AREA_STATUS[area][status];
+  if (own !== undefined) return own;
   const code = body?.error?.code;
   if (code !== undefined && GRAPH_CODES[code] !== undefined) return GRAPH_CODES[code];
-  if (planner && PLANNER_STATUS[status] !== undefined) return PLANNER_STATUS[status];
 
   if (status === 401) return GRAPH_CODES.InvalidAuthenticationToken;
   if (status === 403) return GRAPH_CODES.ErrorAccessDenied;
   if (status === 404) return GRAPH_CODES.ErrorItemNotFound;
   if (status === 429) return "Zu viele Anfragen an Microsoft. Kurz warten und erneut versuchen.";
   if (status >= 500) return "Microsoft Graph ist gerade nicht erreichbar. Später erneut versuchen.";
-  return planner ? "Unerwarteter Fehler beim Planner-Zugriff." : "Unerwarteter Fehler beim Kalenderzugriff.";
+  return AREA_FALLBACK[area];
 }
 
 /** The AADSTS numbers that have a known fix in this setup (see README, Entra-App). */
@@ -170,7 +187,7 @@ export function getPersonalErrorMessage(error: unknown): string {
 }
 
 export function getErrorMessage(error: unknown): string {
-  if (error instanceof GraphApiError) return mapGraphError(error.status, error.body, error.planner);
+  if (error instanceof GraphApiError) return mapGraphError(error.status, error.body, error.area);
   if (error instanceof AuthError) return mapAuthError(error);
   if (error instanceof SignedOutError) return "Nicht angemeldet. Bitte anmelden.";
   // requestUrl rejects with Chromium's net error text when there is no connection at all.

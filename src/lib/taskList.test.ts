@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { compareTasks, groupOf, isOverdue } from "./priority";
 import { buildList } from "./taskList";
 import { mapPlannerTasks } from "./planner";
+import { mapTodoTasks } from "./todo";
 import type { PlanStatus, VaultTask } from "./types";
 
 const TODAY = "2026-09-24";
@@ -159,6 +160,19 @@ describe("buildList", () => {
     expect(group("week")).toEqual(["ohne Datum, Block Montag"]);
     // A block that is over no longer plans anything: the task falls back to its own date.
     expect(group("none")).toEqual(["abgelaufen"]);
+  });
+
+  it("puts To Do tasks into the date groups and under Warten auf, with one To Do filter entry", () => {
+    const todo = mapTodoTasks({ id: "L", name: "Privat", shared: false }, [
+      { id: "T1", title: "Reifen wechseln", status: "notStarted", dueDateTime: { dateTime: "2026-09-25T00:00:00.0000000", timeZone: "UTC" } },
+      { id: "T2", title: "Antwort Vermieter", status: "waitingOnOthers" },
+      { id: "T3", title: "Erledigt", status: "completed" },
+    ]).tasks;
+    const model = buildList([task("Vault offen"), ...todo], null, OPTIONS, TODAY);
+    expect(model.groups.find((g) => g.key === "week")?.tasks.map((t) => t.description)).toEqual(["Reifen wechseln"]);
+    expect(model.waiting.map((t) => t.description)).toEqual(["Antwort Vermieter"]);
+    expect(model.kunden).toEqual(["K", "To Do"]);
+    expect(buildList(todo, null, { ...OPTIONS, kunde: "To Do", search: "privat" }, TODAY).shownCount).toBe(2);
   });
 
   it("ignores 'nur ungeplante' while the status is unknown", () => {

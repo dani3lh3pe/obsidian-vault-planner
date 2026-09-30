@@ -5,6 +5,7 @@ import {
   PLANNER_TIME_ZONE,
   TASK_PROPERTY_ID,
 } from "../config";
+import type { GraphArea } from "./errors";
 import { toWallClock } from "./time";
 import type { TimeRange } from "./types";
 
@@ -71,9 +72,12 @@ export function todoTaskUrl(listId: string, taskId: string): string {
   return `${TODO_LISTS_URL}/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`;
 }
 
-/** Planner answers need their own error texts: a 403 there is Tasks.ReadWrite, not the calendar. */
-export function isPlannerUrl(url: string): boolean {
-  return url.startsWith(`${GRAPH_BASE}/planner/`) || url.startsWith(`${GRAPH_BASE}/me/planner/`);
+/** Planner and To Do answers need their own error texts: a 403 there is Tasks.ReadWrite, not the calendar. */
+export function graphArea(url: string): GraphArea {
+  if (url.startsWith(`${GRAPH_BASE}/planner/`) || url.startsWith(`${GRAPH_BASE}/me/planner/`)) return "planner";
+  // By the segment, not the /me prefix: a nextLink may come back as /users/{id}/todo/lists.
+  if (url.startsWith(`${GRAPH_BASE}/`) && /\/todo\/lists(\/|\?|$)/u.test(url)) return "todo";
+  return "calendar";
 }
 
 function slot(start: Date, end: Date) {

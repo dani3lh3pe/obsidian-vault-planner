@@ -1,5 +1,6 @@
 import { URGENT_WITHIN_DAYS } from "../config";
 import { isPlannerTask } from "./planner";
+import { isTodoTask } from "./todo";
 import type { AnyTask, Priority } from "./types";
 
 /**
@@ -57,9 +58,12 @@ const PRIORITY_RANK: Record<Priority, number> = { highest: 0, high: 1, medium: 2
 
 const statusRank = (task: AnyTask): number => (task.status === "/" ? 0 : 1);
 
-/** Where a task lives, for the last tie: file and line, or the Planner id. */
-const origin = (task: AnyTask): { path: string; line: number } =>
-  isPlannerTask(task) ? { path: `planner:${task.id}`, line: 0 } : task;
+/** Where a task lives, for the last tie: file and line, or the Planner or To Do id. */
+const origin = (task: AnyTask): { path: string; line: number } => {
+  if (isPlannerTask(task)) return { path: `planner:${task.id}`, line: 0 };
+  if (isTodoTask(task)) return { path: `todo:${task.id}`, line: 0 };
+  return task;
+};
 
 /**
  * The list date first (none last), then the priority, then "in progress" before open, then the

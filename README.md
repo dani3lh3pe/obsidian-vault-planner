@@ -117,6 +117,11 @@ den privaten Kalender aus, meldet das private Konto aber nicht ab.
   wechselt den Bucket, die Checkbox schließt sie in Planner ab. Ist sie auch anderen zugewiesen,
   fragt vorher ein Dialog, denn abgeschlossen ist sie dann für alle. Planner wird jede Minute und
   bei der Rückkehr in die Ansicht (höchstens alle 30 s) neu gelesen.
+- **To-Do-Aufgaben** (privates Konto, Schalter „To Do (privat)") stehen türkis unter dem Kunden „To
+  Do", mit der Liste als Projekt. Gekennzeichnete E-Mails fehlen, „Warten auf" und „Zurückgestellt"
+  stehen unter „Warten auf". Ein Klick öffnet die Aufgabe in To Do, die Checkbox schließt sie dort
+  ab. In einer geteilten Liste fragt vorher ein Dialog. Wiederkehrende Aufgaben haben vorerst keine
+  Checkbox, sie werden in To Do abgehakt. Einplanen in den privaten Kalender kommt mit M9.1b.
 
 ## Was das Plugin in den Vault schreibt
 
@@ -129,6 +134,11 @@ Genau zweierlei, und nur, wenn du es auslöst:
 
 Sonst nichts: kein `⏳`, kein Datum, keine Termin-ID, kein Schreiben im Hintergrund. Eine
 Planner-Aufgabe einzuplanen schreibt nichts in den Vault.
+
+## Was das Plugin in To Do schreibt
+
+Genau eines, und nur, wenn du es auslöst: eine Aufgabe abschließen. Keinen anderen Wert, keine
+neue Aufgabe, keinen Listenwechsel.
 
 ## Was das Plugin in Planner schreibt
 
@@ -149,6 +159,7 @@ Aufgabe inzwischen in Planner geändert, bricht das Plugin ab und liest neu, sta
 | „Diese Rückmeldung gehört zu keiner laufenden Anmeldung" | Der Link ging an ein anderes Vault-Fenster, oder Obsidian wurde neu gestartet | Nur einen Vault offen lassen, erneut „Anmelden" |
 | „Kalender nicht erreichbar – Planungsstatus unbekannt" | Netzwerk oder Graph gestört | „Erneut versuchen"; ziehen ist so lange gesperrt |
 | „Keine offenen Aufgaben", obwohl Tasks im Vault stehen | `10_Kunden` und `20_Intern` liegen nicht direkt im Vault-Ordner, z. B. eine Ebene tiefer nach dem Entpacken | Die Ordner eine Ebene hochschieben, dann das Plugin aus- und einschalten |
+| „Privates Konto: Kein Zugriff auf To Do" | `Tasks.ReadWrite` fehlt in der App-Registrierung oder ist für das private Konto nicht zugestimmt | Berechtigung ergänzen, beim privaten Konto abmelden und neu anmelden |
 | „Kein Zugriff auf Planner" | `Tasks.ReadWrite` fehlt in der App-Registrierung oder ist nicht zugestimmt | Berechtigung ergänzen, abmelden, neu anmelden |
 | „… zwischenzeitlich in Planner geändert" | Die Aufgabe wurde in Planner geändert, seit das Plugin sie gelesen hat | Nach dem Neuladen erneut versuchen |
 | Alle fremden Termine blau, obwohl sie in Outlook Kategorien haben | Die Kategorieliste war nicht lesbar (`MailboxSettings.Read` fehlt oder ist nicht zugestimmt), oder die Kategorie ist neu | Berechtigung ergänzen, abmelden, neu anmelden; eine neue Kategorie erscheint, sobald die Ansicht neu geöffnet wird |

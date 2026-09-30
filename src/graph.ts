@@ -7,7 +7,7 @@ import {
   createEventBody,
   eventUrl,
   isGraphUrl,
-  isPlannerUrl,
+  graphArea,
   MASTER_CATEGORIES_URL,
   moveEventBody,
   PLANNER_TASKS_URL,
@@ -21,6 +21,7 @@ import {
 import { mapGraphEvents, readCategoryColors, type MapResult } from "./lib/mapGraphEvents";
 import { readPage } from "./lib/odata";
 import { mapPlannerTasks, planTitle, readBuckets, type PlannerSnapshot } from "./lib/planner";
+import { mapTodoTasks, readTodoLists, type TodoSnapshot } from "./lib/todo";
 import type { GraphErrorResponse, PlannerBucket, PlannerTask, TimeRange } from "./lib/types";
 
 function parseBody(text: string): unknown {
@@ -47,6 +48,8 @@ function errorBody(value: unknown): GraphErrorResponse | null {
 export class Graph {
   /** Plan titles for the session: they rarely change, and each is one request per plan. */
   private readonly planTitles = new Map<string, string>();
+  /** Graph refused To Do's status filter once: do not ask again every minute (spec Nr. 37). */
+  private todoFilterRejected = false;
 
   constructor(private readonly auth: Auth) {}
 
@@ -77,7 +80,7 @@ export class Graph {
 
     // `.json` would throw on the empty body of a 204; read text and parse only what is there.
     const parsed = parseBody(response.text);
-    if (response.status >= 400) throw new GraphApiError(response.status, errorBody(parsed), isPlannerUrl(url));
+    if (response.status >= 400) throw new GraphApiError(response.status, errorBody(parsed), graphArea(url));
     return parsed;
   }
 
@@ -175,6 +178,38 @@ export class Graph {
 
   async readTodoTasks(listId: string, openOnly = false): Promise<{ raw: unknown[]; truncated: boolean }> {
     return this.readAll(todoTasksUrl(listId, openOnly));
+  }
+
+  /**
+   * The personal account's open To Do tasks, every list but flagged emails, read in parallel. A
+   * failing list fails the read: the view keeps the last good one and says so.
+   */
+  async readTodo(): Promise<TodoSnapshot> {
+    const listsRead = await this.readTodoLists();
+    const reads = await Promise.all(
+      readTodoLists(listsRead.raw).map(async (list) => {
+        try {
+          return { list, read: await this.readTodoTasks(list.id, !this.todoFilterRejected) };
+        } catch (error) {
+          if (!(error instanceof GraphApiError)) throw error;
+          // Deleted between the list read and this one: gone from the next read, nothing to report.
+          if (error.status === 404) return { list, read: { raw: [], truncated: false } };
+          // ponytail: the status filter is undocumented (spec Nr. 37); unfiltered, a long history can hit
+          // the page limit. Drop this fallback once M9.0 shows the filter works.
+          if (error.status !== 400 || this.todoFilterRejected) throw error;
+          this.todoFilterRejected = true;
+          return { list, read: await this.readTodoTasks(list.id) };
+        }
+      }),
+    );
+    const snapshot: TodoSnapshot = { tasks: [], droppedCount: 0, truncated: listsRead.truncated };
+    for (const { list, read } of reads) {
+      const mapped = mapTodoTasks(list, read.raw);
+      snapshot.tasks.push(...mapped.tasks);
+      snapshot.droppedCount += mapped.droppedCount;
+      snapshot.truncated ||= read.truncated;
+    }
+    return snapshot;
   }
 
   /** The one To Do write (M9). `ifMatch` only once M9.0 has shown that To Do honours it. */

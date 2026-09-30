@@ -5,7 +5,7 @@ import {
   createEventBody,
   eventUrl,
   isGraphUrl,
-  isPlannerUrl,
+  graphArea,
   moveEventBody,
   PLANNER_TASKS_URL,
   plannerTaskUrl,
@@ -81,10 +81,10 @@ describe("move and address", () => {
 describe("planner urls", () => {
   it("encode ids and are recognised as Planner's for their error texts", () => {
     expect(plannerTaskUrl("a/b=")).toBe("https://graph.microsoft.com/v1.0/planner/tasks/a%2Fb%3D");
-    expect(isPlannerUrl(plannerTaskUrl("x"))).toBe(true);
-    expect(isPlannerUrl(`${planUrl("p")}/buckets`)).toBe(true);
-    expect(isPlannerUrl(PLANNER_TASKS_URL)).toBe(true);
-    expect(isPlannerUrl(eventUrl("x"))).toBe(false);
+    expect(graphArea(plannerTaskUrl("x"))).toBe("planner");
+    expect(graphArea(`${planUrl("p")}/buckets`)).toBe("planner");
+    expect(graphArea(PLANNER_TASKS_URL)).toBe("planner");
+    expect(graphArea(eventUrl("x"))).toBe("calendar");
   });
 });
 
@@ -108,7 +108,9 @@ describe("To Do URLs (M9)", () => {
     expect(todoTasksUrl("AAMk/a=")).toBe("https://graph.microsoft.com/v1.0/me/todo/lists/AAMk%2Fa%3D/tasks");
     expect(todoTaskUrl("L=", "T/1")).toBe("https://graph.microsoft.com/v1.0/me/todo/lists/L%3D/tasks/T%2F1");
     expect(todoTasksUrl("L", true)).toBe("https://graph.microsoft.com/v1.0/me/todo/lists/L/tasks?$filter=status%20ne%20'completed'");
-    expect(isPlannerUrl(todoTaskUrl("L", "T"))).toBe(false);
+    expect(graphArea(todoTaskUrl("L", "T"))).toBe("todo");
+    expect(graphArea(todoTasksUrl("L", true))).toBe("todo");
+    expect(graphArea("https://graph.microsoft.com/v1.0/users('u1')/todo/lists/L/tasks?$skip=10")).toBe("todo");
     expect(isGraphUrl(todoTaskUrl("L", "T"))).toBe(true);
   });
 });

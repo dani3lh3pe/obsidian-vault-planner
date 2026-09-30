@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { blocksByTask, fetchRange, linkKey, parseTaskLink, plannerIdOf, plannerKey, planStatus, statusWindow } from "./schedule";
 import { mapPlannerTasks } from "./planner";
+import { mapTodoTasks } from "./todo";
 import type { CalendarEvent } from "./types";
 
 function event(id: string, start: string, end: string, overrides: Partial<CalendarEvent> = {}): CalendarEvent {
@@ -28,6 +29,12 @@ describe("parseTaskLink", () => {
     expect(parseTaskLink("test-vault|t-abc123", "Vault")).toBeNull();
     expect(parseTaskLink("Vault|", "Vault")).toBeNull();
     expect(parseTaskLink(null, "Vault")).toBeNull();
+  });
+
+  it("gives a To Do task its own vault-independent key, never a Planner one (M9)", () => {
+    const [task] = mapTodoTasks({ id: "L", name: "Privat", shared: false }, [{ id: "T1", title: "x" }]).tasks;
+    expect(linkKey(task)).toBe("todo:T1");
+    expect(plannerIdOf(linkKey(task) ?? "")).toBeNull();
   });
 
   it("carries a Planner task's key through the same link, apart from every block id", () => {

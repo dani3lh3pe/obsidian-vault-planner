@@ -1,5 +1,6 @@
 import { STATUS_WINDOW_DAYS } from "../config";
 import { isPlannerTask } from "./planner";
+import { isTodoTask } from "./todo";
 import type { AnyTask, Block, CalendarEvent, PlanStatus, TimeRange } from "./types";
 
 /**
@@ -23,9 +24,16 @@ export function plannerIdOf(key: string): string | null {
   return key.startsWith(PLANNER_KEY) && key.length > PLANNER_KEY.length ? key.slice(PLANNER_KEY.length) : null;
 }
 
+/** A To Do task's link (M9): vault-independent like Planner's. Its blocks live in the private calendar. */
+export function todoKey(taskId: string): string {
+  return `todo:${taskId}`;
+}
+
 /** The key a task's blocks carry — null for a vault task that was never booked. */
 export function linkKey(task: AnyTask): string | null {
-  return isPlannerTask(task) ? plannerKey(task.id) : task.blockId;
+  if (isPlannerTask(task)) return plannerKey(task.id);
+  if (isTodoTask(task)) return todoKey(task.id);
+  return task.blockId;
 }
 
 /**

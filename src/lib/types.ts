@@ -89,7 +89,34 @@ export interface PlannerTask {
   othersAssigned: number | null;
 }
 
-export type AnyTask = VaultTask | PlannerTask;
+/**
+ * A task from the personal account's Microsoft To Do (M9). Read on every refresh, never stored;
+ * the same list fields as VaultTask and PlannerTask.
+ */
+export interface TodoTask {
+  source: "todo";
+  id: string;
+  listId: string;
+  /** From the last read. Sent as If-Match only once M9.0 shows To Do honours it (spec Nr. 29). */
+  etag: string | null;
+  /** The title. */
+  description: string;
+  /** " " open, "/" in progress; completed tasks are not in the list at all. */
+  status: string;
+  priority: Priority;
+  due: string | null;
+  scheduled: null;
+  /** waitingOnOthers and deferred: nothing to plan today (spec Nr. 10). */
+  isWaiting: boolean;
+  isRecurring: boolean;
+  kunde: string;
+  /** The list's name. */
+  projekt: string;
+  /** A shared list: completing closes the task for everyone, so a dialog asks first. */
+  shared: boolean;
+}
+
+export type AnyTask = VaultTask | PlannerTask | TodoTask;
 
 export interface PlannerBucket {
   id: string;

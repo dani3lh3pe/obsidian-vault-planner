@@ -1011,7 +1011,24 @@ entscheidet Daniel, wenn er die neue Liste eine Weile benutzt hat.
 ## M9 — Microsoft To Do, privates Konto (in Planung)
 
 **Stand:** grilling und Spec abgeschlossen (2026-09-29, Spec in `.scratch/m9-todo/spec.md`, nicht
-versioniert). M9.0 ist als Code fertig, auf Windows noch nicht gelaufen.
+versioniert).
+
+- **M9.0:** die private Anmeldung ist live geprüft (2026-09-30), der Probe-Bericht fehlt noch.
+- **M9.1a (To Do in der Liste):** als Code fertig (2026-09-30), auf Windows noch ungeprüft.
+- **M9.1b (privater Kalender):** folgt nach dem Probe-Bericht (Spec Nr. 36).
+
+**Verifikation M9.1a** (manuell):
+
+| Handlung | Was sie beweist |
+| --- | --- |
+| „To Do (privat)" einschalten | Kurz „To-Do-Aufgaben werden geladen…", dann türkise Karten unter „To Do", Liste als Projekt; gekennzeichnete E-Mails fehlen |
+| Eine Aufgabe mit „Warten auf" oder „Zurückgestellt" in To Do | Sie steht unter „Warten auf" |
+| Eine To-Do-Aufgabe abhaken | In To Do erledigt, die Karte verschwindet nach „Wird gespeichert…" |
+| Eine Aufgabe in einer geteilten Liste abhaken | Erst der Dialog mit ihrem Titel |
+| Eine wiederkehrende Aufgabe | Wiederholen-Symbol statt Checkbox (nur, wenn die Probe zeigt, dass Graph `recurrence` mitliefert) |
+| Auf eine To-Do-Karte klicken | To Do öffnet sich im Browser bei der Aufgabe (Link-Format, Spec Nr. 38) |
+| Beim privaten Konto abmelden | Hinweis „Privates Konto nicht angemeldet" mit „Anmelden", die To-Do-Karten verschwinden, der Rest läuft weiter |
+| Schalter aus | To-Do-Karten und Hinweis verschwinden |
 
 **M9.0 — Probe vor dem Bau.** Gebaut sind die private Anmeldung (Authority `consumers`, eigener
 Token, eigener Schalter, Rückleitung an das Konto, dessen Anmeldung läuft) und ein befristeter

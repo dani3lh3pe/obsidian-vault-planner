@@ -6,7 +6,7 @@ Detail besitzt, zeigt diese Datei darauf.
 ## Projekt
 
 Ein Obsidian-Plugin für **einen** Nutzer: links die offenen Tasks aus den Projektdateien des
-Vaults (per Schalter auch die eigenen Planner-Aufgaben), rechts der eigene Outlook-Kalender. Zieht man einen Task in eine Lücke, entsteht in Outlook
+Vaults (per Schalter auch die eigenen Planner-Aufgaben und die privaten To Dos), rechts der eigene Outlook-Kalender. Zieht man einen Task in eine Lücke, entsteht in Outlook
 ein Fokus-Block.
 
 > **Das Ziel in einem Satz:** Morgens in unter zwei Minuten die offenen Aufgaben sichten, die für
@@ -76,12 +76,15 @@ npm run dev            # esbuild im Watch-Modus nach build/main.js
    und `graph.microsoft.com`. Keine Telemetrie.
 6. **Tokens nie in `data.json`** — sie liegt im Vault, und ein Vault-Sync kann sie mitnehmen. Die
    Refresh-Tokens liegen in `app.secretStorage`, je Konto unter eigenem Namen (Arbeitskonto, seit M9
-   das private Konto). Abmelden oder ein Fehler bei einem Konto lässt das andere unberührt. Nur ein Klick öffnet den Browser („Anmelden", „In
-   Planner öffnen"), nie ein Timer.
+   das private Konto). Abmelden oder ein Fehler bei einem Konto lässt das andere unberührt. Nur ein Klick öffnet den Browser („Anmelden" für
+   beide Konten, „In Planner öffnen", eine Planner- oder To-Do-Karte), nie ein Timer.
 7. **In Planner schreibt das Plugin genau zweierlei, beides nur auf eine Handlung des Nutzers
    hin:** abschließen (`percentComplete: 100`) und den Bucket wechseln. Immer mit `If-Match`; ein
    412 wird nie automatisch wiederholt. Ist die Aufgabe weiteren Personen zugewiesen, fragt vorher
    ein Dialog.
+8. **In To Do (privates Konto, M9) schreibt das Plugin genau eines, nur auf einen Klick:**
+   abschließen (`status: completed`). Kein Listenwechsel. Steht die Aufgabe in einer geteilten Liste,
+   fragt vorher ein Dialog. `If-Match` erst, wenn M9.0 zeigt, dass To Do es beachtet.
 
 Die Verknüpfung Task ↔ Termin ist die Extended Property mit dem Wert `<vaultName>|<blockId>`, bei
 Planner-Aufgaben vault-unabhängig `planner:<taskId>`.
@@ -102,7 +105,9 @@ Ihre GUID in `src/config.ts` wird **nie** geändert.
 
 ## Nebenläufigkeit
 
-`lib/readGate.ts` besitzt die Regeln: nur die Antwort des zuletzt gestarteten Lesevorgangs zählt,
+`lib/readGate.ts` besitzt die Regeln für den Kalender, `lib/remoteSource.ts` dieselben für Planner und
+To Do (neuester Lesevorgang zählt, Schreibmarke bis zu einem anderen etag). Für den Kalender: nur die
+Antwort des zuletzt gestarteten Lesevorgangs zählt,
 während einer Geste (Ziehen, Größe ändern, PATCH) wird nichts angewendet, und „Wird gespeichert…"
 endet erst nach dem ersten Lesevorgang, der nach dem POST gestartet wurde. `droppable` sperrt
 externe Drops in FullCalendar 6.1.21 **nicht** — das Tor ist `eventAllow`. `eventDragMinDistance`
@@ -143,9 +148,9 @@ Conventional Commits. Vor einem mehrdateiigen Commit `/ponytail-review`, jeden F
 entscheiden, dann `/code-review`. Keiner ersetzt den anderen: ponytail-review sucht keine Fehler.
 Die Stufe richtet sich danach, was ein Fehler kostet, nicht nach der Größe des Diffs:
 
-- **high** — alles, was schreibt: Outlook-Termine, die zwei Vault- und die zwei
-  Planner-Schreibvorgänge, Anmeldung
-- **medium** — Graph-Lesepfad (Kalender, Planner), Task-Index
+- **high** — alles, was schreibt: Outlook-Termine, die zwei Vault-, die zwei Planner- und der
+  To-Do-Schreibvorgang, Anmeldung
+- **medium** — Graph-Lesepfad (Kalender, Planner, To Do), Task-Index
 - **low** — reine UI
 
 Berührt ein Diff mehrere Stufen, gilt die höchste. `/code-review` entfällt nur bei Doku- oder

@@ -71,6 +71,8 @@ export const PLANNER_REFRESH_INTERVAL_MS = 60_000;
 export const MAX_PLANNER_PAGES = 10;
 /** Planner tasks share one entry in the customer filter; the plan is their project. */
 export const PLANNER_LABEL = "Planner";
+/** The same for To Do (M9): one filter entry, the list is the project. Read on Planner's clock. */
+export const TODO_LABEL = "To Do";
 /** `requestUrl` has no timeout of its own. */
 export const REQUEST_TIMEOUT_MS = 30_000;
 /** Renew the access token this long before it expires. */

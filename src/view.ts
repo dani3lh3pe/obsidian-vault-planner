@@ -21,8 +21,10 @@ import {
 } from "./config";
 import type VaultPlannerPlugin from "./main";
 import type { ChangeReason } from "./main";
-import { getErrorMessage, isAuthExpired } from "./lib/errors";
+import { getErrorMessage, getPersonalErrorMessage, isAuthExpired } from "./lib/errors";
 import { isPlannerTask, plannerWebUrl, type PlannerSnapshot } from "./lib/planner";
+import { RemoteSource } from "./lib/remoteSource";
+import { isTodoTask, todoWebUrl, type TodoSnapshot } from "./lib/todo";
 import { GROUP_TITLE, isOverdue, listDate, PRIORITY_MARK } from "./lib/priority";
 import { ReadGate } from "./lib/readGate";
 import { blocksByTask, fetchRange, inRange, linkKey, plannerIdOf, plannerKey, planStatus, statusWindow } from "./lib/schedule";
@@ -30,7 +32,7 @@ import { cleanTitle, eventBody, eventSubject, plannerEventBody } from "./lib/sub
 import { buildList, isOpen, type ListOptions } from "./lib/taskList";
 import { formatDue, formatSlot, formatSlotWithDate, plannerDay, shiftWorkdays } from "./lib/time";
 import { toFullCalendarEvents, type BlockState, type EventProps } from "./lib/toFullCalendarEvents";
-import type { AnyTask, CalendarEvent, PlannerBucket, PlannerTask, PlanStatus, TimeRange, VaultTask } from "./lib/types";
+import type { AnyTask, CalendarEvent, PlannerBucket, PlannerTask, PlanStatus, TimeRange, TodoTask, VaultTask } from "./lib/types";
 import { visibleHours } from "./lib/visibleHours";
 import { toggleDone, writeBlockId } from "./vault";
 
@@ -63,6 +65,9 @@ interface CardData {
   raw: string;
   blockId: string | null;
   plannerId: string | null;
+  todoId: string | null;
+  /** False for a recurring To Do task until M9.0 shows Graph keeps its series (spec Nr. 30, 37). */
+  checkable: boolean;
   /** The Tasks emoji of a set priority, and its name for screen readers. */
   priority: { mark: string; name: string } | null;
   title: string;
@@ -138,20 +143,12 @@ export class PlannerView extends ItemView {
   private renderTimer: number | null = null;
   private calendarStale = false;
   private unsubscribe: (() => void) | null = null;
-  /** Planner's last good read; null while switched off or not read yet. Kept when a read fails. */
-  private planner: PlannerSnapshot | null = null;
-  private plannerError: string | null = null;
-  /** Only the newest Planner read may land — the same rule as the calendar's, without gestures. */
-  private plannerSeq = 0;
-  private plannerInFlight: number | null = null;
-  private plannerReadAt = 0;
   /**
-   * Planner tasks with a PATCH under way or not yet re-read: the etag it used is spent, so the card
-   * stays "Wird gespeichert…" until a read started after the write (`from`; ∞ while the PATCH runs)
-   * shows a DIFFERENT etag — Planner can lag behind its own writes. `spent` is null when the write
-   * failed: then the next read is news enough.
+   * Planner's and To Do's last good reads, null while switched off or not read yet, kept when a read
+   * fails. Their read and write rules live in RemoteSource.
    */
-  private readonly plannerWriting = new Map<string, { from: number; spent: string | null }>();
+  private readonly plannerSource = new RemoteSource<PlannerSnapshot>();
+  private readonly todoSource = new RemoteSource<TodoSnapshot>();
   /** Outlook category name -> colour preset. Empty until read, and after a failed read. */
   private categoryColors: ReadonlyMap<string, number> = new Map();
   /** Only the newest category read may land: an older one may be the previous account's. */
@@ -159,6 +156,7 @@ export class PlannerView extends ItemView {
 
   private bannerEl: HTMLElement | null = null;
   private plannerHintEl: HTMLElement | null = null;
+  private todoHintEl: HTMLElement | null = null;
   private countEl: HTMLElement | null = null;
   private listEl: HTMLElement | null = null;
   private loadingEl: HTMLElement | null = null;
@@ -205,10 +203,12 @@ export class PlannerView extends ItemView {
     this.unsubscribe = this.plugin.onChange((reason) => this.onPluginChange(reason));
     // Registered on the VIEW, not the plugin: closing the tab must stop the poll.
     this.registerInterval(window.setInterval(() => this.poll(), REFRESH_INTERVAL_MS));
-    // Planner on its own clock: a 429 there must not stall the calendar.
+    // Planner and To Do on their own clock: a 429 there must not stall the calendar.
     this.registerInterval(
       window.setInterval(() => {
-        if (this.isVisible()) void this.refreshPlanner();
+        if (!this.isVisible()) return;
+        void this.refreshPlanner();
+        void this.refreshTodo();
       }, PLANNER_REFRESH_INTERVAL_MS),
     );
     this.registerDomEvent(document, "visibilitychange", () => this.onReturn());
@@ -221,6 +221,7 @@ export class PlannerView extends ItemView {
     );
     this.renderAll();
     void this.refreshPlanner();
+    void this.refreshTodo();
     void this.loadCategoryColors();
   }
 
@@ -244,6 +245,7 @@ export class PlannerView extends ItemView {
     this.countEl = header.createDiv({ cls: "vp-count" });
     this.bannerEl = left.createDiv({ cls: "vp-banner" });
     this.plannerHintEl = left.createDiv({ cls: "vp-banner" });
+    this.todoHintEl = left.createDiv({ cls: "vp-banner" });
 
     // Controls live OUTSIDE the container that is rebuilt, so typing keeps its focus.
     const controls = left.createDiv({ cls: "vp-controls" });
@@ -352,11 +354,14 @@ export class PlannerView extends ItemView {
     return document.visibilityState === "visible" && this.containerEl.isShown();
   }
 
-  /** Back from Outlook or Planner Web: both may have changed. Planner at most every 15 s. */
+  /** Back from Outlook, Planner or To Do: all may have changed. Planner and To Do at most every 30 s. */
   private onReturn(): void {
     this.poll();
-    // Half the Planner clock: prompt after Planner Web, but no full read on every window switch.
-    if (this.isVisible() && Date.now() - this.plannerReadAt >= PLANNER_REFRESH_INTERVAL_MS / 2) void this.refreshPlanner();
+    if (!this.isVisible()) return;
+    // Half their clock: prompt after the web app, but no full read on every window switch.
+    const due = (readAt: number) => Date.now() - readAt >= PLANNER_REFRESH_INTERVAL_MS / 2;
+    if (due(this.plannerSource.readAt)) void this.refreshPlanner();
+    if (due(this.todoSource.readAt)) void this.refreshTodo();
   }
 
   private poll(): void {
@@ -369,8 +374,15 @@ export class PlannerView extends ItemView {
       this.error = null;
       void this.refresh(true);
       void this.refreshPlanner(true);
+      // The client id is the personal account's too.
+      void this.refreshTodo(true);
       // The Planner switch leaves this scope alone; a sign-in may be another account's.
       if (reason === "auth") void this.loadCategoryColors();
+      return;
+    }
+    // The To Do switch or the personal account: only To Do reads again, the work account is untouched.
+    if (reason === "todo") {
+      void this.refreshTodo(true);
       return;
     }
     if (this.renderTimer !== null) return;
@@ -429,41 +441,33 @@ export class PlannerView extends ItemView {
 
   /**
    * Planner tasks and buckets. Never touches the calendar: a failure here is a hint, not a banner.
-   * `force` starts a read even while one runs — after a write only a read started now can show it;
-   * the clocks wait, or a slow read would be superseded forever.
+   * `force` starts a read even while one runs (RemoteSource).
    */
   private async refreshPlanner(force = false): Promise<void> {
     const { auth, graph, settings } = this.plugin;
     if (!settings.plannerEnabled || !auth.configured || !auth.signedIn) {
-      // A read still running must not bring the tasks back.
-      this.plannerSeq += 1;
-      if (this.planner === null && this.plannerError === null) return;
-      this.planner = null;
-      this.plannerError = null;
-      this.plannerWriting.clear();
-      this.renderAll();
+      if (this.plannerSource.clear()) this.renderAll();
       return;
     }
-    if (!force && this.plannerInFlight !== null) return;
-    const seq = ++this.plannerSeq;
-    this.plannerInFlight = seq;
-    this.plannerReadAt = Date.now();
-    try {
-      const snapshot = await graph.readPlanner();
-      if (seq !== this.plannerSeq) return;
-      this.planner = snapshot;
-      this.plannerError = null;
-      for (const [id, mark] of this.plannerWriting) {
-        const now = snapshot.tasks.find((task) => task.id === id);
-        if (seq >= mark.from && (mark.spent === null || now?.etag !== mark.spent)) this.plannerWriting.delete(id);
-      }
-    } catch (error) {
-      if (seq !== this.plannerSeq) return;
-      this.plannerError = getErrorMessage(error);
-    } finally {
-      if (this.plannerInFlight === seq) this.plannerInFlight = null;
+    if (await this.plannerSource.read(() => graph.readPlanner(), getErrorMessage, force)) this.renderAll();
+  }
+
+  /**
+   * The personal account's To Do (M9). Like Planner: a hint, never a banner, never a sign-out of the
+   * work account. Nothing is read while the switch is off.
+   */
+  private async refreshTodo(force = false): Promise<void> {
+    const { todoAuth, todoGraph, settings } = this.plugin;
+    if (!settings.todoEnabled || !todoAuth.configured || !todoAuth.signedIn) {
+      // Tasks gone: the whole list. Otherwise only the hint — "nicht angemeldet" comes and goes with
+      // the switch, and a full render on every tick would rebuild the list under a drag.
+      if (this.todoSource.clear()) this.renderAll();
+      else this.renderSourceHints();
+      return;
     }
-    this.renderAll();
+    // Switched on or signed in just now: "werden geladen…" while the first read runs (UX rule 1).
+    if (this.todoSource.snapshot === null) this.renderSourceHints();
+    if (await this.todoSource.read(() => todoGraph.readTodo(), getPersonalErrorMessage, force)) this.renderAll();
   }
 
   /**
@@ -490,7 +494,7 @@ export class PlannerView extends ItemView {
 
   /** The task as the LAST read knows it: its etag may have changed since the card was built. */
   private plannerTask(id: string): PlannerTask | undefined {
-    return this.planner?.tasks.find((task) => task.id === id);
+    return this.plannerSource.task(id);
   }
 
   /**
@@ -580,29 +584,75 @@ export class PlannerView extends ItemView {
     } else el.toggle(false);
 
     this.loadingEl?.toggle(auth.configured && auth.signedIn && !this.everLoaded && this.error === null);
-    this.renderPlannerHint();
+    this.renderSourceHints();
   }
 
-  private renderPlannerHint(): void {
-    const el = this.plannerHintEl;
-    if (el === null) return;
-    const { auth, settings } = this.plugin;
-    el.empty();
-    let text: string | null = null;
+  /** Planner's and To Do's hints above the list: a failure there is a hint, never the banner. */
+  private renderSourceHints(): void {
+    const { auth, todoAuth, settings } = this.plugin;
+    const hint = (
+      el: HTMLElement | null,
+      source: { snapshot: { truncated: boolean; droppedCount: number } | null; error: string | null },
+      names: { tasks: string; truncated: string; failed: (error: string) => string },
+      retry: () => void,
+    ) => {
+      if (el === null) return;
+      el.empty();
+      const { snapshot, error } = source;
+      const text =
+        error !== null
+          ? names.failed(error)
+          : snapshot === null
+            ? `${names.tasks} werden geladen…`
+            : snapshot.truncated
+              ? names.truncated
+              : snapshot.droppedCount > 0
+                ? `${snapshot.droppedCount} ${names.tasks} waren nicht lesbar und fehlen in der Liste.`
+                : null;
+      el.toggle(text !== null);
+      if (text === null) return;
+      // Everything but the first load is something missing.
+      el.toggleClass("is-warning", snapshot !== null || error !== null);
+      el.createSpan({ text });
+      if (error !== null) el.createEl("button", { text: "Erneut versuchen", cls: "mod-cta" }).addEventListener("click", retry);
+    };
+
     if (settings.plannerEnabled && auth.configured && auth.signedIn) {
-      if (this.plannerError !== null) text = `Planner nicht erreichbar – ${this.plannerError}`;
-      else if (this.planner === null) text = "Planner-Aufgaben werden geladen…";
-      else if (this.planner.truncated) text = "Planner hat mehr Aufgaben geliefert, als das Plugin liest – es fehlen welche.";
-      else if (this.planner.droppedCount > 0) text = `${this.planner.droppedCount} Planner-Aufgaben waren nicht lesbar und fehlen in der Liste.`;
+      hint(
+        this.plannerHintEl,
+        this.plannerSource,
+        {
+          tasks: "Planner-Aufgaben",
+          truncated: "Planner hat mehr Aufgaben geliefert, als das Plugin liest – es fehlen welche.",
+          failed: (error) => `Planner nicht erreichbar – ${error}`,
+        },
+        () => void this.refreshPlanner(true),
+      );
+    } else this.plannerHintEl?.toggle(false);
+
+    const todoEl = this.todoHintEl;
+    if (!settings.todoEnabled || todoEl === null) {
+      todoEl?.toggle(false);
+      return;
     }
-    el.toggle(text !== null);
-    if (text === null) return;
-    // Everything but the first load is something missing.
-    el.toggleClass("is-warning", this.planner !== null || this.plannerError !== null);
-    el.createSpan({ text });
-    if (this.plannerError !== null) {
-      el.createEl("button", { text: "Erneut versuchen", cls: "mod-cta" }).addEventListener("click", () => void this.refreshPlanner(true));
+    if (!todoAuth.configured || !todoAuth.signedIn) {
+      // Switched on, signed out: say so, with the one way forward (spec Nr. 39).
+      todoEl.empty();
+      todoEl.toggle(true);
+      todoEl.toggleClass("is-warning", false);
+      todoEl.createSpan({ text: "Privates Konto nicht angemeldet – ohne Anmeldung keine To-Do-Aufgaben." });
+      todoEl.createEl("button", { text: "Anmelden", cls: "mod-cta" }).addEventListener("click", () => {
+        todoAuth.login().catch((error: unknown) => new Notice(getPersonalErrorMessage(error)));
+      });
+      return;
     }
+    // The personal error texts already name the account.
+    hint(
+      todoEl,
+      this.todoSource,
+      { tasks: "To-Do-Aufgaben", truncated: "To Do hat mehr Aufgaben geliefert, als das Plugin liest – es fehlen welche.", failed: (error) => error },
+      () => void this.refreshTodo(true),
+    );
   }
 
   private cardData(
@@ -612,7 +662,9 @@ export class PlannerView extends ItemView {
     today: string,
     weekEnd: Date,
   ): CardData {
-    const [planner, vault] = isPlannerTask(task) ? [task, null] : [null, task];
+    const planner = isPlannerTask(task) ? task : null;
+    const todo = isTodoTask(task) ? task : null;
+    const vault = isPlannerTask(task) || isTodoTask(task) ? null : task;
     const siblings = vault === null || vault.blockId === null ? undefined : byBlock.get(vault.blockId);
     const conflict =
       siblings !== undefined && siblings.length > 1
@@ -629,7 +681,7 @@ export class PlannerView extends ItemView {
     }
 
     const bucket =
-      planner === null ? undefined : this.planner?.buckets.get(planner.planId)?.find((b) => b.id === planner.bucketId);
+      planner === null ? undefined : this.plannerSource.snapshot?.buckets.get(planner.planId)?.find((b) => b.id === planner.bucketId);
     const key = linkKey(task);
     const date = listDate(task);
 
@@ -639,6 +691,9 @@ export class PlannerView extends ItemView {
       raw: vault?.raw ?? "",
       blockId: vault?.blockId ?? null,
       plannerId: planner?.id ?? null,
+      todoId: todo?.id ?? null,
+      // ponytail: the safe default until the M9.0 report (spec Nr. 37); then per its answer.
+      checkable: todo === null || !todo.isRecurring,
       priority: PRIORITY_MARK[task.priority],
       title: cleanTitle(task.description) || task.description,
       meta: task.projekt === null ? task.kunde : `${task.kunde} · ${task.projekt}`,
@@ -651,7 +706,8 @@ export class PlannerView extends ItemView {
       pending:
         (key !== null && this.gate.isPending(key)) ||
         (vault !== null && this.gate.isPending(rawKey(vault))) ||
-        (planner !== null && this.plannerWriting.has(planner.id)),
+        (planner !== null && this.plannerSource.isWriting(planner.id)) ||
+        (todo !== null && this.todoSource.isWriting(todo.id)),
     };
   }
 
@@ -665,7 +721,8 @@ export class PlannerView extends ItemView {
     weekEnd.setDate(weekEnd.getDate() + 7);
     const statusOf = this.statusFn();
     const byBlock = index.blockIndex();
-    const model = buildList([...index.tasks, ...(this.planner?.tasks ?? [])], statusOf, this.options, today);
+    const tasks = [...index.tasks, ...(this.plannerSource.snapshot?.tasks ?? []), ...(this.todoSource.snapshot?.tasks ?? [])];
+    const model = buildList(tasks, statusOf, this.options, today);
 
     // The chosen customer has no open task left: the filter was reset, so build the list again.
     if (this.syncKunden(model.kunden)) {
@@ -679,10 +736,12 @@ export class PlannerView extends ItemView {
       tasks.map((task) => ({ task, card: this.cardData(task, statusOf, byBlock, today, weekEnd) }));
     const groups = model.groups.map((group) => ({ key: group.key, rows: toRows(group.tasks) }));
     const waiting = toRows(model.waiting);
-    const { auth, settings } = this.plugin;
-    const plannerLoading =
-      settings.plannerEnabled && auth.configured && auth.signedIn && this.planner === null && this.plannerError === null;
-    const empty = (!index.complete || plannerLoading) && model.openCount === 0
+    const { auth, todoAuth, settings } = this.plugin;
+    const loading = (source: { snapshot: unknown; error: string | null }) => source.snapshot === null && source.error === null;
+    const sourcesLoading =
+      (settings.plannerEnabled && auth.configured && auth.signedIn && loading(this.plannerSource)) ||
+      (settings.todoEnabled && todoAuth.configured && todoAuth.signedIn && loading(this.todoSource));
+    const empty = (!index.complete || sourcesLoading) && model.openCount === 0
       ? "Aufgaben werden gelesen…"
       : model.openCount === 0
         ? "Keine offenen Aufgaben."
@@ -728,9 +787,11 @@ export class PlannerView extends ItemView {
     const el = parent.createDiv({ cls: "vp-card" });
     // The source colour, the same as the block this card turns into.
     el.toggleClass("is-planner", card.plannerId !== null);
+    el.toggleClass("is-todo", card.todoId !== null);
     el.toggleClass("is-pending", card.pending);
     el.toggleClass("is-conflict", card.conflict !== null);
-    if (!card.pending && card.conflict === null) {
+    // ponytail: To Do cards become drag sources with the private calendar (M9.1b, spec Nr. 36).
+    if (!card.pending && card.conflict === null && card.todoId === null) {
       el.dataset.drag = "";
       if (card.plannerId !== null) el.dataset.plannerId = card.plannerId;
       else {
@@ -741,17 +802,25 @@ export class PlannerView extends ItemView {
       el.dataset.title = card.title;
     }
 
-    const check = el.createEl("input", { type: "checkbox", cls: "vp-check", attr: { "aria-label": "Erledigen", title: "Erledigen" } });
-    // FullCalendar starts a drag on mousedown/touchstart of the list; the checkbox must not.
-    for (const type of ["mousedown", "touchstart", "click"]) check.addEventListener(type, (event) => event.stopPropagation());
-    // Saving: a second tick would send a used-up etag, or complete a task that is being booked.
-    check.disabled = card.pending;
-    check.addEventListener("change", () => (isPlannerTask(task) ? this.completePlanner(task.id, check) : void this.complete(task, check)));
+    if (card.checkable) {
+      const check = el.createEl("input", { type: "checkbox", cls: "vp-check", attr: { "aria-label": "Erledigen", title: "Erledigen" } });
+      // FullCalendar starts a drag on mousedown/touchstart of the list; the checkbox must not.
+      for (const type of ["mousedown", "touchstart", "click"]) check.addEventListener(type, (event) => event.stopPropagation());
+      // Saving: a second tick would send a used-up etag, or complete a task that is being booked.
+      check.disabled = card.pending;
+      check.addEventListener("change", () => {
+        if (isPlannerTask(task)) this.completePlanner(task.id, check);
+        else if (isTodoTask(task)) this.completeTodo(task.id, check);
+        else void this.complete(task, check);
+      });
+    } else {
+      // Where the checkbox would be, the same size: says why there is none (spec Nr. 30, 37).
+      const label = "Wiederkehrend – in To Do abhaken";
+      setIcon(el.createSpan({ cls: "vp-check-spacer", attr: { title: label, "aria-label": label, role: "img" } }), "repeat");
+    }
 
-    const body = el.createDiv({
-      cls: "vp-card-body",
-      attr: { role: "button", tabindex: "0", title: isPlannerTask(task) ? "In Planner öffnen" : "Öffnen" },
-    });
+    const opens = isPlannerTask(task) ? "In Planner öffnen" : isTodoTask(task) ? "In To Do öffnen" : "Öffnen";
+    const body = el.createDiv({ cls: "vp-card-body", attr: { role: "button", tabindex: "0", title: opens } });
     const title = body.createDiv({ cls: "vp-title" });
     if (card.priority !== null) {
       const label = `Priorität ${card.priority.name}`;
@@ -822,7 +891,7 @@ export class PlannerView extends ItemView {
       const plannerId = plannerIdOf(blockId);
       if (plannerId !== null) {
         // Switched off or not read yet: say nothing rather than "Aufgabe nicht gefunden".
-        if (this.planner === null) return "pending";
+        if (this.plannerSource.snapshot === null) return "pending";
         const task = this.plannerTask(plannerId);
         if (task === undefined) return "missing";
         return isOpen(task) ? "open" : "done";
@@ -1063,6 +1132,8 @@ export class PlannerView extends ItemView {
   /** Not `open`: that name belongs to Obsidian's View (see CLAUDE.md, Code-Standards). */
   private openCard(task: AnyTask): void {
     if (isPlannerTask(task)) this.openPlanner(task.id);
+    // A click, never a timer, opens the browser (Invariant 6).
+    else if (isTodoTask(task)) window.open(todoWebUrl(task.id));
     else void this.openTask(task);
   }
 
@@ -1099,11 +1170,21 @@ export class PlannerView extends ItemView {
   }
 
   /**
-   * Both Planner writes: mark the card, send, and keep the mark until a read brings the new etag —
-   * the one this write used is spent either way, and a second click would only earn a 412.
+   * The Planner and To Do writes: mark the card, send, and keep the mark until a read brings the
+   * new etag — the one this write used is spent either way, and a second click would only earn a
+   * 412 (RemoteSource). Checked here, not at the checkbox: a confirm dialog can outlive a second one.
    */
-  private async writePlanner(task: PlannerTask, write: () => Promise<void>, success: string): Promise<void> {
-    this.plannerWriting.set(task.id, { from: Number.POSITIVE_INFINITY, spent: null });
+  private async writeRemote(
+    target: { source: RemoteSource<{ tasks: { id: string; etag: string | null }[] }>; describe: (error: unknown) => string; reread: () => Promise<void> },
+    task: { id: string; etag: string | null },
+    write: () => Promise<void>,
+    success: string,
+  ): Promise<void> {
+    if (target.source.isWriting(task.id)) {
+      new Notice("Die Aufgabe wird bereits gespeichert.");
+      return;
+    }
+    target.source.beginWrite(task.id);
     this.renderList();
     let spent: string | null = null;
     try {
@@ -1111,11 +1192,19 @@ export class PlannerView extends ItemView {
       spent = task.etag;
       new Notice(success);
     } catch (error) {
-      new Notice(getErrorMessage(error));
+      new Notice(target.describe(error));
     } finally {
-      this.plannerWriting.set(task.id, { from: this.plannerSeq + 1, spent });
-      void this.refreshPlanner(true);
+      target.source.endWrite(task.id, spent);
+      void target.reread();
     }
+  }
+
+  private plannerWrite(task: PlannerTask, write: () => Promise<void>, success: string): Promise<void> {
+    return this.writeRemote({ source: this.plannerSource, describe: getErrorMessage, reread: () => this.refreshPlanner(true) }, task, write, success);
+  }
+
+  private todoWrite(task: TodoTask, write: () => Promise<void>, success: string): Promise<void> {
+    return this.writeRemote({ source: this.todoSource, describe: getPersonalErrorMessage, reread: () => this.refreshTodo(true) }, task, write, success);
   }
 
   /** Planner write #1. Shared with others: ask first, it closes the task on their board too. */
@@ -1123,13 +1212,13 @@ export class PlannerView extends ItemView {
     const task = this.plannerTask(taskId);
     // The card is rebuilt as "Wird gespeichert…" and then disappears; the tick itself is not the state.
     box.checked = false;
-    if (task === undefined || this.plannerWriting.has(taskId)) {
+    if (task === undefined || this.plannerSource.isWriting(taskId)) {
       new Notice("Die Planner-Aufgabe ist nicht mehr offen – bitte die Liste prüfen.");
       return;
     }
     // Blocks stay in Outlook: booked time is history.
     const run = (): void =>
-      void this.writePlanner(task, () => this.plugin.graph.completePlannerTask(task), `„${task.description}“ in Planner abgeschlossen.`);
+      void this.plannerWrite(task, () => this.plugin.graph.completePlannerTask(task), `„${task.description}“ in Planner abgeschlossen.`);
     if (task.othersAssigned === 0) {
       run();
       return;
@@ -1152,11 +1241,11 @@ export class PlannerView extends ItemView {
   /** Planner write #2, from the card's menu. The bucket list is the last read's. */
   private showPlannerMenu(event: MouseEvent, taskId: string): void {
     const task = this.plannerTask(taskId);
-    if (task === undefined || this.plannerWriting.has(taskId)) return;
+    if (task === undefined || this.plannerSource.isWriting(taskId)) return;
     const menu = new Menu();
     menu.addItem((item) => item.setTitle("In Planner öffnen").setIcon("external-link").onClick(() => this.openPlanner(task.id)));
     menu.addSeparator();
-    const buckets = this.planner?.buckets.get(task.planId) ?? [];
+    const buckets = this.plannerSource.snapshot?.buckets.get(task.planId) ?? [];
     menu.addItem((item) => item.setTitle(buckets.length === 0 ? "Keine Buckets gelesen" : "Bucket wechseln").setDisabled(true));
     for (const bucket of buckets) {
       const current = bucket.id === task.bucketId;
@@ -1177,11 +1266,41 @@ export class PlannerView extends ItemView {
    */
   private movePlanner(shown: PlannerTask, bucket: PlannerBucket): void {
     const current = this.plannerTask(shown.id);
-    if (current === undefined || current.etag !== shown.etag || this.plannerWriting.has(shown.id)) {
+    if (current === undefined || current.etag !== shown.etag || this.plannerSource.isWriting(shown.id)) {
       new Notice("Die Aufgabe hat sich inzwischen geändert – bitte das Menü erneut öffnen.");
       return;
     }
-    void this.writePlanner(shown, () => this.plugin.graph.movePlannerTask(shown, bucket.id), `„${shown.description}“ nach „${bucket.name}“ verschoben.`);
+    void this.plannerWrite(shown, () => this.plugin.graph.movePlannerTask(shown, bucket.id), `„${shown.description}“ nach „${bucket.name}“ verschoben.`);
+  }
+
+  /**
+   * The one To Do write (M9, spec Nr. 27): complete, on a click. A shared list asks first — it
+   * closes the task for everyone (Nr. 28, 41). No If-Match until M9.0 says To Do honours it (Nr. 37).
+   */
+  private completeTodo(taskId: string, box: HTMLInputElement): void {
+    const task: TodoTask | undefined = this.todoSource.task(taskId);
+    // The card is rebuilt as "Wird gespeichert…" and then disappears; the tick itself is not the state.
+    box.checked = false;
+    if (task === undefined || this.todoSource.isWriting(taskId)) {
+      new Notice("Die To-Do-Aufgabe ist nicht mehr offen – bitte die Liste prüfen.");
+      return;
+    }
+    const run = (): void =>
+      void this.todoWrite(task, () => this.plugin.todoGraph.completeTodoTask(task.listId, task.id, null), `„${task.description}“ in To Do abgeschlossen.`);
+    if (!task.shared) {
+      run();
+      return;
+    }
+    new ConfirmModal(
+      this.app,
+      {
+        title: "Aufgabe abschließen?",
+        message: `„${task.description}“ steht in einer geteilten Liste. Abschließen schließt die Aufgabe in To Do für alle ab.`,
+        confirm: "Abschließen",
+        warning: false,
+      },
+      run,
+    ).open();
   }
 
   /** In a NEW tab — the planner itself must never be replaced by the note. */
