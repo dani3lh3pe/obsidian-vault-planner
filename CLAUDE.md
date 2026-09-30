@@ -44,7 +44,9 @@ Windows-Notebook. Jeder verify-Lauf erzeugt `release/vault-planner.zip` mit eine
 enthält den Testvault und wird einmal übertragen.
 
 **Nie gegen den Live-Vault entwickeln.** Er synchronisiert per Self-hosted LiveSync mit Server und
-Handy, und Claude bearbeitet ihn parallel. Der Live-Vault kommt erst in M5 dran.
+Handy, und Claude bearbeitet ihn parallel. Das Plugin läuft seit 2026-09-29 auf Daniels Entscheidung
+darin (M5 vorgezogen), aber Claude liest oder schreibt ihn von hier nie. Jeder Build geht an ihn:
+Ein Fehler im Schreibpfad trifft echte Zeilen und verteilt sich sofort.
 
 ## Befehle
 

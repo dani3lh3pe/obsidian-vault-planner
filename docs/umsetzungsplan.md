@@ -1065,6 +1065,11 @@ dort Blöcke wie im Arbeitskalender.
 
 ## M5 — Go-live im echten Vault
 
+**Vorgezogen (mit Daniel, 2026-09-30):** Das Plugin läuft seit 2026-09-29 im echten Vault, bevor die
+Prüftabellen bestanden waren. Daniel: „Mit dem echten Vault ist kein Problem." Schritt 3 (Zip vor
+dem ersten Schreibzugriff) kam zu spät, weil die erste Block-ID schon geschrieben war. Die Schritte 1
+und 2 und die Prüftabellen bleiben offen.
+
 1. **Task-Format im Vault** (Daniel mit Claude, geht auch früher): Die Vault-`CLAUDE.md` §3 und der
    Triage-Ablauf setzen den Quelllink `([[…]])` **vor** die Emoji-Felder. Bestehende Zeilen mit
    Link am Ende werden einmalig bereinigt, mit Bestätigung. → **verify:** Eine Tasks-Abfrage zeigt
