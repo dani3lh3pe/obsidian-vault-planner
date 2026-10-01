@@ -45,6 +45,11 @@ export function eventBody(
   return lines.join("\n");
 }
 
+/** The same for a To Do task (M9): its list, and the way to it. The block is in the private calendar. */
+export function todoEventBody(task: { projekt: string }, webUrl: string): string {
+  return ["Fokus-Block aus Obsidian", `To Do: ${task.projekt}`, webUrl].join("\n");
+}
+
 /** The same for a Planner task: its plan, and the way to it without Obsidian. */
 export function plannerEventBody(task: { projekt: string | null }, webUrl: string): string {
   return ["Fokus-Block aus Obsidian", `Planner: ${task.projekt ?? "Plan unbekannt"}`, webUrl].join("\n");

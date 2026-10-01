@@ -92,4 +92,30 @@ describe("toFullCalendarEvents", () => {
     expect(vault.classNames).toEqual(["vp-block", "vp-block-open"]);
     expect(planner.classNames).toEqual(["vp-block", "vp-block-open", "vp-source-planner"]);
   });
+
+  it("keeps the private calendar apart: own id prefix, own colour, no work categories (M9)", () => {
+    const [meeting, block] = toFullCalendarEvents(
+      [event({ id: "p1", categories: ["Kunde A"] }), event({ id: "p2", taskLink: "todo:T1" })],
+      "Vault",
+      () => "open",
+      COLORS,
+      "private",
+    );
+    expect(meeting).toMatchObject({
+      id: "private:p1",
+      editable: false,
+      classNames: ["vp-meeting", "vp-private"],
+      extendedProps: { kind: "meeting", calendar: "private", eventId: "p1" },
+    });
+    expect(block).toMatchObject({
+      id: "private:p2",
+      editable: true,
+      classNames: ["vp-block", "vp-block-open", "vp-source-todo"],
+      extendedProps: { kind: "own", blockId: "todo:T1", calendar: "private", eventId: "p2" },
+    });
+  });
+
+  it("marks the work calendar's events as such, under their own id", () => {
+    expect(map([event()])[0]).toMatchObject({ id: "e1", extendedProps: { calendar: "work", eventId: "e1" } });
+  });
 });

@@ -121,7 +121,12 @@ den privaten Kalender aus, meldet das private Konto aber nicht ab.
   Do", mit der Liste als Projekt. Gekennzeichnete E-Mails fehlen, „Warten auf" und „Zurückgestellt"
   stehen unter „Warten auf". Ein Klick öffnet die Aufgabe in To Do, die Checkbox schließt sie dort
   ab. In einer geteilten Liste fragt vorher ein Dialog. Wiederkehrende Aufgaben haben vorerst keine
-  Checkbox, sie werden in To Do abgehakt. Einplanen in den privaten Kalender kommt mit M9.1b.
+  Checkbox, sie werden in To Do abgehakt.
+- **Privater Kalender:** Mit „To Do (privat)" zeigt das Raster auch die Termine deines privaten
+  Kalenders, grau mit Schloss. Eine To-Do-Karte landet beim Ziehen immer im **privaten** Kalender,
+  egal wohin im Raster du sie ziehst; Vault- und Planner-Aufgaben immer im Arbeitskalender. Private
+  Blöcke verschiebst, änderst und löschst du wie die anderen. Ist die Aufgabe abgehakt, erscheint
+  ihr Block blass mit Haken.
 
 ## Was das Plugin in den Vault schreibt
 

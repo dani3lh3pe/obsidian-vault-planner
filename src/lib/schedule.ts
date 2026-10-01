@@ -25,8 +25,14 @@ export function plannerIdOf(key: string): string | null {
 }
 
 /** A To Do task's link (M9): vault-independent like Planner's. Its blocks live in the private calendar. */
+const TODO_KEY = "todo:";
+
 export function todoKey(taskId: string): string {
-  return `todo:${taskId}`;
+  return `${TODO_KEY}${taskId}`;
+}
+
+export function todoIdOf(key: string): string | null {
+  return key.startsWith(TODO_KEY) && key.length > TODO_KEY.length ? key.slice(TODO_KEY.length) : null;
 }
 
 /** The key a task's blocks carry — null for a vault task that was never booked. */
@@ -38,11 +44,11 @@ export function linkKey(task: AnyTask): string | null {
 
 /**
  * The key an event links to: a block id only for THIS vault (the test vault shares the calendar),
- * a Planner key in any vault.
+ * a Planner or To Do key in any vault.
  */
 export function parseTaskLink(link: string | null, vaultName: string): string | null {
   if (link === null) return null;
-  if (plannerIdOf(link) !== null) return link;
+  if (plannerIdOf(link) !== null || todoIdOf(link) !== null) return link;
   const prefix = `${vaultName}|`;
   return link.startsWith(prefix) && link.length > prefix.length ? link.slice(prefix.length) : null;
 }

@@ -71,7 +71,8 @@ npm run dev            # esbuild im Watch-Modus nach build/main.js
    gespeichert wurden. Die Zielzeile wird im aktuellen Inhalt per Block-ID oder eindeutigem
    Rohtext gefunden, nie per Zeilennummer; Zeilenenden bleiben byte-genau. Nicht gefunden oder
    mehrdeutig heißt: abbrechen und melden.
-4. **Graph folgt dem graph-calendar-Skill.** Nie `attendees`.
+4. **Graph folgt dem graph-calendar-Skill**, in beiden Kalendern. Nie `attendees`. To-Do-Blöcke
+   liegen nur im privaten Kalender, alle anderen nur im Arbeitskalender.
 5. **Alle HTTP-Aufrufe über `requestUrl`, nie `fetch`**, und nur zu `login.microsoftonline.com`
    und `graph.microsoft.com`. Keine Telemetrie.
 6. **Tokens nie in `data.json`** — sie liegt im Vault, und ein Vault-Sync kann sie mitnehmen. Die
@@ -87,7 +88,8 @@ npm run dev            # esbuild im Watch-Modus nach build/main.js
    fragt vorher ein Dialog. `If-Match` erst, wenn M9.0 zeigt, dass To Do es beachtet.
 
 Die Verknüpfung Task ↔ Termin ist die Extended Property mit dem Wert `<vaultName>|<blockId>`, bei
-Planner-Aufgaben vault-unabhängig `planner:<taskId>`.
+Planner-Aufgaben vault-unabhängig `planner:<taskId>`, bei To-Do-Aufgaben `todo:<taskId>` (im
+privaten Kalender).
 Ihre GUID in `src/config.ts` wird **nie** geändert.
 
 ## Tasks-Plugin

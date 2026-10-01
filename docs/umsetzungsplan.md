@@ -1018,9 +1018,26 @@ entscheidet Daniel, wenn er die neue Liste eine Weile benutzt hat.
 **Stand:** grilling und Spec abgeschlossen (2026-09-29, Spec in `.scratch/m9-todo/spec.md`, nicht
 versioniert).
 
-- **M9.0:** die private Anmeldung ist live geprüft (2026-09-30), der Probe-Bericht fehlt noch.
+- **M9.0:** die private Anmeldung ist live geprüft (2026-09-30). **Live geprüft (2026-10-01):**
+  To-Do-Aufgaben und wiederkehrende To Dos werden richtig erkannt, `recurrence` kommt also beim
+  Lesen der Liste mit. Der Probe-Bericht zu `If-Match`, Wiederholung beim Abschließen und Filter
+  fehlt noch.
 - **M9.1a (To Do in der Liste):** als Code fertig (2026-09-30), auf Windows noch ungeprüft.
-- **M9.1b (privater Kalender):** folgt nach dem Probe-Bericht (Spec Nr. 36).
+- **M9.1b (privater Kalender):** als Code fertig (2026-10-01), auf Windows noch ungeprüft. Daniel hat
+  freigegeben, ohne den Probe-Bericht abzuwarten: Das erste Einplanen in den privaten Kalender ist
+  zugleich die Probe für die Property dort.
+
+**Verifikation M9.1b** (manuell):
+
+| Handlung | Was sie beweist |
+| --- | --- |
+| „To Do (privat)" an, die Woche ansehen | Private Termine grau mit Schloss im Raster, das Raster reicht bis zu den Abendterminen |
+| Eine To-Do-Karte auf einen Abend ziehen | Ein türkiser Block entsteht im privaten Kalender (Outlook.com), nicht im Arbeitskalender, und die Karte zeigt ihn als eingeplant: Die Property kommt im privaten Kalender zurück. Wird die Karte nach „Wird gespeichert…" kurz wieder ungeplant, hinkt outlook.com dem POST hinterher: melden, dann hält die Markierung bis zum sichtbaren Block |
+| Eine To-Do-Karte in die Arbeitszeit ziehen | Auch dieser Block landet im privaten Kalender |
+| Eine Vault- und eine Planner-Aufgabe ziehen | Beide landen weiter im Arbeitskalender |
+| Den privaten Block verschieben, in der Größe ändern, löschen | Die Änderung erscheint in Outlook.com |
+| Die eingeplante To-Do-Aufgabe abhaken | Der Block bleibt, blass mit Haken, Tooltip „Aufgabe erledigt oder nicht mehr in To Do" |
+| Beim privaten Konto abmelden | Private Termine verschwinden, To-Do-Karten lassen sich nicht ziehen, der Arbeitskalender läuft weiter |
 
 **Verifikation M9.1a** (manuell):
 

@@ -61,8 +61,13 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
 - [ ] No `attendees` in any body, not even empty (Invariant 4)
 - [ ] Every POST, PATCH and DELETE follows a gesture (drop, drag, resize, menu) — none from the
       poll, a refresh or a render
-- [ ] Only our own blocks — property value `<this vault>|<blockId>` or `planner:<taskId>` — can be moved, resized or
-      deleted. A foreign meeting or another vault's block that can be changed is CRITICAL
+- [ ] Only our own blocks — property value `<this vault>|<blockId>`, `planner:<taskId>` or
+      `todo:<taskId>` — can be moved, resized or deleted. A foreign meeting or another vault's block
+      that can be changed is CRITICAL
+- [ ] Two calendars (M9.1b): a To Do card is booked into the PRIVATE calendar through `todoGraph`,
+      vault and Planner tasks into the work calendar through `graph`; a move or delete goes back
+      through the account of the calendar the event came from (`extendedProps.calendar`). Any
+      cross-over — a work block written with the personal token or the other way round — is HIGH
 - [ ] The delete asks in a `Modal` that names the block (UX rule 3)
 
 ## Planner writes (`src/graph.ts`, `src/view.ts`, Invariant 7)

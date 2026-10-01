@@ -1,5 +1,5 @@
 import type { EventInput } from "@fullcalendar/core";
-import { parseTaskLink, plannerIdOf } from "./schedule";
+import { parseTaskLink, plannerIdOf, todoIdOf } from "./schedule";
 import type { CalendarEvent } from "./types";
 
 /** Entries where the user is available must not visually block a free slot. */
@@ -12,10 +12,16 @@ const AVAILABLE = new Set(["free", "workingElsewhere"]);
  */
 export type BlockState = "open" | "done" | "missing" | "conflict" | "pending";
 
+/** The work account's calendar, or the personal account's (M9). Moves and deletes go back there. */
+export type CalendarSide = "work" | "private";
+
 export interface EventProps {
   kind: "own" | "meeting";
   blockId: string | null;
   state: BlockState | null;
+  calendar: CalendarSide;
+  /** Graph's id; the grid's id carries a "private:" prefix so the two calendars cannot collide. */
+  eventId: string;
 }
 
 /**
@@ -23,14 +29,24 @@ export interface EventProps {
  * entry takes the colour of its first coloured Outlook category, our block the colour of its
  * source — the same as the card it came from.
  */
-function classesOf(event: CalendarEvent, blockId: string | null, state: BlockState | null, categoryColors: ReadonlyMap<string, number>): string[] {
+function classesOf(
+  event: CalendarEvent,
+  blockId: string | null,
+  state: BlockState | null,
+  categoryColors: ReadonlyMap<string, number>,
+  calendar: CalendarSide,
+): string[] {
   if (blockId !== null) {
     const block = ["vp-block", `vp-block-${state}`];
-    return plannerIdOf(blockId) === null ? block : [...block, "vp-source-planner"];
+    if (plannerIdOf(blockId) !== null) return [...block, "vp-source-planner"];
+    return todoIdOf(blockId) !== null ? [...block, "vp-source-todo"] : block;
   }
-  const preset = event.categories.map((name) => categoryColors.get(name)).find((value) => value !== undefined);
+  // The private calendar: one colour of its own, never the work account's categories (spec Nr. 45).
+  const preset =
+    calendar === "private" ? undefined : event.categories.map((name) => categoryColors.get(name)).find((value) => value !== undefined);
   return [
     "vp-meeting",
+    ...(calendar === "private" ? ["vp-private"] : []),
     ...(preset === undefined ? [] : [`vp-cat-${preset}`]),
     // Hatched, the way Outlook draws tentative time.
     ...(event.showAs === "tentative" ? ["vp-tentative"] : []),
@@ -47,6 +63,7 @@ export function toFullCalendarEvents(
   vaultName: string,
   stateOf: (blockId: string) => BlockState,
   categoryColors: ReadonlyMap<string, number>,
+  calendar: CalendarSide = "work",
 ): EventInput[] {
   const result: EventInput[] = [];
 
@@ -56,14 +73,15 @@ export function toFullCalendarEvents(
 
     const blockId = parseTaskLink(event.taskLink, vaultName);
     const state = blockId === null ? null : stateOf(blockId);
-    const extendedProps: EventProps = { kind: blockId === null ? "meeting" : "own", blockId, state };
-    const classNames = classesOf(event, blockId, state, categoryColors);
+    const extendedProps: EventProps = { kind: blockId === null ? "meeting" : "own", blockId, state, calendar, eventId: event.id };
+    const classNames = classesOf(event, blockId, state, categoryColors, calendar);
+    const id = calendar === "private" ? `private:${event.id}` : event.id;
 
     if (event.isAllDay) {
       // Midnight bounds, `end` on the FOLLOWING day: take the date prefix and never compute a
       // position from them. Never draggable — the all-day row has no times to PATCH back.
       result.push({
-        id: event.id,
+        id,
         title: event.subject,
         start: event.start.toISOString().slice(0, 10),
         end: event.end.toISOString().slice(0, 10),
@@ -76,7 +94,7 @@ export function toFullCalendarEvents(
     }
 
     result.push({
-      id: event.id,
+      id,
       title: event.subject,
       start: event.start,
       end: event.end,

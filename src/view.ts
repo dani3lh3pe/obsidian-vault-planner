@@ -19,6 +19,7 @@ import {
   VIEW_TYPE,
   WORK_HOURS,
 } from "./config";
+import type { Graph } from "./graph";
 import type VaultPlannerPlugin from "./main";
 import type { ChangeReason } from "./main";
 import { getErrorMessage, getPersonalErrorMessage, isAuthExpired } from "./lib/errors";
@@ -27,16 +28,21 @@ import { RemoteSource } from "./lib/remoteSource";
 import { isTodoTask, todoWebUrl, type TodoSnapshot } from "./lib/todo";
 import { GROUP_TITLE, isOverdue, listDate, PRIORITY_MARK } from "./lib/priority";
 import { ReadGate } from "./lib/readGate";
-import { blocksByTask, fetchRange, inRange, linkKey, plannerIdOf, plannerKey, planStatus, statusWindow } from "./lib/schedule";
-import { cleanTitle, eventBody, eventSubject, plannerEventBody } from "./lib/subject";
+import { blocksByTask, fetchRange, inRange, linkKey, plannerIdOf, plannerKey, planStatus, statusWindow, todoIdOf, todoKey } from "./lib/schedule";
+import { cleanTitle, eventBody, eventSubject, plannerEventBody, todoEventBody } from "./lib/subject";
 import { buildList, isOpen, type ListOptions } from "./lib/taskList";
 import { formatDue, formatSlot, formatSlotWithDate, plannerDay, shiftWorkdays } from "./lib/time";
-import { toFullCalendarEvents, type BlockState, type EventProps } from "./lib/toFullCalendarEvents";
+import type { MapResult } from "./lib/mapGraphEvents";
+import { toFullCalendarEvents, type BlockState, type CalendarSide, type EventProps } from "./lib/toFullCalendarEvents";
 import type { AnyTask, CalendarEvent, PlannerBucket, PlannerTask, PlanStatus, TimeRange, TodoTask, VaultTask } from "./lib/types";
 import { visibleHours } from "./lib/visibleHours";
 import { toggleDone, writeBlockId } from "./vault";
 
 const UNPLANNED: PlanStatus = { kind: "ungeplant" };
+
+/** A dragged card's To Do id — a To Do card goes into the private calendar (spec Nr. 18, 47). */
+const todoIdFrom = (props: { todoId?: unknown }): string | null =>
+  typeof props.todoId === "string" && props.todoId !== "" ? props.todoId : null;
 
 /**
  * The toolbar's views. dayCount counts visible days only: with the weekend hidden, "3" from
@@ -133,6 +139,14 @@ export class PlannerView extends ItemView {
   /** Entries of the last read that mapGraphEvents could not narrow. */
   private dropped = 0;
   private error: { message: string; needsLogin: boolean } | null = null;
+  /**
+   * The personal account's calendar (M9.1b): read in the same refresh as the work calendar, with
+   * its own readiness and error — a failure there is a hint and never touches the work side.
+   */
+  private privateEvents: CalendarEvent[] = [];
+  private privateReady = false;
+  private privateDropped = 0;
+  private privateError: string | null = null;
   private inFlight: number | null = null;
   private options: ListOptions = { search: "", kunde: null, onlyUnplanned: false };
   private waitingOpen = false;
@@ -281,7 +295,13 @@ export class PlannerView extends ItemView {
         // and onEventReceive returns silently — every drop would vanish.
         duration: BLOCK_DURATION,
         create: true,
-        extendedProps: { path: el.dataset.path, raw: el.dataset.raw, blockId: el.dataset.blockId, plannerId: el.dataset.plannerId },
+        extendedProps: {
+          path: el.dataset.path,
+          raw: el.dataset.raw,
+          blockId: el.dataset.blockId,
+          plannerId: el.dataset.plannerId,
+          todoId: el.dataset.todoId,
+        },
       }),
     });
   }
@@ -331,8 +351,13 @@ export class PlannerView extends ItemView {
       // mousedown; resizing uses the same option.
       eventDragMinDistance: 0,
       // THE drop gate. `droppable` does not stop drops from the list in 6.1.21 — external drops
-      // only consult dropAccept and eventAllow. Not ready, or the all-day row: refused.
-      eventAllow: (span) => this.ready && !span.allDay,
+      // only consult dropAccept and eventAllow. Not ready, or the all-day row: refused. A To Do card
+      // or a private block needs the private calendar, everything else the work one (spec Nr. 47).
+      eventAllow: (span, moving) => {
+        if (span.allDay) return false;
+        const props = (moving?.extendedProps ?? {}) as { todoId?: unknown; calendar?: unknown };
+        return todoIdFrom(props) !== null || props.calendar === "private" ? this.privateReady : this.ready;
+      },
       datesSet: (arg) => this.onDatesSet(arg),
       eventReceive: (arg) => this.onEventReceive(arg),
       eventChange: (arg) => this.onEventChange(arg),
@@ -380,9 +405,18 @@ export class PlannerView extends ItemView {
       if (reason === "auth") void this.loadCategoryColors();
       return;
     }
-    // The To Do switch or the personal account: only To Do reads again, the work account is untouched.
+    // The To Do switch or the personal account: To Do reads again, and so does the calendar — the
+    // private one is read together with the work one (spec Nr. 43). Nothing else of the work side
+    // changes.
     if (reason === "todo") {
+      // Switched off or signed out: the private side goes now, not when the read lands — until then
+      // a private block could still be moved with the personal account.
+      if (!this.readsPrivate()) {
+        this.applyPrivate(null);
+        this.renderAll();
+      }
       void this.refreshTodo(true);
+      void this.refresh(true);
       return;
     }
     if (this.renderTimer !== null) return;
@@ -407,6 +441,7 @@ export class PlannerView extends ItemView {
       this.ready = false;
       this.events = [];
       this.dropped = 0;
+      this.applyPrivate(null);
       this.gate.settled(this.gate.start());
       this.renderAll();
       return;
@@ -415,9 +450,22 @@ export class PlannerView extends ItemView {
 
     const seq = this.gate.start();
     this.inFlight = seq;
+    const range = fetchRange(this.displayed, new Date());
+    // Both calendars in one read, so the gate's rules hold for both. Never rejects: the private
+    // side's failure is its own (spec Nr. 43).
+    const privateRead = this.readsPrivate()
+      ? this.plugin.todoGraph.readCalendar(range).then(
+          (result) => ({ result }),
+          (error: unknown) => ({ error }),
+        )
+      : null;
     try {
-      const result = await graph.readCalendar(fetchRange(this.displayed, new Date()));
+      const result = await graph.readCalendar(range);
+      // ponytail: the work grid waits for the private read, at worst its 30 s timeout. Apply the work
+      // side first if outlook.com proves slow — then todo: markers must wait for the private side.
+      const privateResult = privateRead === null ? null : await privateRead;
       if (!this.gate.accepts(seq)) return;
+      this.applyPrivate(privateResult);
       this.events = result.events;
       // Surfaced, never swallowed: an entry Graph sent that could not be read is a meeting the
       // grid does not show.
@@ -428,15 +476,45 @@ export class PlannerView extends ItemView {
       this.gate.settled(seq);
     } catch (error) {
       if (!this.gate.isCurrent(seq)) return;
-      // Stale events would make a plausible, wrong plan: clear them and say the status is unknown.
+      // Stale events would make a plausible, wrong plan: clear them and say the status is unknown —
+      // the private side's too.
       this.events = [];
       this.ready = false;
+      this.applyPrivate(null);
       this.error = { message: getErrorMessage(error), needsLogin: isAuthExpired(error) };
       this.gate.settled(seq);
     } finally {
       if (this.inFlight === seq) this.inFlight = null;
       this.renderAll();
     }
+  }
+
+  /** To Do and the private calendar are read only with the switch on and the personal account signed in. */
+  private readsPrivate(): boolean {
+    const { settings, todoAuth } = this.plugin;
+    return settings.todoEnabled && todoAuth.configured && todoAuth.signedIn;
+  }
+
+  /** The one place a calendar side names its account: the Graph client and the error texts. */
+  private calendarAccount(side: CalendarSide): { graph: Graph; describe: (error: unknown) => string } {
+    return side === "private"
+      ? { graph: this.plugin.todoGraph, describe: getPersonalErrorMessage }
+      : { graph: this.plugin.graph, describe: getErrorMessage };
+  }
+
+  /** null: not read (switched off, signed out, or the work side failed) — nothing to show, no drops. */
+  private applyPrivate(read: { result: MapResult } | { error: unknown } | null): void {
+    if (read !== null && "result" in read) {
+      this.privateEvents = read.result.events;
+      this.privateDropped = read.result.droppedCount;
+      this.privateReady = true;
+      this.privateError = null;
+      return;
+    }
+    this.privateEvents = [];
+    this.privateDropped = 0;
+    this.privateReady = false;
+    this.privateError = read === null ? null : getPersonalErrorMessage(read.error);
   }
 
   /**
@@ -457,8 +535,7 @@ export class PlannerView extends ItemView {
    * work account. Nothing is read while the switch is off.
    */
   private async refreshTodo(force = false): Promise<void> {
-    const { todoAuth, todoGraph, settings } = this.plugin;
-    if (!settings.todoEnabled || !todoAuth.configured || !todoAuth.signedIn) {
+    if (!this.readsPrivate()) {
       // Tasks gone: the whole list. Otherwise only the hint — "nicht angemeldet" comes and goes with
       // the switch, and a full render on every tick would rebuild the list under a drag.
       if (this.todoSource.clear()) this.renderAll();
@@ -467,7 +544,7 @@ export class PlannerView extends ItemView {
     }
     // Switched on or signed in just now: "werden geladen…" while the first read runs (UX rule 1).
     if (this.todoSource.snapshot === null) this.renderSourceHints();
-    if (await this.todoSource.read(() => todoGraph.readTodo(), getPersonalErrorMessage, force)) this.renderAll();
+    if (await this.todoSource.read(() => this.plugin.todoGraph.readTodo(), getPersonalErrorMessage, force)) this.renderAll();
   }
 
   /**
@@ -530,8 +607,9 @@ export class PlannerView extends ItemView {
       return;
     }
     this.displayed = { start: arg.start, end: arg.end };
-    // This week has not been read yet: no drops until it has.
+    // This week has not been read yet: no drops until it has, in either calendar.
     this.ready = false;
+    this.privateReady = false;
     this.renderAll();
     void this.refresh(true);
   }
@@ -548,8 +626,10 @@ export class PlannerView extends ItemView {
   private statusFn(): ((task: AnyTask) => PlanStatus) | null {
     if (!this.ready) return null;
     const now = new Date();
-    const blocks = blocksByTask(this.events, this.app.vault.getName(), statusWindow(now));
+    const blocks = blocksByTask([...this.events, ...this.privateEvents], this.app.vault.getName(), statusWindow(now));
     return (task) => {
+      // No private calendar read yet: a To Do task's status is unknown — no line (spec Nr. 49).
+      if (isTodoTask(task) && !this.privateReady) return UNPLANNED;
       const key = linkKey(task);
       return key === null ? UNPLANNED : planStatus(blocks.get(key), now);
     };
@@ -590,69 +670,83 @@ export class PlannerView extends ItemView {
   /** Planner's and To Do's hints above the list: a failure there is a hint, never the banner. */
   private renderSourceHints(): void {
     const { auth, todoAuth, settings } = this.plugin;
-    const hint = (
-      el: HTMLElement | null,
+    type Hint = { text: string; warning: boolean; action?: [string, () => void] } | null;
+    const draw = (el: HTMLElement | null, hint: Hint) => {
+      if (el === null) return;
+      el.empty();
+      el.toggle(hint !== null);
+      if (hint === null) return;
+      el.toggleClass("is-warning", hint.warning);
+      el.createSpan({ text: hint.text });
+      if (hint.action !== undefined) el.createEl("button", { text: hint.action[0], cls: "mod-cta" }).addEventListener("click", hint.action[1]);
+    };
+    const fromSource = (
       source: { snapshot: { truncated: boolean; droppedCount: number } | null; error: string | null },
       names: { tasks: string; truncated: string; failed: (error: string) => string },
       retry: () => void,
-    ) => {
-      if (el === null) return;
-      el.empty();
+    ): Hint => {
       const { snapshot, error } = source;
-      const text =
-        error !== null
-          ? names.failed(error)
-          : snapshot === null
-            ? `${names.tasks} werden geladen…`
-            : snapshot.truncated
-              ? names.truncated
-              : snapshot.droppedCount > 0
-                ? `${snapshot.droppedCount} ${names.tasks} waren nicht lesbar und fehlen in der Liste.`
-                : null;
-      el.toggle(text !== null);
-      if (text === null) return;
       // Everything but the first load is something missing.
-      el.toggleClass("is-warning", snapshot !== null || error !== null);
-      el.createSpan({ text });
-      if (error !== null) el.createEl("button", { text: "Erneut versuchen", cls: "mod-cta" }).addEventListener("click", retry);
+      if (error !== null) return { text: names.failed(error), warning: true, action: ["Erneut versuchen", retry] };
+      if (snapshot === null) return { text: `${names.tasks} werden geladen…`, warning: false };
+      if (snapshot.truncated) return { text: names.truncated, warning: true };
+      if (snapshot.droppedCount > 0) return { text: `${snapshot.droppedCount} ${names.tasks} waren nicht lesbar und fehlen in der Liste.`, warning: true };
+      return null;
     };
 
-    if (settings.plannerEnabled && auth.configured && auth.signedIn) {
-      hint(
-        this.plannerHintEl,
-        this.plannerSource,
-        {
-          tasks: "Planner-Aufgaben",
-          truncated: "Planner hat mehr Aufgaben geliefert, als das Plugin liest – es fehlen welche.",
-          failed: (error) => `Planner nicht erreichbar – ${error}`,
-        },
-        () => void this.refreshPlanner(true),
-      );
-    } else this.plannerHintEl?.toggle(false);
-
-    const todoEl = this.todoHintEl;
-    if (!settings.todoEnabled || todoEl === null) {
-      todoEl?.toggle(false);
-      return;
-    }
-    if (!todoAuth.configured || !todoAuth.signedIn) {
-      // Switched on, signed out: say so, with the one way forward (spec Nr. 39).
-      todoEl.empty();
-      todoEl.toggle(true);
-      todoEl.toggleClass("is-warning", false);
-      todoEl.createSpan({ text: "Privates Konto nicht angemeldet – ohne Anmeldung keine To-Do-Aufgaben." });
-      todoEl.createEl("button", { text: "Anmelden", cls: "mod-cta" }).addEventListener("click", () => {
-        todoAuth.login().catch((error: unknown) => new Notice(getPersonalErrorMessage(error)));
-      });
-      return;
-    }
-    // The personal error texts already name the account.
-    hint(
-      todoEl,
-      this.todoSource,
-      { tasks: "To-Do-Aufgaben", truncated: "To Do hat mehr Aufgaben geliefert, als das Plugin liest – es fehlen welche.", failed: (error) => error },
-      () => void this.refreshTodo(true),
+    draw(
+      this.plannerHintEl,
+      settings.plannerEnabled && auth.configured && auth.signedIn
+        ? fromSource(
+            this.plannerSource,
+            {
+              tasks: "Planner-Aufgaben",
+              truncated: "Planner hat mehr Aufgaben geliefert, als das Plugin liest – es fehlen welche.",
+              failed: (error) => `Planner nicht erreichbar – ${error}`,
+            },
+            () => void this.refreshPlanner(true),
+          )
+        : null,
     );
+
+    let todo: Hint = null;
+    if (settings.todoEnabled && (!todoAuth.configured || !todoAuth.signedIn)) {
+      // Switched on, signed out: say so, with the one way forward (spec Nr. 39).
+      todo = {
+        text: "Privates Konto nicht angemeldet – ohne Anmeldung keine To-Do-Aufgaben.",
+        warning: false,
+        action: [
+          "Anmelden",
+          () => {
+            todoAuth.login().catch((error: unknown) => new Notice(getPersonalErrorMessage(error)));
+          },
+        ],
+      };
+    } else if (settings.todoEnabled) {
+      // The personal error texts already name the account.
+      todo = fromSource(
+        this.todoSource,
+        {
+          tasks: "To-Do-Aufgaben",
+          truncated: "To Do hat mehr Aufgaben geliefert, als das Plugin liest – es fehlen welche.",
+          failed: (error) => error,
+        },
+        () => void this.refreshTodo(true),
+      );
+      // The private calendar (spec Nr. 51). Loading only while a read really runs: after a work
+      // read that succeeded — a failed or missing one has its own banner.
+      const privateHint: Hint =
+        this.privateError !== null
+          ? { text: this.privateError, warning: true, action: ["Erneut versuchen", () => void this.refresh(true)] }
+          : this.ready && !this.privateReady
+            ? { text: "Privater Kalender wird geladen…", warning: false }
+            : this.privateDropped > 0
+              ? { text: `Nicht alle privaten Termine waren lesbar (${this.privateDropped}) – der Kalender zeigt nicht alles.`, warning: true }
+              : null;
+      // An error first, from either side: a lasting "abgeschnitten" must not hide that drops fail.
+      todo = (todo?.action ? todo : null) ?? (privateHint?.action ? privateHint : null) ?? todo ?? privateHint;
+    }
+    draw(this.todoHintEl, todo);
   }
 
   private cardData(
@@ -790,10 +884,10 @@ export class PlannerView extends ItemView {
     el.toggleClass("is-todo", card.todoId !== null);
     el.toggleClass("is-pending", card.pending);
     el.toggleClass("is-conflict", card.conflict !== null);
-    // ponytail: To Do cards become drag sources with the private calendar (M9.1b, spec Nr. 36).
-    if (!card.pending && card.conflict === null && card.todoId === null) {
+    if (!card.pending && card.conflict === null) {
       el.dataset.drag = "";
       if (card.plannerId !== null) el.dataset.plannerId = card.plannerId;
+      else if (card.todoId !== null) el.dataset.todoId = card.todoId;
       else {
         el.dataset.path = card.path;
         el.dataset.raw = card.raw;
@@ -896,6 +990,14 @@ export class PlannerView extends ItemView {
         if (task === undefined) return "missing";
         return isOpen(task) ? "open" : "done";
       }
+      const todoId = todoIdOf(blockId);
+      if (todoId !== null) {
+        const snapshot = this.todoSource.snapshot;
+        if (this.todoSource.task(todoId) !== undefined) return "open";
+        // Completed To Dos are not read: not among the open ones means done or gone (spec Nr. 46) —
+        // but only after a complete read; a cut or unreadable one says nothing.
+        return snapshot === null || snapshot.truncated || snapshot.droppedCount > 0 ? "pending" : "done";
+      }
       const tasks = byBlock.get(blockId);
       if (tasks === undefined) return complete ? "missing" : "pending";
       if (tasks.length > 1) return "conflict";
@@ -913,12 +1015,12 @@ export class PlannerView extends ItemView {
     }
     this.calendarStale = false;
 
-    const input = toFullCalendarEvents(
-      this.events,
-      this.app.vault.getName(),
-      this.blockState(this.plugin.index.blockIndex()),
-      this.categoryColors,
-    );
+    const vaultName = this.app.vault.getName();
+    const stateOf = this.blockState(this.plugin.index.blockIndex());
+    const input = [
+      ...toFullCalendarEvents(this.events, vaultName, stateOf, this.categoryColors),
+      ...toFullCalendarEvents(this.privateEvents, vaultName, stateOf, this.categoryColors, "private"),
+    ];
     const signature = JSON.stringify(input);
     if (signature !== this.eventsSignature) {
       this.eventsSignature = signature;
@@ -929,7 +1031,7 @@ export class PlannerView extends ItemView {
     }
 
     // The configured hours are a floor that widens to the displayed week's events.
-    const hours = visibleHours(inRange(this.events, this.displayed), WORK_HOURS);
+    const hours = visibleHours(inRange([...this.events, ...this.privateEvents], this.displayed), WORK_HOURS);
     const slots = `${hours.start}-${hours.end}`;
     if (slots !== this.slotSignature) {
       this.slotSignature = slots;
@@ -944,6 +1046,9 @@ export class PlannerView extends ItemView {
     if (props.kind === "own") {
       // Colour is never the only signal: our blocks carry an icon too.
       setIcon(wrap.createSpan({ cls: "vp-event-icon" }), props.state === "done" ? "check" : "list-todo");
+    } else if (props.calendar === "private") {
+      // The private calendar's meetings: a lock, besides their grey (spec Nr. 45).
+      setIcon(wrap.createSpan({ cls: "vp-event-icon" }), "lock");
     }
     const text = wrap.createDiv({ cls: "vp-event-text" });
     if (arg.timeText !== "" && !arg.event.allDay) text.createDiv({ cls: "vp-event-time", text: arg.timeText });
@@ -955,12 +1060,21 @@ export class PlannerView extends ItemView {
     const props = arg.event.extendedProps as Partial<EventProps>;
     const { start, end } = arg.event;
     const when = start !== null && end !== null && !arg.event.allDay ? formatSlot(start, end) : "ganztägig";
+    const todoId = typeof props.blockId === "string" ? todoIdOf(props.blockId) : null;
     const hint =
-      props.state === "missing" ? "\nAufgabe nicht gefunden" : props.state === "conflict" ? "\nBlock-ID doppelt" : "";
-    arg.el.setAttribute("title", `${arg.event.title}\n${when}${hint}`);
+      props.state === "missing"
+        ? "\nAufgabe nicht gefunden"
+        : props.state === "conflict"
+          ? "\nBlock-ID doppelt"
+          : todoId !== null && props.state === "done"
+            ? "\nAufgabe erledigt oder nicht mehr in To Do"
+            : "";
+    const side = props.calendar === "private" ? "\nPrivater Kalender" : "";
+    arg.el.setAttribute("title", `${arg.event.title}\n${when}${side}${hint}`);
 
     if (props.kind !== "own" || typeof props.blockId !== "string") return;
     const blockId = props.blockId;
+    const { calendar: calendarSide, eventId } = arg.event.extendedProps as EventProps;
     arg.el.addEventListener("contextmenu", (event) => {
       // Without this, Electron shows its own menu on top.
       event.preventDefault();
@@ -970,6 +1084,10 @@ export class PlannerView extends ItemView {
       const tasks = this.plugin.index.blockIndex().get(blockId);
       if (plannerId !== null) {
         menu.addItem((item) => item.setTitle("In Planner öffnen").setIcon("external-link").onClick(() => this.openPlanner(plannerId)));
+        menu.addSeparator();
+      } else if (todoId !== null) {
+        // A click opens the browser (Invariant 6).
+        menu.addItem((item) => item.setTitle("In To Do öffnen").setIcon("external-link").onClick(() => this.openTodo(todoId)));
         menu.addSeparator();
       } else if (tasks !== undefined && tasks.length === 1) {
         const task = tasks[0];
@@ -985,7 +1103,7 @@ export class PlannerView extends ItemView {
             // Looked up now, not at mount: a block moved within its day is not remounted, so the
             // times captured in eventDidMount would name the old slot.
             const current = this.calendar?.getEventById(arg.event.id) ?? arg.event;
-            this.confirmDelete(current.id, current.title, current.start, current.end);
+            this.confirmDelete(eventId, calendarSide, current.title, current.start, current.end);
           }),
       );
       menu.showAtMouseEvent(event);
@@ -999,15 +1117,25 @@ export class PlannerView extends ItemView {
     // Read the drop BEFORE reverting it, then drop FullCalendar's provisional event: the grid is
     // drawn from Graph alone, so nothing shows twice and nothing shows that Outlook does not have.
     const { start, end } = arg.event;
-    const props = arg.event.extendedProps as { path?: unknown; raw?: unknown; blockId?: unknown; plannerId?: unknown };
+    const props = arg.event.extendedProps as { path?: unknown; raw?: unknown; blockId?: unknown; plannerId?: unknown; todoId?: unknown };
     arg.revert();
+    if (start === null || end === null || arg.event.allDay) return;
 
-    // The second door; eventAllow is the first.
+    // A To Do card goes into the PRIVATE calendar, wherever it was dropped (spec Nr. 18). The
+    // second door for each calendar; eventAllow is the first.
+    const todoId = todoIdFrom(props);
+    if (todoId !== null) {
+      if (!this.privateReady) {
+        new Notice("Der private Kalender ist noch nicht bereit – bitte kurz warten.");
+        return;
+      }
+      void this.bookTodo(todoId, start, end);
+      return;
+    }
     if (!this.ready) {
       new Notice("Der Kalender ist noch nicht bereit – bitte kurz warten.");
       return;
     }
-    if (start === null || end === null || arg.event.allDay) return;
     if (typeof props.plannerId === "string" && props.plannerId !== "") {
       void this.bookPlanner(props.plannerId, start, end);
       return;
@@ -1064,6 +1192,10 @@ export class PlannerView extends ItemView {
 
   private onEventChange(arg: EventChangeArg): void {
     const { start, end, id } = arg.event;
+    // Back to the calendar it came from, with that account (spec Nr. 25, 44).
+    // toFullCalendarEvents sets both on every event; the grid id carries a prefix (spec Nr. 44).
+    const { calendar, eventId } = arg.event.extendedProps as EventProps;
+    const account = this.calendarAccount(calendar);
     if (start === null || end === null || id === "" || arg.event.allDay) {
       arg.revert();
       return;
@@ -1077,11 +1209,11 @@ export class PlannerView extends ItemView {
     this.gate.beginGesture();
     void (async () => {
       try {
-        await this.plugin.graph.moveBlock(id, start, end);
+        await account.graph.moveBlock(eventId, start, end);
       } catch (error) {
         // Never keep showing a move that did not reach Outlook.
         arg.revert();
-        new Notice(getErrorMessage(error));
+        new Notice(account.describe(error));
       } finally {
         this.patching.delete(id);
         this.gate.endGesture();
@@ -1091,26 +1223,28 @@ export class PlannerView extends ItemView {
     })();
   }
 
-  private confirmDelete(eventId: string, title: string, start: Date | null, end: Date | null): void {
+  private confirmDelete(eventId: string, side: CalendarSide, title: string, start: Date | null, end: Date | null): void {
     const when = start !== null && end !== null ? ` (${formatSlot(start, end)})` : "";
+    const where = side === "private" ? "in deinem privaten Kalender" : "in Outlook";
     new ConfirmModal(
       this.app,
       {
         title: "Block löschen?",
-        message: `„${title}“${when} wird in Outlook gelöscht. Die Aufgabe bleibt, wie sie ist.`,
+        message: `„${title}“${when} wird ${where} gelöscht. Die Aufgabe bleibt, wie sie ist.`,
         confirm: "Löschen",
         warning: true,
       },
-      () => void this.deleteBlock(eventId),
+      () => void this.deleteBlock(eventId, side),
     ).open();
   }
 
-  private async deleteBlock(eventId: string): Promise<void> {
+  private async deleteBlock(eventId: string, side: CalendarSide): Promise<void> {
+    const account = this.calendarAccount(side);
     try {
-      await this.plugin.graph.deleteBlock(eventId);
+      await account.graph.deleteBlock(eventId);
       new Notice("Block gelöscht.");
     } catch (error) {
-      new Notice(getErrorMessage(error));
+      new Notice(account.describe(error));
     } finally {
       void this.refresh(true);
     }
@@ -1132,14 +1266,48 @@ export class PlannerView extends ItemView {
   /** Not `open`: that name belongs to Obsidian's View (see CLAUDE.md, Code-Standards). */
   private openCard(task: AnyTask): void {
     if (isPlannerTask(task)) this.openPlanner(task.id);
-    // A click, never a timer, opens the browser (Invariant 6).
-    else if (isTodoTask(task)) window.open(todoWebUrl(task.id));
+    else if (isTodoTask(task)) this.openTodo(task.id);
     else void this.openTask(task);
+  }
+
+  /** A click, never a timer, opens the browser (Invariant 6). */
+  private openTodo(taskId: string): void {
+    window.open(todoWebUrl(taskId));
   }
 
   /** A click, never a timer, opens the browser (Invariant 6). */
   private openPlanner(taskId: string): void {
     window.open(plannerWebUrl(this.plugin.settings.tenantId.trim(), taskId));
+  }
+
+  /**
+   * Like bookPlanner, but into the PRIVATE calendar through the personal account (spec Nr. 18, 24):
+   * the same block rules, the To Do link, nothing written to the vault or to To Do.
+   */
+  private async bookTodo(taskId: string, start: Date, end: Date): Promise<void> {
+    const task = this.todoSource.task(taskId);
+    if (task === undefined || !isOpen(task)) {
+      new Notice("Die To-Do-Aufgabe ist nicht mehr offen – bitte die Liste prüfen.");
+      return;
+    }
+    const key = todoKey(task.id);
+    this.gate.hold(key);
+    this.renderList();
+    try {
+      await this.plugin.todoGraph.createBlock({
+        subject: eventSubject(task.description),
+        body: todoEventBody(task, todoWebUrl(task.id)),
+        start,
+        end,
+        link: key,
+      });
+      new Notice(`Termin im privaten Kalender angelegt: ${formatSlot(start, end)}.`);
+    } catch (error) {
+      new Notice(getPersonalErrorMessage(error));
+    } finally {
+      this.gate.releaseAfterNextRead(key);
+      void this.refresh(true);
+    }
   }
 
   /** Like book(), but nothing is written to the vault: the Planner id is already stable. */

@@ -335,6 +335,11 @@ body {
   --vp-cat-color: color-mix(in srgb, var(--vp-cat, var(--color-blue)) 70%, white);
 }
 
+/* The private calendar's meetings (M9): one grey of their own, plus a lock icon (spec Nr. 45). */
+.vault-planner-view .fc .vp-private {
+  --vp-cat: var(--color-base-60, #707070);
+}
+
 .vault-planner-view .fc .vp-tentative {
   background-image: repeating-linear-gradient(
     -45deg,
@@ -383,6 +388,11 @@ body {
 
 .vault-planner-view .fc .vp-source-planner {
   --vp-source: var(--vp-planner);
+  --fc-event-text-color: white;
+}
+
+.vault-planner-view .fc .vp-source-todo {
+  --vp-source: var(--vp-todo);
   --fc-event-text-color: white;
 }
 

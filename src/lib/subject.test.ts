@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanTitle, eventBody, eventSubject } from "./subject";
+import { cleanTitle, eventBody, eventSubject, todoEventBody } from "./subject";
 
 describe("cleanTitle", () => {
   it("drops a parenthesised source link and the effort field", () => {
@@ -42,5 +42,13 @@ describe("eventBody", () => {
 
   it("leaves out a missing project", () => {
     expect(eventBody({ path: "10_Kunden/K/K.md", kunde: "K", projekt: null }, "Vault")).not.toContain("Projekt:");
+  });
+});
+
+describe("todoEventBody (M9)", () => {
+  it("names the list and links the task, for the phone without Obsidian", () => {
+    expect(todoEventBody({ projekt: "Privat" }, "https://to-do.live.com/tasks/id/T/details")).toBe(
+      "Fokus-Block aus Obsidian\nTo Do: Privat\nhttps://to-do.live.com/tasks/id/T/details",
+    );
   });
 });

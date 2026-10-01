@@ -93,6 +93,11 @@ A block is ours when it carries the single-value extended property
   task is the same in every vault, and the vaults share one calendar. Block ids are `[a-zA-Z0-9-]`
   and a Windows folder name cannot hold `:`, so it never reads as `<vaultName>|<blockId>`. Planner requests do NOT get the
   `Prefer: IdType` header — it is the calendar's; the Planner facts live in the plan's M6.
+- **A To Do task's block carries `todo:<taskId>`, no vault name** (M9.1b), and lives in the
+  personal account's default calendar, read and written through the personal token. Documented:
+  extended properties on events work for personal accounts (`Calendars.ReadWrite`). The same rules
+  as the work calendar: UTC reads, wall-clock writes, the IdType header, never `attendees`. In the
+  grid its events carry a `private:` id prefix, so the two calendars cannot collide.
 - **The POST response does not contain the property** (documented). The next read shows it.
 - **`$expand` on calendarView:** documented only for single events; a Microsoft employee confirms
   it for calendarView (Q&A 462964); one report says the property vanishes when combined with
