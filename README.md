@@ -1,11 +1,22 @@
 # Vault Planner
 
-An Obsidian plugin: the open tasks from your project notes on the left, your Outlook week on the
+An Obsidian plugin for planning your day: your open tasks on the left, your Outlook week on the
 right. Drag a task into a free slot, and a focus block appears in Outlook.
 
-The plan lives **only in Outlook**. The plugin writes a block id (`^t-3f9a1c`) to the task line
-once, so the event can find its task again. Whether a task is planned is read live from the
-calendar, also after you have moved or deleted a block in Outlook.
+**Three task sources in one list:**
+
+- **Obsidian** — the open tasks from your project notes, in the format of the Tasks plugin.
+- **Microsoft Planner** — the tasks assigned to you (work account), with plan and bucket. Complete
+  them or move them to another bucket without leaving Obsidian.
+- **Microsoft To Do** — your personal tasks (personal Microsoft account). Their blocks go into your
+  private Outlook calendar, which the grid shows next to the work calendar.
+
+Planner and To Do are optional, each behind its own switch.
+
+The plan lives **only in Outlook**. For an Obsidian task the plugin writes a block id
+(`^t-3f9a1c`) to the task line once, so the event can find its task again; Planner and To Do tasks
+are linked by their id. Whether a task is planned is read live from the calendar, also after you
+have moved or deleted a block in Outlook.
 
 ## Setup
 
@@ -180,3 +191,7 @@ are Europe/Berlin (`src/config.ts`).
 
 See `CLAUDE.md` and `docs/implementation-plan.md`. In short: `npx npm@11 install`, then
 `bash scripts/verify.sh`. The run ends with `release/vault-planner.zip`.
+
+## License
+
+MIT, see `LICENSE`.
