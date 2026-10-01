@@ -3,7 +3,7 @@
   "name": "Vault Planner",
   "version": "0.1.0",
   "minAppVersion": "1.12.2",
-  "description": "Drag open tasks from your project notes into free slots of your Outlook calendar as focus blocks.",
+  "description": "Drag open tasks from your vault, Microsoft Planner and Microsoft To Do into free slots of your Outlook calendar as focus blocks.",
   "author": "Daniel Hepe",
   "isDesktopOnly": true
 }
