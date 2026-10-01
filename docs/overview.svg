@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 430" width="980" height="430" font-family="Segoe UI, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif">
+  <title>Vault Planner: tasks from Obsidian, Microsoft Planner and Microsoft To Do in one list, dragged into the Outlook calendar as focus blocks</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6D4AE0"/>
+    </marker>
+    <symbol id="lock" viewBox="0 0 10 12">
+      <rect x="1" y="5" width="8" height="7" rx="1.5"/>
+      <path d="M3 5 V3.5 a2 2 0 0 1 4 0 V5" fill="none" stroke-width="1.4"/>
+    </symbol>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="979" height="429" rx="16" fill="#F8FAFC" stroke="#E2E8F0"/>
+
+  <!-- Column titles -->
+  <g font-size="13" font-weight="600" fill="#64748B">
+    <text x="24" y="34">Three task sources</text>
+    <text x="292" y="34">One list in Obsidian</text>
+    <text x="620" y="34">Your Outlook calendar</text>
+  </g>
+
+  <!-- Sources -->
+  <g>
+    <rect x="24" y="56" width="220" height="64" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="38" y="73" width="30" height="30" rx="7" fill="#6D4AE0"/>
+    <path d="M46 79 h10 l5 5 v13 h-15 z M56 79 v5 h5" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M49 89 h9 M49 93 h9" stroke="#FFFFFF" stroke-width="1.4"/>
+    <text x="80" y="84" font-size="15" font-weight="600" fill="#0F172A">Obsidian</text>
+    <text x="80" y="103" font-size="12.5" fill="#475569">open tasks in your notes</text>
+
+    <rect x="24" y="140" width="220" height="64" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="38" y="157" width="30" height="30" rx="7" fill="#2E7D32"/>
+    <path d="M46 165 l2 2 l3.5 -3.5 M46 173 l2 2 l3.5 -3.5 M46 181 l2 2 l3.5 -3.5" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M54 166 h8 M54 174 h8 M54 182 h8" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
+    <text x="80" y="168" font-size="15" font-weight="600" fill="#0F172A">Microsoft Planner</text>
+    <text x="80" y="187" font-size="12.5" fill="#475569">tasks assigned to you</text>
+
+    <rect x="24" y="224" width="220" height="64" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="38" y="241" width="30" height="30" rx="7" fill="#0E8F8A"/>
+    <circle cx="53" cy="256" r="8" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+    <path d="M49.5 256 l2.5 2.5 l4.5 -4.5" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="80" y="252" font-size="15" font-weight="600" fill="#0F172A">Microsoft To Do</text>
+    <text x="80" y="271" font-size="12.5" fill="#475569">personal account</text>
+
+    <text x="24" y="316" font-size="12" fill="#64748B">Planner and To Do are optional,</text>
+    <text x="24" y="332" font-size="12" fill="#64748B">each behind its own switch.</text>
+  </g>
+
+  <!-- Sources into the list -->
+  <g fill="none" stroke-width="2" stroke-linecap="round">
+    <path d="M244 88 C270 88 266 186 290 186" stroke="#6D4AE0"/>
+    <path d="M244 172 C266 172 268 200 290 200" stroke="#2E7D32"/>
+    <path d="M244 256 C270 256 266 214 290 214" stroke="#0E8F8A"/>
+  </g>
+
+  <!-- The plugin's list -->
+  <rect x="292" y="48" width="240" height="344" rx="12" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="308" y="76" font-size="15" font-weight="600" fill="#0F172A">Tasks</text>
+  <text x="516" y="76" font-size="11.5" fill="#94A3B8" text-anchor="end">4 of 4 open</text>
+  <rect x="308" y="88" width="208" height="26" rx="6" fill="#F1F5F9"/>
+  <text x="318" y="105" font-size="12" fill="#94A3B8">Search tasks</text>
+
+  <text x="308" y="136" font-size="12" font-weight="600" fill="#334155">Today · 2</text>
+  <g>
+    <rect x="308" y="144" width="208" height="46" rx="7" fill="#FFFFFF" stroke="#6D4AE0" stroke-dasharray="4 3"/>
+    <rect x="308" y="144" width="4" height="46" fill="#6D4AE0"/>
+    <text x="320" y="163" font-size="13" font-weight="600" fill="#0F172A">Review the firewall rules</text>
+    <text x="320" y="180" font-size="11.5" fill="#64748B">SampleCustomer · Migration</text>
+
+    <rect x="308" y="196" width="208" height="46" rx="7" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="308" y="196" width="4" height="46" fill="#2E7D32"/>
+    <text x="320" y="215" font-size="13" font-weight="600" fill="#0F172A">Review the quote</text>
+    <text x="320" y="232" font-size="11.5" fill="#64748B">Planner · Sales · To review</text>
+  </g>
+
+  <text x="308" y="264" font-size="12" font-weight="600" fill="#334155">Next 7 days · 2</text>
+  <g>
+    <rect x="308" y="272" width="208" height="46" rx="7" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="308" y="272" width="4" height="46" fill="#0E8F8A"/>
+    <text x="320" y="291" font-size="13" font-weight="600" fill="#0F172A">Call the garage</text>
+    <text x="320" y="308" font-size="11.5" fill="#64748B">To Do · Personal · due Fri 25/09</text>
+
+    <rect x="308" y="324" width="208" height="46" rx="7" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="308" y="324" width="4" height="46" fill="#6D4AE0"/>
+    <text x="320" y="343" font-size="13" font-weight="600" fill="#0F172A">Update the ADR list</text>
+    <text x="320" y="360" font-size="11.5" fill="#64748B">SampleCustomer · due Tue 29/09</text>
+  </g>
+
+  <!-- Outlook -->
+  <rect x="620" y="48" width="336" height="344" rx="12" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="636" y="76" font-size="15" font-weight="600" fill="#0F172A">Outlook</text>
+  <text x="940" y="76" font-size="11.5" fill="#94A3B8" text-anchor="end">work + private calendar</text>
+  <g font-size="12" font-weight="600" fill="#334155" text-anchor="middle">
+    <text x="716" y="102">Wed 23</text>
+    <text x="808" y="102">Thu 24</text>
+    <text x="900" y="102">Fri 25</text>
+  </g>
+  <g stroke="#EEF2F7">
+    <path d="M670 112 H946 M670 144 H946 M670 176 H946 M670 208 H946 M670 240 H946 M670 272 H946 M670 304 H946 M670 336 H946 M670 368 H946"/>
+    <path d="M670 112 V368 M762 112 V368 M854 112 V368 M946 112 V368"/>
+  </g>
+  <g font-size="10.5" fill="#94A3B8" text-anchor="end">
+    <text x="664" y="116">09:00</text>
+    <text x="664" y="180">11:00</text>
+    <text x="664" y="244">13:00</text>
+    <text x="664" y="308">15:00</text>
+  </g>
+
+  <!-- Other events: Outlook blue, private ones grey with a lock -->
+  <g font-size="11" fill="#1E40AF">
+    <rect x="673" y="114" width="86" height="28" rx="5" fill="#DBEAFE" stroke="#BFDBFE"/>
+    <text x="679" y="132">Team meeting</text>
+    <rect x="673" y="274" width="86" height="28" rx="5" fill="#DBEAFE" stroke="#BFDBFE"/>
+    <text x="679" y="292">Customer call</text>
+    <rect x="765" y="130" width="86" height="44" rx="5" fill="#DBEAFE" stroke="#BFDBFE"/>
+    <text x="771" y="148">Workshop</text>
+    <rect x="857" y="114" width="86" height="28" rx="5" fill="#DBEAFE" stroke="#BFDBFE"/>
+    <text x="863" y="132">Stand-up</text>
+  </g>
+  <rect x="857" y="274" width="86" height="28" rx="5" fill="#E5E7EB" stroke="#D1D5DB"/>
+  <text x="863" y="292" font-size="11" fill="#374151">Dentist</text>
+  <use href="#lock" x="929" y="279" width="9" height="11" fill="#6B7280" stroke="#6B7280"/>
+
+  <!-- Focus blocks -->
+  <g font-size="11" font-weight="600" fill="#FFFFFF">
+    <rect x="673" y="146" width="86" height="28" rx="5" fill="#6D4AE0"/>
+    <text x="679" y="164">Firewall rules</text>
+    <rect x="765" y="242" width="86" height="28" rx="5" fill="#2E7D32"/>
+    <text x="771" y="260">Review quote</text>
+    <rect x="857" y="178" width="86" height="28" rx="5" fill="#0E8F8A"/>
+    <text x="863" y="196">Call garage</text>
+  </g>
+  <use href="#lock" x="929" y="183" width="9" height="11" fill="#FFFFFF" stroke="#FFFFFF"/>
+
+  <g font-size="11" fill="#64748B">
+    <rect x="636" y="376" width="10" height="10" rx="2" fill="#6D4AE0"/>
+    <text x="651" y="385">focus blocks you dragged in</text>
+    <use href="#lock" x="826" y="375" width="9" height="11" fill="#6B7280" stroke="#6B7280"/>
+    <text x="840" y="385">private calendar</text>
+  </g>
+
+  <!-- Drag and drop, drawn last so the arrow sits on top of both panels -->
+  <path d="M518 167 C566 167 610 160 668 160" fill="none" stroke="#6D4AE0" stroke-width="2.2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+  <text x="576" y="148" font-size="12.5" font-weight="700" fill="#6D4AE0" text-anchor="middle">drag &amp; drop</text>
+
+  <text x="490" y="418" font-size="13" fill="#475569" text-anchor="middle">Drag a task into a free slot and it becomes a focus block in Outlook. Whether a task is planned is read live from the calendar.</text>
+</svg>

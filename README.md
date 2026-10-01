@@ -3,6 +3,8 @@
 An Obsidian plugin for planning your day: your open tasks on the left, your Outlook week on the
 right. Drag a task into a free slot, and a focus block appears in Outlook.
 
+![Tasks from Obsidian, Microsoft Planner and Microsoft To Do in one list, dragged into the Outlook calendar as focus blocks](docs/overview.svg)
+
 **Three task sources in one list:**
 
 - **Obsidian** — the open tasks from your project notes, in the format of the Tasks plugin.
