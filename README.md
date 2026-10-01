@@ -7,10 +7,10 @@ right. Drag a task into a free slot, and a focus block appears in Outlook.
 
 **Three task sources in one list:**
 
-- **Obsidian** — the open tasks from your project notes, in the format of the Tasks plugin.
-- **Microsoft Planner** — the tasks assigned to you (work account), with plan and bucket. Complete
+- <img src="docs/icons/obsidian.svg" width="16" height="16" alt=""> **Obsidian** — the open tasks from your project notes, in the format of the Tasks plugin.
+- <img src="docs/icons/microsoft-planner.svg" width="16" height="16" alt=""> **Microsoft Planner** — the tasks assigned to you (work account), with plan and bucket. Complete
   them or move them to another bucket without leaving Obsidian.
-- **Microsoft To Do** — your personal tasks (personal Microsoft account). Their blocks go into your
+- <img src="docs/icons/microsoft-to-do.svg" width="16" height="16" alt=""> **Microsoft To Do** — your personal tasks (personal Microsoft account). Their blocks go into your
   private Outlook calendar, which the grid shows next to the work calendar.
 
 Planner and To Do are optional, each behind its own switch.
@@ -197,3 +197,7 @@ See `CLAUDE.md` and `docs/implementation-plan.md`. In short: `npx npm@11 install
 ## License
 
 MIT, see `LICENSE`.
+
+Obsidian, Microsoft Outlook, Microsoft Planner and Microsoft To Do are trademarks of their
+respective owners. Their icons in `docs/icons/` are used unmodified to name the products; Vault
+Planner is not affiliated with or endorsed by them.
