@@ -39,9 +39,9 @@ have moved or deleted a block in Outlook.
 6. Note the **Application (client) ID** and the **Directory (tenant) ID**. They go into the plugin
    settings, not into the repository.
 
-### 2. Test vault (once)
+### 2. Test vault (once, for development only)
 
-1. Download `release/test-vault.zip` and unpack it **outside OneDrive** into an empty folder, e.g.
+1. Build `release/test-vault.zip` (see Development) and unpack it **outside OneDrive** into an empty folder, e.g.
    `C:\dev\test-vault`. Afterwards `10_Kunden` sits directly in that folder. Delete an older copy
    first: unpacked over it, renamed files exist twice and so does every task.
 2. In Obsidian: *Open another vault → Open folder as vault*.
@@ -49,13 +49,15 @@ have moved or deleted a block in Outlook.
    vault, and copy its `data.json` over from
    `<live vault>/.obsidian/plugins/obsidian-tasks-plugin/`.
 
-### 3. Install or update the plugin (every new build)
+### 3. Install or update the plugin
 
-1. Download `release/vault-planner.zip`.
+1. Download `vault-planner.zip` from the
+   [latest release](https://github.com/dani3lh3pe/obsidian-vault-planner/releases/latest), or take
+   `release/vault-planner.zip` from your own build.
 2. Unpack it into `<vault>/.obsidian/plugins/`. The zip contains the folder `vault-planner/` with
    `main.js`, `manifest.json` and `styles.css`. Overwrite existing files.
 3. Settings → Community plugins → turn **Vault Planner** off and on again.
-4. Compare the version shown (`0.1.0-dev.<timestamp>`) with the build's.
+4. Check the version shown: a release reads like `0.1.0`, your own build `0.1.0-dev.<timestamp>`.
 
 ### 4. Sign in
 

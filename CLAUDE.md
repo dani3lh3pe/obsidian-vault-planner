@@ -54,7 +54,13 @@ npx npm@11 install     # the distro's npm 9.2.0 is broken with Node 22 on this h
 bash scripts/verify.sh # the gate: tsc, tests (TZ=UTC), build, package — also the Stop hook
 npm test               # tests only
 npm run dev            # esbuild in watch mode to build/main.js
+git tag 0.2.0 && git push origin 0.2.0  # CI runs the gate and publishes the GitHub release
 ```
+
+A release: raise `version` in `manifest.json` and `package.json`, commit, then tag exactly that
+version — no `v`, Obsidian looks a release up by the manifest version. `scripts/package.mjs`
+refuses a tag that differs; `.github/workflows/release.yml` attaches the zip and the three plugin
+files.
 
 ## Invariants
 

@@ -20,7 +20,15 @@ const stamp = new Intl.DateTimeFormat("sv-SE", {
   .replace(/\D/g, "");
 
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
-manifest.version = `${manifest.version}-dev.${stamp}`;
+// A tag build (CI) is a release: the version stays as it is, and the tag must equal it — Obsidian
+// looks a plugin's release up by the manifest version.
+if (process.env.GITHUB_REF_TYPE === "tag") {
+  if (process.env.GITHUB_REF_NAME !== manifest.version) {
+    throw new Error(`tag ${process.env.GITHUB_REF_NAME} differs from the manifest version ${manifest.version}`);
+  }
+} else {
+  manifest.version = `${manifest.version}-dev.${stamp}`;
+}
 
 rmSync("release", { recursive: true, force: true });
 mkdirSync("release/vault-planner", { recursive: true });
