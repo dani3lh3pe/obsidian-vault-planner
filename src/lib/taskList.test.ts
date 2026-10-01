@@ -20,13 +20,13 @@ function task(description: string, overrides: Partial<VaultTask> = {}): VaultTas
     blockId: null,
     isWaiting: false,
     isRecurring: false,
-    kunde: "K",
-    projekt: "P",
+    customer: "K",
+    project: "P",
     ...overrides,
   };
 }
 
-const OPTIONS = { search: "", kunde: null, onlyUnplanned: false };
+const OPTIONS = { search: "", customer: null, onlyUnplanned: false };
 
 describe("date groups", () => {
   const at = (due: string | null, scheduled: string | null = null) => groupOf(due ?? scheduled, TODAY);
@@ -51,49 +51,49 @@ describe("date groups", () => {
 describe("compareTasks", () => {
   it("sorts by due date, undated last, then in progress first", () => {
     const sorted = [
-      task("ohne"),
-      task("spät", { due: "2026-10-30" }),
-      task("früh offen", { due: "2026-09-25" }),
-      task("früh in Arbeit", { due: "2026-09-25", status: "/" }),
+      task("undated"),
+      task("late", { due: "2026-10-30" }),
+      task("early open", { due: "2026-09-25" }),
+      task("early in progress", { due: "2026-09-25", status: "/" }),
     ].sort(compareTasks);
-    expect(sorted.map((t) => t.description)).toEqual(["früh in Arbeit", "früh offen", "spät", "ohne"]);
+    expect(sorted.map((t) => t.description)).toEqual(["early in progress", "early open", "late", "undated"]);
   });
 
   it("ranks the priority after the date, also among undated tasks", () => {
     const sorted = [
-      task("ohne, niedrig", { priority: "low" }),
-      task("ohne, höchste", { priority: "highest" }),
-      task("früh, normal", { due: "2026-09-25" }),
-      task("früh, hoch", { due: "2026-09-25", priority: "high" }),
-      task("später, höchste", { due: "2026-09-26", priority: "highest" }),
+      task("undated, low", { priority: "low" }),
+      task("undated, highest", { priority: "highest" }),
+      task("early, normal", { due: "2026-09-25" }),
+      task("early, high", { due: "2026-09-25", priority: "high" }),
+      task("later, highest", { due: "2026-09-26", priority: "highest" }),
     ].sort(compareTasks);
-    expect(sorted.map((t) => t.description)).toEqual(["früh, hoch", "früh, normal", "später, höchste", "ohne, höchste", "ohne, niedrig"]);
+    expect(sorted.map((t) => t.description)).toEqual(["early, high", "early, normal", "later, highest", "undated, highest", "undated, low"]);
   });
 
   it("sorts a ⏳-only task by its ⏳ date", () => {
-    const sorted = [task("fällig", { due: "2026-09-30" }), task("nur geplant", { scheduled: "2026-09-26" })].sort(compareTasks);
-    expect(sorted.map((t) => t.description)).toEqual(["nur geplant", "fällig"]);
+    const sorted = [task("due", { due: "2026-09-30" }), task("scheduled only", { scheduled: "2026-09-26" })].sort(compareTasks);
+    expect(sorted.map((t) => t.description)).toEqual(["scheduled only", "due"]);
   });
 });
 
 describe("buildList", () => {
   it("drops done tasks and puts WAITING apart", () => {
     const model = buildList(
-      [task("offen"), task("erledigt", { status: "x" }), task("WAITING Erika: warten", { isWaiting: true })],
+      [task("open"), task("done", { status: "x" }), task("WAITING Erika: waiting", { isWaiting: true })],
       null,
       OPTIONS,
       TODAY,
     );
-    expect(model.groups.flatMap((g) => g.tasks).map((t) => t.description)).toEqual(["offen"]);
-    expect(model.waiting.map((t) => t.description)).toEqual(["WAITING Erika: warten"]);
+    expect(model.groups.flatMap((g) => g.tasks).map((t) => t.description)).toEqual(["open"]);
+    expect(model.waiting.map((t) => t.description)).toEqual(["WAITING Erika: waiting"]);
     expect(model.openCount).toBe(2);
   });
 
   it("searches title, customer and project, but not link targets", () => {
     const tasks = [
-      task("Backup klären ([[2026-09-24_capture]])"),
-      task("Anderes", { kunde: "Backupfirma" }),
-      task("Drittes", { projekt: "Migration" }),
+      task("Clarify backup ([[2026-09-24_capture]])"),
+      task("Other", { customer: "Backup Ltd" }),
+      task("Third", { project: "Migration" }),
     ];
     const find = (search: string) => buildList(tasks, null, { ...OPTIONS, search }, TODAY).shownCount;
     expect(find("backup")).toBe(2);
@@ -102,80 +102,80 @@ describe("buildList", () => {
   });
 
   it("filters by customer and lists every customer for the dropdown", () => {
-    const model = buildList([task("a", { kunde: "Zeta" }), task("b", { kunde: "Alpha" })], null, { ...OPTIONS, kunde: "Zeta" }, TODAY);
+    const model = buildList([task("a", { customer: "Zeta" }), task("b", { customer: "Alpha" })], null, { ...OPTIONS, customer: "Zeta" }, TODAY);
     expect(model.shownCount).toBe(1);
-    expect(model.kunden).toEqual(["Alpha", "Zeta"]);
+    expect(model.customers).toEqual(["Alpha", "Zeta"]);
   });
 
-  it("hides only planned tasks under 'nur ungeplante'; an expired plan stays visible", () => {
+  it("hides only planned tasks under 'unplanned only'; an expired plan stays visible", () => {
     const block = { eventId: "e", start: new Date(), end: new Date() };
     const statuses: Record<string, PlanStatus> = {
-      geplant: { kind: "geplant", next: block },
-      abgelaufen: { kind: "abgelaufen", last: block },
-      ungeplant: { kind: "ungeplant" },
+      planned: { kind: "planned", next: block },
+      past: { kind: "past", last: block },
+      unplanned: { kind: "unplanned" },
     };
     const tasks = Object.keys(statuses).map((name) => task(name));
     const model = buildList(tasks, (t) => statuses[t.description], { ...OPTIONS, onlyUnplanned: true }, TODAY);
-    expect(model.groups.flatMap((g) => g.tasks).map((t) => t.description).sort()).toEqual(["abgelaufen", "ungeplant"]);
+    expect(model.groups.flatMap((g) => g.tasks).map((t) => t.description).sort()).toEqual(["past", "unplanned"]);
   });
 
   it("groups Planner tasks with the vault's, under one Planner customer", () => {
     const planner = mapPlannerTasks([
-      { "@odata.etag": "e", id: "PT1", planId: "P", title: "Planner dringend", priority: 3, dueDateTime: "2026-09-25T10:00:00Z" },
-      { "@odata.etag": "e", id: "PT2", planId: "P", title: "Planner erledigt", percentComplete: 100 },
+      { "@odata.etag": "e", id: "PT1", planId: "P", title: "Planner urgent", priority: 3, dueDateTime: "2026-09-25T10:00:00Z" },
+      { "@odata.etag": "e", id: "PT2", planId: "P", title: "Planner done", percentComplete: 100 },
     ]).tasks;
-    const model = buildList([task("Vault offen"), ...planner], null, OPTIONS, TODAY);
-    expect(model.groups.find((g) => g.key === "week")?.tasks.map((t) => t.description)).toEqual(["Planner dringend"]);
+    const model = buildList([task("Vault open"), ...planner], null, OPTIONS, TODAY);
+    expect(model.groups.find((g) => g.key === "week")?.tasks.map((t) => t.description)).toEqual(["Planner urgent"]);
     expect(model.openCount).toBe(2);
-    expect(model.kunden).toEqual(["K", "Planner"]);
-    expect(buildList(planner, null, { ...OPTIONS, kunde: "Planner" }, TODAY).shownCount).toBe(1);
+    expect(model.customers).toEqual(["K", "Planner"]);
+    expect(buildList(planner, null, { ...OPTIONS, customer: "Planner" }, TODAY).shownCount).toBe(1);
   });
 
   it("moves a task to the day of its next block, but never past its own date", () => {
     const planned = (start: string): PlanStatus => ({
-      kind: "geplant",
+      kind: "planned",
       next: { eventId: "e", start: new Date(start), end: new Date(new Date(start).getTime() + 3_600_000) },
     });
     const statuses: Record<string, PlanStatus> = {
-      "ohne Datum, Block heute": planned(`${TODAY}T09:00:00Z`),
-      "ohne Datum, Block Montag": planned("2026-09-28T09:00:00Z"),
+      "no date, block today": planned(`${TODAY}T09:00:00Z`),
+      "no date, block Monday": planned("2026-09-28T09:00:00Z"),
       // Started 23:30 Berlin yesterday, still running: today, not overdue.
-      "über Mitternacht": planned("2026-09-23T21:30:00Z"),
-      "überfällig, Block heute": planned(`${TODAY}T09:00:00Z`),
-      "fällig heute, Block Montag": planned("2026-09-28T09:00:00Z"),
-      "abgelaufen": { kind: "abgelaufen", last: { eventId: "e", start: new Date(`${TODAY}T06:00:00Z`), end: new Date(`${TODAY}T07:00:00Z`) } },
+      "over midnight": planned("2026-09-23T21:30:00Z"),
+      "overdue, block today": planned(`${TODAY}T09:00:00Z`),
+      "due today, block Monday": planned("2026-09-28T09:00:00Z"),
+      "past": { kind: "past", last: { eventId: "e", start: new Date(`${TODAY}T06:00:00Z`), end: new Date(`${TODAY}T07:00:00Z`) } },
     };
     const tasks = [
-      task("ohne Datum, Block heute"),
-      task("ohne Datum, Block Montag"),
-      task("über Mitternacht"),
-      task("überfällig, Block heute", { due: "2026-09-20" }),
-      task("fällig heute, Block Montag", { due: TODAY }),
-      task("abgelaufen"),
+      task("no date, block today"),
+      task("no date, block Monday"),
+      task("over midnight"),
+      task("overdue, block today", { due: "2026-09-20" }),
+      task("due today, block Monday", { due: TODAY }),
+      task("past"),
     ];
     const model = buildList(tasks, (t) => statuses[t.description], OPTIONS, TODAY);
     const group = (key: string) => model.groups.find((g) => g.key === key)?.tasks.map((t) => t.description);
-    expect(group("overdue")).toEqual(["überfällig, Block heute"]);
-    expect(group("today")).toEqual(["fällig heute, Block Montag", "ohne Datum, Block heute", "über Mitternacht"]);
-    expect(group("week")).toEqual(["ohne Datum, Block Montag"]);
+    expect(group("overdue")).toEqual(["overdue, block today"]);
+    expect(group("today")).toEqual(["due today, block Monday", "no date, block today", "over midnight"]);
+    expect(group("week")).toEqual(["no date, block Monday"]);
     // A block that is over no longer plans anything: the task falls back to its own date.
-    expect(group("none")).toEqual(["abgelaufen"]);
+    expect(group("none")).toEqual(["past"]);
   });
 
-  it("puts To Do tasks into the date groups and under Warten auf, with one To Do filter entry", () => {
-    const todo = mapTodoTasks({ id: "L", name: "Privat", shared: false }, [
-      { id: "T1", title: "Reifen wechseln", status: "notStarted", dueDateTime: { dateTime: "2026-09-25T00:00:00.0000000", timeZone: "UTC" } },
-      { id: "T2", title: "Antwort Vermieter", status: "waitingOnOthers" },
-      { id: "T3", title: "Erledigt", status: "completed" },
+  it("puts To Do tasks into the date groups and under Waiting for, with one To Do filter entry", () => {
+    const todo = mapTodoTasks({ id: "L", name: "Personal", shared: false }, [
+      { id: "T1", title: "Change the tyres", status: "notStarted", dueDateTime: { dateTime: "2026-09-25T00:00:00.0000000", timeZone: "UTC" } },
+      { id: "T2", title: "Reply from the landlord", status: "waitingOnOthers" },
+      { id: "T3", title: "Done", status: "completed" },
     ]).tasks;
-    const model = buildList([task("Vault offen"), ...todo], null, OPTIONS, TODAY);
-    expect(model.groups.find((g) => g.key === "week")?.tasks.map((t) => t.description)).toEqual(["Reifen wechseln"]);
-    expect(model.waiting.map((t) => t.description)).toEqual(["Antwort Vermieter"]);
-    expect(model.kunden).toEqual(["K", "To Do"]);
-    expect(buildList(todo, null, { ...OPTIONS, kunde: "To Do", search: "privat" }, TODAY).shownCount).toBe(2);
+    const model = buildList([task("Vault open"), ...todo], null, OPTIONS, TODAY);
+    expect(model.groups.find((g) => g.key === "week")?.tasks.map((t) => t.description)).toEqual(["Change the tyres"]);
+    expect(model.waiting.map((t) => t.description)).toEqual(["Reply from the landlord"]);
+    expect(model.customers).toEqual(["K", "To Do"]);
+    expect(buildList(todo, null, { ...OPTIONS, customer: "To Do", search: "personal" }, TODAY).shownCount).toBe(2);
   });
 
-  it("ignores 'nur ungeplante' while the status is unknown", () => {
+  it("ignores 'unplanned only' while the status is unknown", () => {
     expect(buildList([task("a")], null, { ...OPTIONS, onlyUnplanned: true }, TODAY).shownCount).toBe(1);
   });
 });

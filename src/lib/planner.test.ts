@@ -6,7 +6,7 @@ const entry = (overrides: Record<string, unknown> = {}): Record<string, unknown>
   id: "01gzSlKkIUSUl6DF_EilrmQAKDhh",
   planId: "xqQg5FS2LkCp935s-FIFm2QAFkHM",
   bucketId: "gcrYAaAkgU2EQUvpkNNXLGQAGTtu",
-  title: "Angebot prüfen",
+  title: "Review the quote",
   percentComplete: 0,
   priority: 5,
   dueDateTime: "2026-10-01T10:00:00Z",
@@ -48,12 +48,12 @@ describe("mapPlannerTasks", () => {
     expect(tasks[0]).toMatchObject({
       source: "planner",
       id: "01gzSlKkIUSUl6DF_EilrmQAKDhh",
-      description: "Angebot prüfen",
+      description: "Review the quote",
       status: "/",
       priority: "highest",
       due: "2026-10-01",
-      kunde: "Planner",
-      projekt: null,
+      customer: "Planner",
+      project: null,
       othersAssigned: 0,
     });
   });
@@ -79,11 +79,11 @@ describe("mapPlannerTasks", () => {
 describe("readBuckets", () => {
   it("sorts by orderHint ordinal, as the docs prescribe — not by locale", () => {
     const buckets = readBuckets([
-      { id: "c", name: "Erledigt", orderHint: "b" },
+      { id: "c", name: "Done", orderHint: "b" },
       { id: "b", name: "In Arbeit", orderHint: "ab" },
       { id: "a", name: "Backlog", orderHint: "a" },
       // "Z" (90) sorts before "a" (97) by ordinal; localeCompare would put it last.
-      { id: "z", name: "Ideen", orderHint: "Z" },
+      { id: "z", name: "Ideas", orderHint: "Z" },
     ]);
     expect(buckets.map((bucket) => bucket.id)).toEqual(["z", "a", "b", "c"]);
   });

@@ -26,7 +26,7 @@ export interface TodoSnapshot {
   truncated: boolean;
 }
 
-/** Every list but "Flagged emails": those are mails, not tasks (spec Nr. 8). */
+/** Every list but "Flagged emails": those are mails, not tasks (spec no. 8). */
 export function readTodoLists(raw: readonly unknown[]): TodoList[] {
   const lists: TodoList[] = [];
   for (const item of raw) {
@@ -34,7 +34,7 @@ export function readTodoLists(raw: readonly unknown[]): TodoList[] {
     if (item.wellknownListName === "flaggedEmails") continue;
     lists.push({
       id: item.id,
-      name: typeof item.displayName === "string" && item.displayName.trim() !== "" ? item.displayName.trim() : "(ohne Namen)",
+      name: typeof item.displayName === "string" && item.displayName.trim() !== "" ? item.displayName.trim() : "(unnamed)",
       // Unknown asks: the dialog is the only guard of the write, like Planner's unreadable assignments.
       shared: item.isShared !== false,
     });
@@ -42,7 +42,7 @@ export function readTodoLists(raw: readonly unknown[]): TodoList[] {
   return lists;
 }
 
-/** high -> ⏫, low -> 🔽, normal or missing -> none (spec Nr. 11). */
+/** high -> ⏫, low -> 🔽, normal or missing -> none (spec no. 11). */
 export function todoPriority(importance: unknown): Priority {
   if (importance === "high") return "high";
   if (importance === "low") return "low";
@@ -51,7 +51,7 @@ export function todoPriority(importance: unknown): Priority {
 
 /**
  * notStarted open, inProgress in progress, completed done; waitingOnOthers and deferred are open
- * but under "Warten auf" (spec Nr. 10). An unknown value reads as open, not as done.
+ * but under "Waiting for" (spec no. 10). An unknown value reads as open, not as done.
  */
 export function todoStatus(status: unknown): { status: string; waiting: boolean } {
   if (status === "completed") return { status: "x", waiting: false };
@@ -60,7 +60,7 @@ export function todoStatus(status: unknown): { status: string; waiting: boolean 
 }
 
 /**
- * The due date as a Berlin day (spec Nr. 12). Graph answers in UTC: the instant is read and its
+ * The due date as a Berlin day (spec no. 12). Graph answers in UTC: the instant is read and its
  * Berlin day taken, like Planner's. Any other zone is a wall clock in that zone, whose date is
  * the day itself.
  */
@@ -88,22 +88,22 @@ export function mapTodoTasks(list: TodoList, raw: readonly unknown[]): { tasks: 
       id: item.id,
       listId: list.id,
       etag: typeof etag === "string" && etag !== "" ? etag : null,
-      description: typeof item.title === "string" && item.title.trim() !== "" ? item.title.trim() : "(ohne Titel)",
+      description: typeof item.title === "string" && item.title.trim() !== "" ? item.title.trim() : "(untitled)",
       status,
       priority: todoPriority(item.importance),
       due: todoDue(item.dueDateTime),
       scheduled: null,
       isWaiting: waiting,
       isRecurring: isRecord(item.recurrence),
-      kunde: TODO_LABEL,
-      projekt: list.name,
+      customer: TODO_LABEL,
+      project: list.name,
       shared: list.shared,
     });
   }
   return { tasks, droppedCount };
 }
 
-/** Assumed like Planner's link (spec Nr. 38): checked live. Only a click opens it (Invariant 6). */
+/** Assumed like Planner's link (spec no. 38): checked live. Only a click opens it (Invariant 6). */
 export function todoWebUrl(taskId: string): string {
   return `https://to-do.live.com/tasks/id/${encodeURIComponent(taskId)}/details`;
 }

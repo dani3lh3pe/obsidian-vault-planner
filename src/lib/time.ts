@@ -58,7 +58,7 @@ export function fromGraphUtc(dateTime: string): Date {
   return new Date(`${dateTime.slice(0, 19)}Z`);
 }
 
-const DAY_AND_TIME = new Intl.DateTimeFormat("de-DE", {
+const DAY_AND_TIME = new Intl.DateTimeFormat("en-GB", {
   timeZone: PLANNER_IANA_ZONE,
   weekday: "short",
   hour: "2-digit",
@@ -66,7 +66,7 @@ const DAY_AND_TIME = new Intl.DateTimeFormat("de-DE", {
   hourCycle: "h23",
 });
 
-const DATE_AND_TIME = new Intl.DateTimeFormat("de-DE", {
+const DATE_AND_TIME = new Intl.DateTimeFormat("en-GB", {
   timeZone: PLANNER_IANA_ZONE,
   weekday: "short",
   day: "2-digit",
@@ -76,41 +76,35 @@ const DATE_AND_TIME = new Intl.DateTimeFormat("de-DE", {
   hourCycle: "h23",
 });
 
-const TIME_ONLY = new Intl.DateTimeFormat("de-DE", {
+const TIME_ONLY = new Intl.DateTimeFormat("en-GB", {
   timeZone: PLANNER_IANA_ZONE,
   hour: "2-digit",
   minute: "2-digit",
   hourCycle: "h23",
 });
 
-/** "Mi., 09:00–12:00" for the task list. */
+/** "Wed 09:00–12:00" for the task list. */
 export function formatSlot(start: Date, end: Date): string {
   return `${DAY_AND_TIME.format(start)}–${TIME_ONLY.format(end)}`;
 }
 
-/** "Mo., 29.09., 10:00–11:00" — for blocks outside the current week, where a weekday is ambiguous. */
+/** "Mon 29/09, 10:00–11:00" — for blocks outside the current week, where a weekday is ambiguous. */
 export function formatSlotWithDate(start: Date, end: Date): string {
   return `${DATE_AND_TIME.format(start)}–${TIME_ONLY.format(end)}`;
 }
 
-const DUE = new Intl.DateTimeFormat("de-DE", { timeZone: PLANNER_IANA_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
-const DUE_WITH_YEAR = new Intl.DateTimeFormat("de-DE", {
-  timeZone: PLANNER_IANA_ZONE,
-  weekday: "short",
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
+const DUE = new Intl.DateTimeFormat("en-GB", { timeZone: PLANNER_IANA_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
 
 /**
- * A deadline "yyyy-mm-dd" as "Di., 22.09." — the same style as the card's slot line. With the
+ * A deadline "yyyy-mm-dd" as "Tue 22/09" — the same style as the card's slot line. With the
  * year when it is not this year's. Noon UTC is the same day in Berlin all year round. A typo that
  * is no real date (2026-13-01, 2026-02-30) stays as written: Intl would throw, or roll it over.
  */
 export function formatDue(day: string, today: string): string {
   const noon = new Date(`${day}T12:00:00Z`);
   if (Number.isNaN(noon.getTime()) || noon.toISOString().slice(0, 10) !== day) return day;
-  return (day.slice(0, 4) === today.slice(0, 4) ? DUE : DUE_WITH_YEAR).format(noon);
+  // The year appended by hand: en-GB's own year format adds a comma after the weekday.
+  return day.slice(0, 4) === today.slice(0, 4) ? DUE.format(noon) : `${DUE.format(noon)}/${day.slice(0, 4)}`;
 }
 
 /**

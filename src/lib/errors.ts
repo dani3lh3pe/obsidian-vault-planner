@@ -1,7 +1,7 @@
 import type { GraphErrorResponse } from "./types";
 
 /**
- * Failures mapped to plain German — never raw Graph or AADSTS JSON, always a next step
+ * Failures mapped to plain English — never raw Graph or AADSTS JSON, always a next step
  * (ported from daily-planner, calendar area only, plus the sign-in errors this plugin owns).
  * The plugin's own errors below carry their user-facing text as `message`.
  */
@@ -41,7 +41,7 @@ export class SignedOutError extends Error {
 /** `requestUrl` has no timeout; this is ours. The message is the user-facing text. */
 export class TimeoutError extends Error {
   constructor() {
-    super("Microsoft hat nicht innerhalb von 30 Sekunden geantwortet. Erneut versuchen.");
+    super("Microsoft did not answer within 30 seconds. Try again.");
     this.name = "TimeoutError";
   }
 }
@@ -49,7 +49,7 @@ export class TimeoutError extends Error {
 /** The task line moved or changed between the list and the write. Nothing was written. */
 export class LineChangedError extends Error {
   constructor() {
-    super("Die Aufgabe wurde zwischenzeitlich geändert – bitte erneut ziehen.");
+    super("The task has changed in the meantime – please drag it again.");
     this.name = "LineChangedError";
   }
 }
@@ -57,7 +57,7 @@ export class LineChangedError extends Error {
 /** Completing needs the Tasks plugin's API; a home-made toggle would lose recurrences silently. */
 export class TasksMissingError extends Error {
   constructor() {
-    super("Zum Erledigen wird das Tasks-Plugin gebraucht.");
+    super("Completing a task needs the Tasks plugin.");
     this.name = "TasksMissingError";
   }
 }
@@ -65,7 +65,7 @@ export class TasksMissingError extends Error {
 /** Tasks returned no line at all (`🏁 delete`): removing it would orphan its indented children. */
 export class EmptyToggleError extends Error {
   constructor() {
-    super("Diese Aufgabe löscht sich beim Erledigen (🏁 delete) – bitte im Editor erledigen.");
+    super("This task deletes itself when completed (🏁 delete) – please complete it in the editor.");
     this.name = "EmptyToggleError";
   }
 }
@@ -86,34 +86,34 @@ export async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T
 }
 
 const GRAPH_CODES: Record<string, string> = {
-  InvalidAuthenticationToken: "Die Anmeldung ist abgelaufen. Bitte neu anmelden.",
+  InvalidAuthenticationToken: "The sign-in has expired. Please sign in again.",
   ErrorInvalidTimeZone:
-    "Die Zeitzone wurde von Outlook abgelehnt. Prüfe PLANNER_TIME_ZONE in src/config.ts.",
-  ErrorItemNotFound: "Der Termin existiert nicht mehr. Er wurde vermutlich in Outlook gelöscht.",
-  ErrorAccessDenied: "Kein Zugriff auf den Kalender. Fehlt die Berechtigung Calendars.ReadWrite?",
+    "Outlook rejected the time zone. Check PLANNER_TIME_ZONE in src/config.ts.",
+  ErrorItemNotFound: "The event no longer exists. It was probably deleted in Outlook.",
+  ErrorAccessDenied: "No access to the calendar. Is the Calendars.ReadWrite permission missing?",
 };
 
 export type GraphArea = "calendar" | "planner" | "todo";
 
-/** Planner's own readings of a status (umsetzungsplan M6). */
+/** Planner's own readings of a status (implementation plan M6). */
 const PLANNER_STATUS: Record<number, string> = {
-  403: "Kein Zugriff auf Planner. Fehlt die Berechtigung Tasks.ReadWrite? Dann abmelden, neu anmelden und zustimmen.",
-  404: "Die Planner-Aufgabe gibt es nicht mehr, oder sie ist dir nicht mehr zugewiesen.",
+  403: "No access to Planner. Is the Tasks.ReadWrite permission missing? Then sign out, sign in again and consent.",
+  404: "The Planner task no longer exists, or it is no longer assigned to you.",
   // Never retried with the fresh etag: that would overwrite exactly the change that caused it.
-  412: "Die Aufgabe wurde zwischenzeitlich in Planner geändert. Die Liste wird neu geladen – bitte erneut versuchen.",
+  412: "The task was changed in Planner in the meantime. The list is reloading – please try again.",
 };
 
-/** To Do's, for the personal account (M9, spec Nr. 42). */
+/** To Do's, for the personal account (M9, spec no. 42). */
 const TODO_STATUS: Record<number, string> = {
-  403: "Kein Zugriff auf To Do. Fehlt die Berechtigung Tasks.ReadWrite? Dann beim privaten Konto abmelden, neu anmelden und zustimmen.",
-  404: "Die To-Do-Aufgabe gibt es nicht mehr.",
+  403: "No access to To Do. Is the Tasks.ReadWrite permission missing? Then sign the personal account out, sign in again and consent.",
+  404: "The To Do task no longer exists.",
 };
 
 const AREA_STATUS: Record<GraphArea, Record<number, string>> = { calendar: {}, planner: PLANNER_STATUS, todo: TODO_STATUS };
 const AREA_FALLBACK: Record<GraphArea, string> = {
-  calendar: "Unerwarteter Fehler beim Kalenderzugriff.",
-  planner: "Unerwarteter Fehler beim Planner-Zugriff.",
-  todo: "Unerwarteter Fehler beim To-Do-Zugriff.",
+  calendar: "Unexpected error accessing the calendar.",
+  planner: "Unexpected error accessing Planner.",
+  todo: "Unexpected error accessing To Do.",
 };
 
 function mapGraphError(status: number, body: GraphErrorResponse | null, area: GraphArea): string {
@@ -126,47 +126,47 @@ function mapGraphError(status: number, body: GraphErrorResponse | null, area: Gr
   if (status === 401) return GRAPH_CODES.InvalidAuthenticationToken;
   if (status === 403) return GRAPH_CODES.ErrorAccessDenied;
   if (status === 404) return GRAPH_CODES.ErrorItemNotFound;
-  if (status === 429) return "Zu viele Anfragen an Microsoft. Kurz warten und erneut versuchen.";
-  if (status >= 500) return "Microsoft Graph ist gerade nicht erreichbar. Später erneut versuchen.";
+  if (status === 429) return "Too many requests to Microsoft. Wait a moment and try again.";
+  if (status >= 500) return "Microsoft Graph is unreachable right now. Try again later.";
   return AREA_FALLBACK[area];
 }
 
-/** The AADSTS numbers that have a known fix in this setup (see README, Entra-App). */
+/** The AADSTS numbers that have a known fix in this setup (see README, Setup). */
 const AADSTS: Record<string, string> = {
   "50011":
-    "Die Redirect-URI passt nicht. In der App-Registrierung muss obsidian://vault-planner-auth " +
-    "unter „Mobile- und Desktopanwendungen“ stehen.",
-  "700016": "Die App wurde nicht gefunden. Client-ID und Tenant-ID in den Einstellungen prüfen.",
-  "90002": "Der Tenant wurde nicht gefunden. Die Tenant-ID in den Einstellungen prüfen.",
+    "The redirect URI does not match. The app registration must list obsidian://vault-planner-auth " +
+    "under “Mobile and desktop applications”.",
+  "700016": "The app was not found. Check the client id and tenant id in the settings.",
+  "90002": "The tenant was not found. Check the tenant id in the settings.",
   "65001":
-    "Die Zustimmung fehlt. „Anmelden“ holt sie ein; ist die Benutzerzustimmung gesperrt, als Administrator " +
-    "für Calendars.ReadWrite und MailboxSettings.Read (mit Planner auch Tasks.ReadWrite) zustimmen.",
+    "Consent is missing. “Sign in” asks for it; if user consent is blocked, an administrator grants it " +
+    "for Calendars.ReadWrite and MailboxSettings.Read (with Planner also Tasks.ReadWrite).",
   "7000218":
-    "Entra verlangt ein Client-Secret. In der App-Registrierung „Öffentliche Clientflows " +
-    "zulassen“ auf Ja stellen.",
+    "Entra expects a client secret. In the app registration, set “Allow public client " +
+    "flows” to Yes.",
   "9002326":
-    "Entra hat den Token-Tausch als Browser-Anfrage abgelehnt (AADSTS9002326). Das ist ein " +
-    "Fehler im Plugin — bitte melden.",
-  "53003": "Conditional Access blockiert die Anmeldung. Die Anmeldeprotokolle in Entra zeigen, welche Richtlinie.",
-  "53000": "Conditional Access verlangt ein konformes Gerät. Die Anmeldeprotokolle in Entra zeigen die Richtlinie.",
+    "Entra rejected the token exchange as a browser request (AADSTS9002326). This is a " +
+    "bug in the plugin — please report it.",
+  "53003": "Conditional Access blocks the sign-in. The sign-in logs in Entra show which policy.",
+  "53000": "Conditional Access requires a compliant device. The sign-in logs in Entra show the policy.",
 };
 
 function mapAuthError(error: AuthError): string {
   if (error.aadsts !== null && AADSTS[error.aadsts] !== undefined) return AADSTS[error.aadsts];
   if (error.code === "invalid_grant" || error.code === "interaction_required") {
-    return "Die Anmeldung ist abgelaufen. Bitte neu anmelden.";
+    return "The sign-in has expired. Please sign in again.";
   }
-  if (error.code === "access_denied") return "Die Anmeldung wurde abgebrochen.";
+  if (error.code === "access_denied") return "The sign-in was cancelled.";
   if (error.code === "state_mismatch") {
-    return "Diese Rückmeldung gehört zu keiner laufenden Anmeldung. Bitte erneut auf „Anmelden“ klicken.";
+    return "This response belongs to no pending sign-in. Please click “Sign in” again.";
   }
   const suffix = error.aadsts === null ? error.code : `AADSTS${error.aadsts}`;
-  return `Die Anmeldung ist fehlgeschlagen (${suffix}).`;
+  return `Sign-in failed (${suffix}).`;
 }
 
 /**
  * True when the only way forward is signing in again. A missing permission is deliberately NOT
- * this: it arrives as 403, and "Anmelden" would offer a loop instead of a way out.
+ * this: it arrives as 403, and "Sign in" would offer a loop instead of a way out.
  */
 export function isAuthExpired(error: unknown): boolean {
   if (error instanceof SignedOutError) return true;
@@ -177,23 +177,23 @@ export function isAuthExpired(error: unknown): boolean {
 /**
  * The personal account (M9) shares the work account's registration. There, AADSTS700016 means the
  * registration is not opened to personal accounts — not a wrong tenant id, which it has none of.
- * ponytail: only this one differs so far; the rest of the private texts come with M9.1 (spec Nr. 34).
+ * ponytail: only this one differs so far; the rest of the private texts come with M9.1 (spec no. 34).
  */
 export function getPersonalErrorMessage(error: unknown): string {
   if (error instanceof AuthError && error.aadsts === "700016") {
-    return "Privates Konto: Die App-Registrierung ist nicht für private Microsoft-Konten geöffnet (README, Einrichtung 5).";
+    return "Personal account: the app registration is not open to personal Microsoft accounts (README, Setup step 5).";
   }
-  return `Privates Konto: ${getErrorMessage(error)}`;
+  return `Personal account: ${getErrorMessage(error)}`;
 }
 
 export function getErrorMessage(error: unknown): string {
   if (error instanceof GraphApiError) return mapGraphError(error.status, error.body, error.area);
   if (error instanceof AuthError) return mapAuthError(error);
-  if (error instanceof SignedOutError) return "Nicht angemeldet. Bitte anmelden.";
+  if (error instanceof SignedOutError) return "Not signed in. Please sign in.";
   // requestUrl rejects with Chromium's net error text when there is no connection at all.
   if (error instanceof Error && error.message.startsWith("net::")) {
-    return "Keine Verbindung zu Microsoft. Netzwerk prüfen und erneut versuchen.";
+    return "No connection to Microsoft. Check the network and try again.";
   }
   if (error instanceof Error) return error.message;
-  return "Unerwarteter Fehler.";
+  return "Unexpected error.";
 }

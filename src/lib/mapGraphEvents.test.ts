@@ -8,7 +8,7 @@ describe("mapGraphEvents", () => {
     // The response has no trailing Z; treating it as local time is the silent
     // two-hour bug this whole read path is built to avoid.
     const { events, droppedCount } = mapGraphEvents([
-      { id: "AAA", subject: "Termin", start: utc("2026-09-10T07:00:00.0000000"), end: utc("2026-09-10T08:00:00.0000000") },
+      { id: "AAA", subject: "Meeting", start: utc("2026-09-10T07:00:00.0000000"), end: utc("2026-09-10T08:00:00.0000000") },
     ]);
 
     expect(droppedCount).toBe(0);
@@ -31,7 +31,7 @@ describe("mapGraphEvents", () => {
   });
 
   it("drops entries that are not objects or carry no id", () => {
-    const { events, droppedCount } = mapGraphEvents([null, "nope", 42, { subject: "kein id" }]);
+    const { events, droppedCount } = mapGraphEvents([null, "nope", 42, { subject: "no id" }]);
 
     expect(events).toEqual([]);
     expect(droppedCount).toBe(4);
@@ -103,28 +103,28 @@ describe("mapGraphEvents", () => {
 
   it("keeps the category names in their order and drops anything that is not a name", () => {
     const { events } = mapGraphEvents([
-      { id: "AAA", start: utc("2026-09-10T07:00:00.0"), end: utc("2026-09-10T08:00:00.0"), categories: ["Kunde A", 7, null, "Privat"] },
+      { id: "AAA", start: utc("2026-09-10T07:00:00.0"), end: utc("2026-09-10T08:00:00.0"), categories: ["Customer A", 7, null, "Personal"] },
       { id: "BBB", start: utc("2026-09-10T07:00:00.0"), end: utc("2026-09-10T08:00:00.0") },
     ]);
 
-    expect(events.map((event) => event.categories)).toEqual([["Kunde A", "Privat"], []]);
+    expect(events.map((event) => event.categories)).toEqual([["Customer A", "Personal"], []]);
   });
 });
 
 describe("readCategoryColors", () => {
   it("maps each name to its preset number and leaves out none, unknown and broken entries", () => {
     const colors = readCategoryColors([
-      { displayName: "Kunde A", color: "preset7" },
-      { displayName: "Privat", color: "Preset24" },
-      { displayName: "Farblos", color: "none" },
-      { displayName: "Zukunft", color: "preset25" },
-      { displayName: "Kaputt" },
+      { displayName: "Customer A", color: "preset7" },
+      { displayName: "Personal", color: "Preset24" },
+      { displayName: "Colourless", color: "none" },
+      { displayName: "Future", color: "preset25" },
+      { displayName: "Broken" },
       "nonsense",
     ]);
 
     expect([...colors]).toEqual([
-      ["Kunde A", 7],
-      ["Privat", 24],
+      ["Customer A", 7],
+      ["Personal", 24],
     ]);
   });
 });

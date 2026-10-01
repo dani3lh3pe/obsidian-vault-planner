@@ -5,7 +5,7 @@ import type { CalendarEvent } from "./types";
 function event(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
   return {
     id: "e1",
-    subject: "Termin",
+    subject: "Meeting",
     start: new Date("2026-09-24T08:00:00Z"),
     end: new Date("2026-09-24T09:00:00Z"),
     isAllDay: false,
@@ -19,8 +19,8 @@ function event(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
 }
 
 const COLORS = new Map([
-  ["Kunde A", 7],
-  ["Privat", 0],
+  ["Customer A", 7],
+  ["Personal", 0],
 ]);
 const map = (events: CalendarEvent[]) => toFullCalendarEvents(events, "Vault", () => "open", COLORS);
 
@@ -73,9 +73,9 @@ describe("toFullCalendarEvents", () => {
 
   it("tints a meeting by its FIRST category that has a colour, and hatches tentative time", () => {
     const [first, skipped, none, tentative] = map([
-      event({ categories: ["Kunde A", "Privat"] }),
-      event({ categories: ["Unbekannt", "Privat"] }),
-      event({ categories: ["Unbekannt"] }),
+      event({ categories: ["Customer A", "Personal"] }),
+      event({ categories: ["Unknown", "Personal"] }),
+      event({ categories: ["Unknown"] }),
       event({ showAs: "tentative" }),
     ]);
     expect(first.classNames).toEqual(["vp-meeting", "vp-cat-7"]);
@@ -86,8 +86,8 @@ describe("toFullCalendarEvents", () => {
 
   it("colours our blocks by source, never by a category someone added in Outlook", () => {
     const [vault, planner] = map([
-      event({ taskLink: "Vault|t-1", categories: ["Kunde A"] }),
-      event({ taskLink: "planner:abc", categories: ["Kunde A"] }),
+      event({ taskLink: "Vault|t-1", categories: ["Customer A"] }),
+      event({ taskLink: "planner:abc", categories: ["Customer A"] }),
     ]);
     expect(vault.classNames).toEqual(["vp-block", "vp-block-open"]);
     expect(planner.classNames).toEqual(["vp-block", "vp-block-open", "vp-source-planner"]);
@@ -95,7 +95,7 @@ describe("toFullCalendarEvents", () => {
 
   it("keeps the private calendar apart: own id prefix, own colour, no work categories (M9)", () => {
     const [meeting, block] = toFullCalendarEvents(
-      [event({ id: "p1", categories: ["Kunde A"] }), event({ id: "p2", taskLink: "todo:T1" })],
+      [event({ id: "p1", categories: ["Customer A"] }), event({ id: "p2", taskLink: "todo:T1" })],
       "Vault",
       () => "open",
       COLORS,

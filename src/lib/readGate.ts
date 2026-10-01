@@ -1,5 +1,5 @@
 /**
- * Which calendar read may still change the screen, and when a "Wird gespeichert…" marker may go.
+ * Which calendar read may still change the screen, and when a "Saving…" marker may go.
  *
  * The web app got these rules from React effects for free (stale responses discarded on cleanup);
  * vanilla code has to keep the books itself. Pure bookkeeping — the view owns network and timers.
@@ -59,7 +59,7 @@ export class ReadGate {
 
   /**
    * The POST is over (either way). Only a read that starts AFTER this moment can show the block,
-   * so the marker waits for it — otherwise the card flips to "ungeplant" in between and invites a
+   * so the marker waits for it — otherwise the card flips to "unplanned" in between and invites a
    * second booking.
    */
   releaseAfterNextRead(blockId: string): void {

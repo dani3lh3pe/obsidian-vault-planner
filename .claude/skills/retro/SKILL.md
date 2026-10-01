@@ -1,6 +1,6 @@
 ---
 name: retro
-description: End-of-session retrospective for the Vault Planner plugin — sweep the session for learnings and persist each one into its one canonical place (CLAUDE.md, a skill, docs/umsetzungsplan.md, README.md or memory). Use when asked for a retro ("retro", "was haben wir gelernt", "Learnings sichern"), after a session with surprises or first-attempt failures, whenever Daniel reports back from the Windows notebook (a manual check, the M1.0 live probe, an error message), and when the CLAUDE.md Learning Loop rule triggers. Not for improving a skill's own wording or triggering — that is skill-retro.
+description: End-of-session retrospective for the Vault Planner plugin — sweep the session for learnings and persist each one into its one canonical place (CLAUDE.md, a skill, docs/implementation-plan.md, README.md or memory). Use when asked for a retro ("retro", "was haben wir gelernt", "Learnings sichern"), after a session with surprises or first-attempt failures, whenever Daniel reports back from the Windows notebook (a manual check, the M1.0 live probe, an error message), and when the CLAUDE.md Learning Loop rule triggers. Not for improving a skill's own wording or triggering — that is skill-retro.
 ---
 
 # Session Retro
@@ -28,11 +28,11 @@ ONE canonical place. If nothing qualifies, say so and change nothing; forced lea
 | An always-true rule or decision criterion, 1–4 lines | `CLAUDE.md` | Loaded every session — expensive context, keep it short |
 | Graph behaviour | `.claude/skills/graph-calendar/SKILL.md`, marked "verified live <date>", "documented" or "derived" | The standing authority against the obvious reading of the docs |
 | A correction to the gate or the hand-over | `.claude/skills/verify/SKILL.md`, plus `scripts/verify.sh` if the procedure changed | The procedure's single source of truth |
-| An Obsidian, Tasks or FullCalendar fact, or a trap with its countermeasure | "Belegt" or the milestone's trap table in `docs/umsetzungsplan.md` | Where the next milestone reads it |
-| A manual check passed or failed, a live probe answered | The milestone's section and "Stand der Umsetzung" in `docs/umsetzungsplan.md`; a Graph answer also into the skill | Which milestone is proven must be visible without this session |
-| An error the user can hit, with its fix | "Fehlerbilder" in `README.md` | Daniel reads that one, not CLAUDE.md |
+| An Obsidian, Tasks or FullCalendar fact, or a trap with its countermeasure | "Verified facts" or the milestone's pitfall table in `docs/implementation-plan.md` | Where the next milestone reads it |
+| A manual check passed or failed, a live probe answered | The milestone's section and "Implementation status" in `docs/implementation-plan.md`; a Graph answer also into the skill | Which milestone is proven must be visible without this session |
+| An error the user can hit, with its fix | "Troubleshooting" in `README.md` | Daniel reads that one, not CLAUDE.md |
 | A design question that came too late (an answer reshaped work already done) | `.claude/grilling-seeds.md`, with date and case | The next `grilling` asks it in round 1 |
-| Deferred work or a known gap | "Offen, nicht blockierend" in the plan; in code a `ponytail:` comment | Repo-visible, reviewable |
+| Deferred work or a known gap | "Open, not blocking" in the plan; in code a `ponytail:` comment | Repo-visible, reviewable |
 | A preference or host fact invisible in the repo | Auto-memory (`~/.claude/projects/<project>/memory/` + `MEMORY.md`) | Persists, but only for Claude on this host |
 | Volatile state (today's build id, a check still pending) | **Nowhere permanent** | Stale "facts" are worse than none |
 
@@ -54,5 +54,5 @@ fact moves into the repo, delete it from memory rather than leaving two copies t
 - Every backticked path in an edited file still resolves (`test -e` spot check).
 - An edited skill's frontmatter `description` still matches what the skill does.
 - A `ponytail:` shortcut left in the code this session: run `/ponytail-debt` so it is tracked.
-- Report the persisted learnings as a short list (artifact → one-line change). "Keine Learnings in
-  dieser Sitzung" is a valid, honest result.
+- Report the persisted learnings as a short list (artifact → one-line change). "No learnings this
+  session" is a valid, honest result.

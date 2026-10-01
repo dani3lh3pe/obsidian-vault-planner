@@ -1,5 +1,5 @@
 /**
- * One remote task source beside the vault — Planner, To Do (M9, spec Nr. 40). Two rules:
+ * One remote task source beside the vault — Planner, To Do (M9, spec no. 40). Two rules:
  *
  * - Only the newest read may land. A read still running when the source is switched off, or when
  *   a newer read started, changes nothing.
@@ -64,7 +64,7 @@ export class RemoteSource<T extends { readonly tasks: readonly { readonly id: st
     return this.writing.has(id);
   }
 
-  /** Before the write: "Wird gespeichert…" until a read started after endWrite has come back. */
+  /** Before the write: "Saving…" until a read started after endWrite has come back. */
   beginWrite(id: string): void {
     this.writing.set(id, { from: Number.POSITIVE_INFINITY, spent: null });
   }

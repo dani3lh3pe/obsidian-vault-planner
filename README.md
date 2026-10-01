@@ -1,184 +1,182 @@
 # Vault Planner
 
-Ein Obsidian-Plugin: links die offenen Tasks aus den Projektdateien, rechts die Outlook-Woche.
-Einen Task in eine freie Lücke ziehen, und in Outlook entsteht ein Fokus-Block.
+An Obsidian plugin: the open tasks from your project notes on the left, your Outlook week on the
+right. Drag a task into a free slot, and a focus block appears in Outlook.
 
-Die Planung steht **nur in Outlook**. In die Task-Zeile schreibt das Plugin einmalig eine Block-ID
-(`^t-3f9a1c`), damit der Termin seinen Task wiederfindet. Ob ein Task geplant ist, zeigt das Plugin
-live aus dem Kalender an, auch nachdem du einen Block in Outlook verschoben oder gelöscht hast.
+The plan lives **only in Outlook**. The plugin writes a block id (`^t-3f9a1c`) to the task line
+once, so the event can find its task again. Whether a task is planned is read live from the
+calendar, also after you have moved or deleted a block in Outlook.
 
-## Einrichtung
+## Setup
 
-### 1. Entra-App-Registrierung (einmalig)
+### 1. Entra app registration (once)
 
-1. Entra Admin Center → App-Registrierungen → **Neue Registrierung** „Obsidian Vault Planner",
-   *Nur Konten in diesem Organisationsverzeichnis*. Für To Do mit dem privaten Konto wird das später
-   umgestellt (Einrichtung 5).
-2. **Authentifizierung → Plattform hinzufügen → Mobile- und Desktopanwendungen**, dort zwei
-   benutzerdefinierte Umleitungs-URIs:
+1. Entra admin center → App registrations → **New registration** "Obsidian Vault Planner",
+   *Accounts in this organizational directory only*. For To Do with a personal account this is
+   changed later (Setup step 5).
+2. **Authentication → Add a platform → Mobile and desktop applications**, with two custom redirect
+   URIs:
    - `obsidian://vault-planner-auth`
-   - `http://localhost` (Reserve)
-3. „Öffentliche Clientflows zulassen" bleibt auf **Nein**.
-4. **API-Berechtigungen → Microsoft Graph → Delegiert:** `Calendars.ReadWrite` und
-   `MailboxSettings.Read` (nur für die Farben der Outlook-Kategorien), für Planner-Aufgaben oder To Do
-   zusätzlich `Tasks.ReadWrite`. Falls Benutzerzustimmung gesperrt ist, die Administratorzustimmung
-   erteilen.
-5. Kein Secret, keine Anwendungsberechtigung.
-6. **Anwendungs-ID (Client-ID)** und **Verzeichnis-ID (Tenant-ID)** notieren. Sie kommen in die
-   Plugin-Einstellungen, nicht ins Repository.
+   - `http://localhost` (spare)
+3. "Allow public client flows" stays at **No**.
+4. **API permissions → Microsoft Graph → Delegated:** `Calendars.ReadWrite` and
+   `MailboxSettings.Read` (only for the colours of the Outlook categories), plus `Tasks.ReadWrite`
+   for Planner tasks or To Do. If user consent is blocked, grant admin consent.
+5. No secret, no application permission.
+6. Note the **Application (client) ID** and the **Directory (tenant) ID**. They go into the plugin
+   settings, not into the repository.
 
-### 2. Testvault (einmalig)
+### 2. Test vault (once)
 
-1. `release/test-vault.zip` herunterladen und **außerhalb des OneDrive** entpacken, z. B. nach
-   `C:\dev\test-vault`. Danach liegt `10_Kunden` direkt in diesem Ordner.
-2. In Obsidian: *Anderen Vault öffnen → Ordner als Vault öffnen*.
-3. Einstellungen → Community-Plugins → einschalten, **Tasks** in derselben Version wie im
-   Live-Vault installieren und dessen `data.json` aus
-   `<Live-Vault>/.obsidian/plugins/obsidian-tasks-plugin/` herüberkopieren.
+1. Download `release/test-vault.zip` and unpack it **outside OneDrive** into an empty folder, e.g.
+   `C:\dev\test-vault`. Afterwards `10_Kunden` sits directly in that folder. Delete an older copy
+   first: unpacked over it, renamed files exist twice and so does every task.
+2. In Obsidian: *Open another vault → Open folder as vault*.
+3. Settings → Community plugins → turn on, install **Tasks** in the same version as in the live
+   vault, and copy its `data.json` over from
+   `<live vault>/.obsidian/plugins/obsidian-tasks-plugin/`.
 
-### 3. Plugin installieren oder aktualisieren (bei jedem neuen Build)
+### 3. Install or update the plugin (every new build)
 
-1. `release/vault-planner.zip` herunterladen.
-2. Nach `<Vault>/.obsidian/plugins/` entpacken. Das Zip enthält den Ordner `vault-planner/` mit
-   `main.js`, `manifest.json` und `styles.css`. Vorhandene Dateien überschreiben.
-3. Einstellungen → Community-Plugins → **Vault Planner** aus- und wieder einschalten.
-4. Die angezeigte Version (`0.1.0-dev.<Zeitstempel>`) mit der des Builds vergleichen.
+1. Download `release/vault-planner.zip`.
+2. Unpack it into `<vault>/.obsidian/plugins/`. The zip contains the folder `vault-planner/` with
+   `main.js`, `manifest.json` and `styles.css`. Overwrite existing files.
+3. Settings → Community plugins → turn **Vault Planner** off and on again.
+4. Compare the version shown (`0.1.0-dev.<timestamp>`) with the build's.
 
-### 4. Anmelden
+### 4. Sign in
 
-Einstellungen → Vault Planner: **Tenant-ID** und **Client-ID** eintragen, dann **Anmelden**.
-Der Schalter **Planner-Aufgaben** holt die dir zugewiesenen Planner-Aufgaben dazu. Fehlt dafür die
-Zustimmung, meldet sich das Plugin nach dem Einschalten ab; **Anmelden** holt sie ein. Wer nicht
-zustimmen kann, schaltet den Schalter wieder aus und meldet sich neu an. Ausschalten
-fordert `Tasks.ReadWrite` nicht mehr an, nimmt die einmal erteilte Zustimmung aber nicht zurück.
-Das geht nur in Entra bzw. unter myapps.microsoft.com.
+Settings → Vault Planner: enter the **Tenant id** and **Client id**, then **Sign in**.
+The **Planner tasks** switch adds the Planner tasks assigned to you. If consent for it is missing,
+the plugin signs out after you switch it on; **Sign in** asks for it. If you cannot consent, switch
+it off again and sign in anew. Switching it off stops requesting `Tasks.ReadWrite`, but does not
+revoke consent once granted. Only Entra or myapps.microsoft.com can do that.
 
-Seit M7 fragt das Plugin zusätzlich `MailboxSettings.Read` an. Nach dem ersten Update darauf meldet
-es sich deshalb einmal ab; **Anmelden** holt die Zustimmung ein.
+Since M7 the plugin also requests `MailboxSettings.Read`. After the first update to it, it signs
+out once for that reason; **Sign in** asks for consent.
 
-- Der Browser öffnet die Microsoft-Anmeldung und fragt am Ende, ob er Obsidian öffnen darf.
-- Beim Anmelden nur **einen** Vault mit dem Plugin offen haben: Der `obsidian://`-Link geht an das
-  zuletzt aktive Vault-Fenster.
-- Die Anmeldung gilt auf diesem Gerät etwa 90 Tage ab der letzten Nutzung. Der Token liegt
-  verschlüsselt in Obsidians Schlüsselbund, nicht im Vault.
+- The browser opens the Microsoft sign-in and asks at the end whether it may open Obsidian.
+- While signing in, keep only **one** vault with the plugin open: the `obsidian://` link goes to
+  the vault window that was active last.
+- The sign-in lasts about 90 days from last use on this device. The token is stored encrypted in
+  Obsidian's keychain, not in the vault.
 
-### 5. Privates Konto für Microsoft To Do (optional, in Arbeit: M9)
+### 5. Personal account for Microsoft To Do (optional, in progress: M9)
 
-Dieselbe App-Registrierung wie für das Arbeitskonto, für private Konten geöffnet:
+The same app registration as for the work account, opened to personal accounts:
 
-1. **Authentifizierung → Unterstützte Kontotypen:** „Konten in allen Organisationsverzeichnissen und
-   persönliche Microsoft-Konten". Die App ist damit für jeden Entra-Tenant offen; an deine Daten
-   kommt dadurch niemand, andere Tenants sehen sie als „nicht verifiziert". Lehnt Entra das
-   Umstellen ab, zuerst die Eigenschaft ändern, die die Fehlermeldung nennt; laut Doku kann das
-   nötig sein.
-2. **API-Berechtigungen → Microsoft Graph → Delegiert:** `Tasks.ReadWrite` und `Calendars.ReadWrite`
-   müssen in der Liste stehen, auch ohne Planner.
-3. Im Plugin „To Do (privat)" einschalten, beim privaten Konto **Anmelden** und mit dem privaten
-   Konto zustimmen. Die Client-ID ist dieselbe.
+1. **Authentication → Supported account types:** "Accounts in any organizational directory and
+   personal Microsoft accounts". This opens the app to every Entra tenant; nobody gets at your data
+   through it, and other tenants see it as "unverified". If Entra refuses the change, first change
+   the property the error message names; the docs say this can be necessary.
+2. **API permissions → Microsoft Graph → Delegated:** `Tasks.ReadWrite` and `Calendars.ReadWrite`
+   must be in the list, even without Planner.
+3. In the plugin, switch on "To Do (personal)", click **Sign in** for the personal account and
+   consent with the personal account. The client id is the same.
 
-Ein Problem mit dem privaten Konto meldet das Arbeitskonto nie ab. Ausschalten blendet To Do und
-den privaten Kalender aus, meldet das private Konto aber nicht ab.
+A problem with the personal account never signs the work account out. Switching it off hides To Do
+and the private calendar, but does not sign the personal account out.
 
-## Bedienung
+## Usage
 
-- **Öffnen:** das Kalender-Symbol in der linken Leiste oder der Befehl „Planner öffnen".
-- **Liste:** Gruppiert nach Datum:
-  - „Überfällig": das älteste Datum oben
-  - „Heute"
-  - „Nächste 7 Tage"
-  - „Später"
-  - „Ohne Datum"
-  - dazu „Warten auf" für `WAITING`, eingeklappt
+- **Open:** the calendar icon in the left ribbon, or the command "Open Vault Planner".
+- **List:** grouped by date:
+  - "Overdue": oldest date on top
+  - "Today"
+  - "Next 7 days"
+  - "Later"
+  - "No date"
+  - plus "Waiting for" for `WAITING`, collapsed
 
-  Das Datum ist `📅`, fehlt es, dann `⏳`. Die Karte zeigt, welches: „bis Di., 22.09." oder
-  „⏳ Mi., 08.07.". Ein eingeplanter Task rückt vor auf den Tag seines nächsten Blocks: heute
-  eingeplant steht unter „Heute". Nach hinten schiebt ein Block nie, eine überfällige Aufgabe
-  bleibt überfällig. Bei gleichem Datum kommt die höhere Priorität zuerst, ihr Symbol steht vor dem
-  Titel.
+  The date is `📅`, or `⏳` where `📅` is missing. The card shows which: "due Tue 22/09" or
+  "⏳ Wed 08/07". A planned task moves up to the day of its next block: planned for today, it is
+  listed under "Today". A block never pushes a task later; an overdue task stays overdue. On the
+  same date the higher priority comes first; its symbol stands before the title.
 
-  Suche, Kunden-Filter und „nur ungeplante" stehen darüber. Ein Klick öffnet die Aufgabe in einem
-  neuen Tab.
-- **Farben:** Karte und Block einer Vault-Aufgabe haben die Akzentfarbe, bei Planner-Aufgaben sind
-  sie grün. Eigene Blöcke sind gefüllt. Fremde Termine sind hell getönt in der Farbe ihrer ersten
-  Outlook-Kategorie, ohne Kategorie blau, und schraffiert, wenn sie „mit Vorbehalt" sind.
-- **Ansicht:** Die Knöpfe rechts über dem Kalender schalten zwischen 1, 2, 3 oder 4 Arbeitstagen,
-  der Arbeitswoche und der ganzen Woche mit Wochenende um. In der Tagesansicht blättern die Pfeile
-  um so viele Arbeitstage, wie zu sehen sind. Die Wahl bleibt auf diesem Gerät gespeichert.
-- **Einplanen:** eine Karte in den Kalender ziehen. Ein Block ist eine Stunde lang; am Rand ziehen
-  ändert die Länge. Die Karte zeigt „Wird gespeichert…", bis der Termin im Kalender auftaucht.
-- **Verschieben oder Größe ändern:** den Block im Kalender ziehen bzw. am Rand ziehen.
-- **Block löschen:** Rechtsklick auf den Block → „Block löschen…".
-- **Erledigen:** die Checkbox an der Karte (über das Tasks-Plugin). Die Blöcke bleiben in Outlook
-  stehen; gebuchte Zeit ist Geschichte.
-- **Abgelaufen:** Ein Task, dessen Blöcke alle vorbei sind, zeigt „abgelaufen: …" und gilt wieder
-  als ungeplant.
-- **Planner-Aufgaben** stehen unter dem Kunden „Planner", mit Plan und Bucket. „Dringend" und
-  „Wichtig" aus Planner zählen als wichtig. Ein Klick öffnet die Aufgabe in Planner, ein Rechtsklick
-  wechselt den Bucket, die Checkbox schließt sie in Planner ab. Ist sie auch anderen zugewiesen,
-  fragt vorher ein Dialog, denn abgeschlossen ist sie dann für alle. Planner wird jede Minute und
-  bei der Rückkehr in die Ansicht (höchstens alle 30 s) neu gelesen.
-- **To-Do-Aufgaben** (privates Konto, Schalter „To Do (privat)") stehen türkis unter dem Kunden „To
-  Do", mit der Liste als Projekt. Gekennzeichnete E-Mails fehlen, „Warten auf" und „Zurückgestellt"
-  stehen unter „Warten auf". Ein Klick öffnet die Aufgabe in To Do, die Checkbox schließt sie dort
-  ab. In einer geteilten Liste fragt vorher ein Dialog. Wiederkehrende Aufgaben haben vorerst keine
-  Checkbox, sie werden in To Do abgehakt.
-- **Privater Kalender:** Mit „To Do (privat)" zeigt das Raster auch die Termine deines privaten
-  Kalenders, grau mit Schloss. Eine To-Do-Karte landet beim Ziehen immer im **privaten** Kalender,
-  egal wohin im Raster du sie ziehst; Vault- und Planner-Aufgaben immer im Arbeitskalender. Private
-  Blöcke verschiebst, änderst und löschst du wie die anderen. Ist die Aufgabe abgehakt, erscheint
-  ihr Block blass mit Haken.
+  Search, the customer filter and "unplanned only" sit above the list. A click opens the task in a
+  new tab.
+- **Colours:** card and block of a vault task have the accent colour; for Planner tasks they are
+  green. Your own blocks are filled. Other events are lightly tinted in the colour of their first
+  Outlook category, blue without a category, and hatched when they are "tentative".
+- **View:** the buttons above the calendar on the right switch between 1, 2, 3 or 4 work days, the
+  work week and the full week with the weekend. In the day views the arrows page by as many work
+  days as are visible. The choice is remembered on this device.
+- **Plan:** drag a card into the calendar. A block is one hour long; dragging its edge changes the
+  length. The card shows "Saving…" until the event appears in the calendar.
+- **Move or resize:** drag the block in the calendar, or drag its edge.
+- **Delete a block:** right-click the block → "Delete block…".
+- **Complete:** the checkbox on the card (through the Tasks plugin). The blocks stay in Outlook;
+  booked time is history.
+- **Past:** a task whose blocks are all over shows "past: …" and counts as unplanned again.
+- **Planner tasks** are listed under the customer "Planner", with plan and bucket. "Urgent" and
+  "Important" from Planner count as important. A click opens the task in Planner, a right-click
+  moves it to another bucket, the checkbox completes it in Planner. If it is also assigned to
+  others, a dialog asks first, because it is then completed for everyone. Planner is read every
+  minute and on returning to the view (at most every 30 s).
+- **To Do tasks** (personal account, switch "To Do (personal)") are listed in turquoise under the
+  customer "To Do", with the list as the project. Flagged emails are left out; "Waiting on others"
+  and "Deferred" are listed under "Waiting for". A click opens the task in To Do, the checkbox
+  completes it there. In a shared list a dialog asks first. Recurring tasks have no checkbox for
+  now; tick them off in To Do.
+- **Private calendar:** with "To Do (personal)" the grid also shows the events of your private
+  calendar, grey with a lock. A dragged To Do card always lands in the **private** calendar,
+  wherever in the grid you drop it; vault and Planner tasks always in the work calendar. You move,
+  resize and delete private blocks like the others. Once the task is ticked off, its block turns
+  pale with a check mark.
 
-## Was das Plugin in den Vault schreibt
+## What the plugin writes to the vault
 
-Genau zweierlei, und nur, wenn du es auslöst:
+Exactly two things, and only when you trigger them:
 
-1. **Block-ID:** Beim ersten Einplanen hängt es `^t-xxxxxx` ans Ende der Task-Zeile. Sie wird nie
-   geändert. Beim Umformulieren oder Verschieben des Tasks bleibt sie stehen; beim Kopieren oder
-   Aufteilen behält nur das Original sie.
-2. **Erledigen:** Das Tasks-Plugin schreibt die Zeile neu, bei `🔁` mit der Folgeaufgabe darüber.
+1. **Block id:** on the first booking it appends `^t-xxxxxx` to the end of the task line. It is
+   never changed. It stays when you reword or move the task; when you copy or split it, only the
+   original keeps it.
+2. **Complete:** the Tasks plugin rewrites the line, for `🔁` with the next occurrence above it.
 
-Sonst nichts: kein `⏳`, kein Datum, keine Termin-ID, kein Schreiben im Hintergrund. Eine
-Planner-Aufgabe einzuplanen schreibt nichts in den Vault.
+Nothing else: no `⏳`, no date, no event id, no writing in the background. Booking a Planner task
+writes nothing to the vault.
 
-## Was das Plugin in To Do schreibt
+## What the plugin writes to To Do
 
-Genau eines, und nur, wenn du es auslöst: eine Aufgabe abschließen. Keinen anderen Wert, keine
-neue Aufgabe, keinen Listenwechsel.
+Exactly one thing, and only when you trigger it: completing a task. No other value, no new task, no
+move to another list.
 
-## Was das Plugin in Planner schreibt
+## What the plugin writes to Planner
 
-Genau zweierlei, und nur, wenn du es auslöst: abschließen und den Bucket wechseln. Hat jemand die
-Aufgabe inzwischen in Planner geändert, bricht das Plugin ab und liest neu, statt die Änderung zu
-überschreiben.
+Exactly two things, and only when you trigger them: completing a task and moving it to another
+bucket. If someone has changed the task in Planner in the meantime, the plugin stops and reads
+again instead of overwriting the change.
 
-## Fehlerbilder
+## Troubleshooting
 
-| Meldung | Ursache | Abhilfe |
+| Message | Cause | Fix |
 | --- | --- | --- |
-| „Die Redirect-URI passt nicht" (AADSTS50011) | `obsidian://vault-planner-auth` fehlt oder steht unter der falschen Plattform | Unter „Mobile- und Desktopanwendungen" eintragen |
-| „Entra verlangt ein Client-Secret" (AADSTS7000218) | Die App wird als vertraulicher Client behandelt | „Öffentliche Clientflows zulassen" auf Ja |
-| „Die App wurde nicht gefunden" (AADSTS700016) | Client-ID oder Tenant-ID falsch | Mit der Übersichtsseite der Registrierung vergleichen |
-| „Privates Konto: Die App-Registrierung ist nicht für private Microsoft-Konten geöffnet" | Kontotyp der Registrierung steht noch auf „Nur Konten in diesem Organisationsverzeichnis" | Einrichtung 5, Schritt 1 |
-| „Die Zustimmung fehlt" (AADSTS65001) | Benutzerzustimmung gesperrt | Administratorzustimmung erteilen |
-| „Conditional Access blockiert …" (AADSTS53003/53000) | Eine CA-Richtlinie greift | In den Anmeldeprotokollen die Richtlinie suchen |
-| „Diese Rückmeldung gehört zu keiner laufenden Anmeldung" | Der Link ging an ein anderes Vault-Fenster, oder Obsidian wurde neu gestartet | Nur einen Vault offen lassen, erneut „Anmelden" |
-| „Kalender nicht erreichbar – Planungsstatus unbekannt" | Netzwerk oder Graph gestört | „Erneut versuchen"; ziehen ist so lange gesperrt |
-| „Keine offenen Aufgaben", obwohl Tasks im Vault stehen | `10_Kunden` und `20_Intern` liegen nicht direkt im Vault-Ordner, z. B. eine Ebene tiefer nach dem Entpacken | Die Ordner eine Ebene hochschieben, dann das Plugin aus- und einschalten |
-| „Privates Konto: Kein Zugriff auf To Do" | `Tasks.ReadWrite` fehlt in der App-Registrierung oder ist für das private Konto nicht zugestimmt | Berechtigung ergänzen, beim privaten Konto abmelden und neu anmelden |
-| „Kein Zugriff auf Planner" | `Tasks.ReadWrite` fehlt in der App-Registrierung oder ist nicht zugestimmt | Berechtigung ergänzen, abmelden, neu anmelden |
-| „… zwischenzeitlich in Planner geändert" | Die Aufgabe wurde in Planner geändert, seit das Plugin sie gelesen hat | Nach dem Neuladen erneut versuchen |
-| Alle fremden Termine blau, obwohl sie in Outlook Kategorien haben | Die Kategorieliste war nicht lesbar (`MailboxSettings.Read` fehlt oder ist nicht zugestimmt), oder die Kategorie ist neu | Berechtigung ergänzen, abmelden, neu anmelden; eine neue Kategorie erscheint, sobald die Ansicht neu geöffnet wird |
-| „Block-ID doppelt" an einer Karte | Eine Zeile mit `^t-…` wurde kopiert | Bei der Kopie die Block-ID entfernen |
-| Block gestrichelt mit „Aufgabe nicht gefunden" | Die Task-Zeile mit dieser Block-ID gibt es nicht mehr | Block per Rechtsklick löschen oder die ID wiederherstellen |
+| "The redirect URI does not match" (AADSTS50011) | `obsidian://vault-planner-auth` is missing or under the wrong platform | Add it under "Mobile and desktop applications" |
+| "Entra expects a client secret" (AADSTS7000218) | The app is treated as a confidential client | Set "Allow public client flows" to Yes |
+| "The app was not found" (AADSTS700016) | Wrong client id or tenant id | Compare with the registration's overview page |
+| "Personal account: the app registration is not open to personal Microsoft accounts" | The registration's account type is still "Accounts in this organizational directory only" | Setup step 5, item 1 |
+| "Consent is missing" (AADSTS65001) | User consent is blocked | Grant admin consent |
+| "Conditional Access blocks …" (AADSTS53003/53000) | A CA policy applies | Look up the policy in the sign-in logs |
+| "This response belongs to no pending sign-in" | The link went to another vault window, or Obsidian was restarted | Keep only one vault open, "Sign in" again |
+| "Calendar unreachable – planning status unknown" | Network or Graph trouble | "Retry"; dragging is blocked until then |
+| "No open tasks" although the vault has tasks | `10_Kunden` and `20_Intern` are not directly in the vault folder, e.g. one level deeper after unpacking | Move the folders up one level, then turn the plugin off and on |
+| "Personal account: No access to To Do" | `Tasks.ReadWrite` is missing from the app registration or not consented for the personal account | Add the permission, sign the personal account out and in again |
+| "No access to Planner" | `Tasks.ReadWrite` is missing from the app registration or not consented | Add the permission, sign out, sign in again |
+| "… changed in Planner in the meantime" | The task was changed in Planner since the plugin read it | Try again after the reload |
+| All other events blue although they have categories in Outlook | The category list was not readable (`MailboxSettings.Read` missing or not consented), or the category is new | Add the permission, sign out, sign in again; a new category shows once the view is reopened |
+| "Duplicate block id" on a card | A line with `^t-…` was copied | Remove the block id from the copy |
+| Dashed block with "Task not found" | The task line with this block id no longer exists | Delete the block with a right-click, or restore the id |
 
-## Grenzen
+## Limitations
 
-Nur Desktop, nur das Hauptfenster (kein Pop-out), nur der Standardkalender. Das Wochenende nur in
-der Ansicht „Woche".
-Keine Teilnehmer, keine Termine ohne Task. Aus Planner nur Basic-Pläne: Premium-Pläne liefert die
-API nicht.
+Desktop only, main window only (no pop-out), default calendar only. The weekend only in the "Week"
+view.
+No attendees, no events without a task. From Planner only Basic plans: the API does not return
+Premium plans.
+Built for one vault and one user: tasks come only from `10_Kunden/` and `20_Intern/`, and all times
+are Europe/Berlin (`src/config.ts`).
 
-## Entwicklung
+## Development
 
-Siehe `CLAUDE.md` und `docs/umsetzungsplan.md`. Kurz: `npx npm@11 install`, danach
-`bash scripts/verify.sh`. Der Lauf endet mit `release/vault-planner.zip`.
+See `CLAUDE.md` and `docs/implementation-plan.md`. In short: `npx npm@11 install`, then
+`bash scripts/verify.sh`. The run ends with `release/vault-planner.zip`.

@@ -12,11 +12,11 @@ export type Group = "overdue" | "today" | "week" | "later" | "none";
 export const GROUP_ORDER: readonly Group[] = ["overdue", "today", "week", "later", "none"];
 
 export const GROUP_TITLE: Record<Group, string> = {
-  overdue: "Überfällig",
-  today: "Heute",
-  week: `Nächste ${URGENT_WITHIN_DAYS} Tage`,
-  later: "Später",
-  none: "Ohne Datum",
+  overdue: "Overdue",
+  today: "Today",
+  week: `Next ${URGENT_WITHIN_DAYS} days`,
+  later: "Later",
+  none: "No date",
 };
 
 /** Day arithmetic on a date-ONLY value; UTC is safe because "yyyy-mm-dd" has no zone. */
@@ -46,12 +46,12 @@ export const isOverdue = (task: Pick<AnyTask, "due" | "scheduled">, today: strin
  * Planner's "urgent" and "important" arrive as highest and high.
  */
 export const PRIORITY_MARK: Record<Priority, { mark: string; name: string } | null> = {
-  highest: { mark: "🔺", name: "höchste" },
-  high: { mark: "⏫", name: "hoch" },
-  medium: { mark: "🔼", name: "mittel" },
+  highest: { mark: "🔺", name: "highest" },
+  high: { mark: "⏫", name: "high" },
+  medium: { mark: "🔼", name: "medium" },
   none: null,
-  low: { mark: "🔽", name: "niedrig" },
-  lowest: { mark: "⏬", name: "niedrigste" },
+  low: { mark: "🔽", name: "low" },
+  lowest: { mark: "⏬", name: "lowest" },
 };
 
 const PRIORITY_RANK: Record<Priority, number> = { highest: 0, high: 1, medium: 2, none: 3, low: 4, lowest: 5 };

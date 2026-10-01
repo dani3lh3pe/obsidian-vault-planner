@@ -29,28 +29,28 @@ export function eventSubject(description: string): string {
     .replace(/(^|\s)#[^\s#]+/gu, "$1")
     .replace(/\s+/gu, " ")
     .trim();
-  const subject = text === "" ? "Fokus-Block" : text;
+  const subject = text === "" ? "Focus block" : text;
   const chars = Array.from(subject);
   return chars.length <= MAX_SUBJECT ? subject : `${chars.slice(0, MAX_SUBJECT - 1).join("")}…`;
 }
 
 /** Plain-text body: where the block comes from, readable on the phone without Obsidian. */
 export function eventBody(
-  task: { path: string; kunde: string; projekt: string | null },
+  task: { path: string; customer: string; project: string | null },
   vaultName: string,
 ): string {
-  const lines = ["Fokus-Block aus Obsidian", `Kunde: ${task.kunde}`];
-  if (task.projekt !== null) lines.push(`Projekt: ${task.projekt}`);
+  const lines = ["Focus block from Obsidian", `Customer: ${task.customer}`];
+  if (task.project !== null) lines.push(`Project: ${task.project}`);
   lines.push(`obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(task.path)}`);
   return lines.join("\n");
 }
 
 /** The same for a To Do task (M9): its list, and the way to it. The block is in the private calendar. */
-export function todoEventBody(task: { projekt: string }, webUrl: string): string {
-  return ["Fokus-Block aus Obsidian", `To Do: ${task.projekt}`, webUrl].join("\n");
+export function todoEventBody(task: { project: string }, webUrl: string): string {
+  return ["Focus block from Obsidian", `To Do: ${task.project}`, webUrl].join("\n");
 }
 
 /** The same for a Planner task: its plan, and the way to it without Obsidian. */
-export function plannerEventBody(task: { projekt: string | null }, webUrl: string): string {
-  return ["Fokus-Block aus Obsidian", `Planner: ${task.projekt ?? "Plan unbekannt"}`, webUrl].join("\n");
+export function plannerEventBody(task: { project: string | null }, webUrl: string): string {
+  return ["Focus block from Obsidian", `Planner: ${task.project ?? "unknown plan"}`, webUrl].join("\n");
 }

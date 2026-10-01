@@ -5,7 +5,7 @@ import {
   type EventContentArg,
   type EventMountArg,
 } from "@fullcalendar/core";
-import deLocale from "@fullcalendar/core/locales/de";
+import enGbLocale from "@fullcalendar/core/locales/en-gb";
 import interactionPlugin, { Draggable, type EventReceiveArg } from "@fullcalendar/interaction";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import { ItemView, Menu, Modal, Notice, setIcon, type App, type WorkspaceLeaf } from "obsidian";
@@ -38,9 +38,9 @@ import type { AnyTask, CalendarEvent, PlannerBucket, PlannerTask, PlanStatus, Ti
 import { visibleHours } from "./lib/visibleHours";
 import { toggleDone, writeBlockId } from "./vault";
 
-const UNPLANNED: PlanStatus = { kind: "ungeplant" };
+const UNPLANNED: PlanStatus = { kind: "unplanned" };
 
-/** A dragged card's To Do id — a To Do card goes into the private calendar (spec Nr. 18, 47). */
+/** A dragged card's To Do id — a To Do card goes into the private calendar (spec no. 18, 47). */
 const todoIdFrom = (props: { todoId?: unknown }): string | null =>
   typeof props.todoId === "string" && props.todoId !== "" ? props.todoId : null;
 
@@ -53,8 +53,8 @@ const VIEWS: Record<string, { type: string; buttonText: string; dayCount?: numbe
   days2: { type: "timeGrid", dayCount: 2, buttonText: "2" },
   days3: { type: "timeGrid", dayCount: 3, buttonText: "3" },
   days4: { type: "timeGrid", dayCount: 4, buttonText: "4" },
-  workWeek: { type: "timeGridWeek", buttonText: "Arbeitswoche" },
-  fullWeek: { type: "timeGridWeek", weekends: true, buttonText: "Woche" },
+  workWeek: { type: "timeGridWeek", buttonText: "Work week" },
+  fullWeek: { type: "timeGridWeek", weekends: true, buttonText: "Week" },
 };
 
 /**
@@ -72,7 +72,7 @@ interface CardData {
   blockId: string | null;
   plannerId: string | null;
   todoId: string | null;
-  /** False for a recurring To Do task until M9.0 shows Graph keeps its series (spec Nr. 30, 37). */
+  /** False for a recurring To Do task until M9.0 shows Graph keeps its series (spec no. 30, 37). */
   checkable: boolean;
   /** The Tasks emoji of a set priority, and its name for screen readers. */
   priority: { mark: string; name: string } | null;
@@ -80,9 +80,9 @@ interface CardData {
   /** Customer · project. */
   meta: string;
   bucket: string | null;
-  /** "mit 2 weiteren Personen", Planner only. */
+  /** "with 2 other people", Planner only. */
   shared: string | null;
-  /** "bis Di., 22.09." from 📅, "⏳ Mi., 08.07." from ⏳ where 📅 is missing. */
+  /** "due Tue 22/09" from 📅, "⏳ Wed 08/07" from ⏳ where 📅 is missing. */
   date: string | null;
   overdue: boolean;
   status: { text: string; muted: boolean } | null;
@@ -104,7 +104,7 @@ class ConfirmModal extends Modal {
     this.titleEl.setText(this.text.title);
     this.contentEl.createEl("p", { text: this.text.message });
     const buttons = this.contentEl.createDiv({ cls: "modal-button-container" });
-    buttons.createEl("button", { text: "Abbrechen" }).addEventListener("click", () => this.close());
+    buttons.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.close());
     const confirm = buttons.createEl("button", { text: this.text.confirm, cls: this.text.warning ? "mod-warning" : "mod-cta" });
     confirm.addEventListener("click", () => {
       this.close();
@@ -117,12 +117,12 @@ class ConfirmModal extends Modal {
   }
 }
 
-/** "einer weiteren Person" / "2 weiteren Personen". */
-const others = (count: number): string => (count === 1 ? "einer weiteren Person" : `${count} weiteren Personen`);
+/** "one other person" / "2 other people". */
+const others = (count: number): string => (count === 1 ? "one other person" : `${count} other people`);
 
 /**
  * Tasks on the left, the Outlook week on the right. The calendar is the truth: the view derives
- * "geplant" from what Graph returns and writes nothing to the vault except a block id on drop
+ * "planned" from what Graph returns and writes nothing to the vault except a block id on drop
  * and a completion through the Tasks API. Planner tasks (M6) join the same list; their writes go
  * to Planner only.
  */
@@ -148,12 +148,12 @@ export class PlannerView extends ItemView {
   private privateDropped = 0;
   private privateError: string | null = null;
   private inFlight: number | null = null;
-  private options: ListOptions = { search: "", kunde: null, onlyUnplanned: false };
+  private options: ListOptions = { search: "", customer: null, onlyUnplanned: false };
   private waitingOpen = false;
   private listSignature = "";
   private eventsSignature = "";
   private slotSignature = "";
-  private kundenSignature = "";
+  private customerSignature = "";
   private renderTimer: number | null = null;
   private calendarStale = false;
   private unsubscribe: (() => void) | null = null;
@@ -174,7 +174,7 @@ export class PlannerView extends ItemView {
   private countEl: HTMLElement | null = null;
   private listEl: HTMLElement | null = null;
   private loadingEl: HTMLElement | null = null;
-  private kundeSelect: HTMLSelectElement | null = null;
+  private customerSelect: HTMLSelectElement | null = null;
   private unplannedBox: HTMLInputElement | null = null;
 
   constructor(
@@ -206,7 +206,7 @@ export class PlannerView extends ItemView {
     if (this.containerEl.win !== window) {
       root.createDiv({
         cls: "vp-popout-hint",
-        text: "Der Planner läuft nur im Hauptfenster. Bitte den Tab zurück ins Hauptfenster ziehen.",
+        text: "Vault Planner only runs in the main window. Please drag the tab back into the main window.",
       });
       return;
     }
@@ -255,7 +255,7 @@ export class PlannerView extends ItemView {
 
   private buildLeft(left: HTMLElement): void {
     const header = left.createDiv({ cls: "vp-header" });
-    header.createEl("h3", { text: "Aufgaben" });
+    header.createEl("h3", { text: "Tasks" });
     this.countEl = header.createDiv({ cls: "vp-count" });
     this.bannerEl = left.createDiv({ cls: "vp-banner" });
     this.plannerHintEl = left.createDiv({ cls: "vp-banner" });
@@ -263,20 +263,20 @@ export class PlannerView extends ItemView {
 
     // Controls live OUTSIDE the container that is rebuilt, so typing keeps its focus.
     const controls = left.createDiv({ cls: "vp-controls" });
-    const search = controls.createEl("input", { type: "search", cls: "vp-search", attr: { placeholder: "Aufgaben durchsuchen" } });
+    const search = controls.createEl("input", { type: "search", cls: "vp-search", attr: { placeholder: "Search tasks" } });
     search.addEventListener("input", () => {
       this.options = { ...this.options, search: search.value };
       this.renderList();
     });
-    const select = controls.createEl("select", { cls: "dropdown vp-kunde" });
+    const select = controls.createEl("select", { cls: "dropdown vp-customer" });
     select.addEventListener("change", () => {
-      this.options = { ...this.options, kunde: select.value === "" ? null : select.value };
+      this.options = { ...this.options, customer: select.value === "" ? null : select.value };
       this.renderList();
     });
-    this.kundeSelect = select;
+    this.customerSelect = select;
     const label = controls.createEl("label", { cls: "vp-unplanned" });
     const box = label.createEl("input", { type: "checkbox" });
-    label.appendText(" nur ungeplante");
+    label.appendText(" unplanned only");
     box.addEventListener("change", () => {
       this.options = { ...this.options, onlyUnplanned: box.checked };
       this.renderList();
@@ -307,22 +307,24 @@ export class PlannerView extends ItemView {
   }
 
   private buildCalendar(right: HTMLElement): void {
-    this.loadingEl = right.createDiv({ cls: "vp-loading", text: "Termine werden geladen…" });
+    this.loadingEl = right.createDiv({ cls: "vp-loading", text: "Loading events…" });
     const stored: unknown = this.app.loadLocalStorage(CALENDAR_VIEW_KEY);
     const calendar = new Calendar(right.createDiv({ cls: "vp-calendar" }), {
       plugins: [timeGridPlugin, interactionPlugin],
       views: VIEWS,
+      // en-gb brings no button texts, and FullCalendar's default is a lowercase "today".
+      buttonText: { today: "Today" },
       buttonHints: {
-        days1: "1 Tag",
-        days2: "2 Arbeitstage",
-        days3: "3 Arbeitstage",
-        days4: "4 Arbeitstage",
-        workWeek: "Arbeitswoche (Mo–Fr)",
-        fullWeek: "Woche (Mo–So)",
+        days1: "1 day",
+        days2: "2 work days",
+        days3: "3 work days",
+        days4: "4 work days",
+        workWeek: "Work week (Mon–Fri)",
+        fullWeek: "Week (Mon–Sun)",
       },
       initialView: typeof stored === "string" && Object.hasOwn(VIEWS, stored) ? stored : "workWeek",
-      // The locale OBJECT: the string "de" silently falls back to English without it.
-      locale: deLocale,
+      // The locale OBJECT: a bare "en-gb" finds no loaded locale, and texts and week rules fall back to "en".
+      locale: enGbLocale,
       timeZone: "local",
       firstDay: 1,
       weekends: false,
@@ -338,8 +340,8 @@ export class PlannerView extends ItemView {
       businessHours: BUSINESS_HOURS,
       // Own arrows: FullCalendar's would page a dayCount view by one day.
       customButtons: {
-        vpPrev: { icon: "chevron-left", hint: "Zurück", click: () => this.step(-1) },
-        vpNext: { icon: "chevron-right", hint: "Weiter", click: () => this.step(1) },
+        vpPrev: { icon: "chevron-left", hint: "Previous", click: () => this.step(-1) },
+        vpNext: { icon: "chevron-right", hint: "Next", click: () => this.step(1) },
       },
       headerToolbar: { left: "vpPrev,vpNext today", center: "title", right: "days1,days2,days3,days4 workWeek,fullWeek" },
       droppable: true,
@@ -352,7 +354,7 @@ export class PlannerView extends ItemView {
       eventDragMinDistance: 0,
       // THE drop gate. `droppable` does not stop drops from the list in 6.1.21 — external drops
       // only consult dropAccept and eventAllow. Not ready, or the all-day row: refused. A To Do card
-      // or a private block needs the private calendar, everything else the work one (spec Nr. 47).
+      // or a private block needs the private calendar, everything else the work one (spec no. 47).
       eventAllow: (span, moving) => {
         if (span.allDay) return false;
         const props = (moving?.extendedProps ?? {}) as { todoId?: unknown; calendar?: unknown };
@@ -406,7 +408,7 @@ export class PlannerView extends ItemView {
       return;
     }
     // The To Do switch or the personal account: To Do reads again, and so does the calendar — the
-    // private one is read together with the work one (spec Nr. 43). Nothing else of the work side
+    // private one is read together with the work one (spec no. 43). Nothing else of the work side
     // changes.
     if (reason === "todo") {
       // Switched off or signed out: the private side goes now, not when the read lands — until then
@@ -452,7 +454,7 @@ export class PlannerView extends ItemView {
     this.inFlight = seq;
     const range = fetchRange(this.displayed, new Date());
     // Both calendars in one read, so the gate's rules hold for both. Never rejects: the private
-    // side's failure is its own (spec Nr. 43).
+    // side's failure is its own (spec no. 43).
     const privateRead = this.readsPrivate()
       ? this.plugin.todoGraph.readCalendar(range).then(
           (result) => ({ result }),
@@ -536,7 +538,7 @@ export class PlannerView extends ItemView {
    */
   private async refreshTodo(force = false): Promise<void> {
     if (!this.readsPrivate()) {
-      // Tasks gone: the whole list. Otherwise only the hint — "nicht angemeldet" comes and goes with
+      // Tasks gone: the whole list. Otherwise only the hint — "not signed in" comes and goes with
       // the switch, and a full render on every tick would rebuild the list under a drag.
       if (this.todoSource.clear()) this.renderAll();
       else this.renderSourceHints();
@@ -628,7 +630,7 @@ export class PlannerView extends ItemView {
     const now = new Date();
     const blocks = blocksByTask([...this.events, ...this.privateEvents], this.app.vault.getName(), statusWindow(now));
     return (task) => {
-      // No private calendar read yet: a To Do task's status is unknown — no line (spec Nr. 49).
+      // No private calendar read yet: a To Do task's status is unknown — no line (spec no. 49).
       if (isTodoTask(task) && !this.privateReady) return UNPLANNED;
       const key = linkKey(task);
       return key === null ? UNPLANNED : planStatus(blocks.get(key), now);
@@ -653,14 +655,14 @@ export class PlannerView extends ItemView {
       auth.login().catch((error: unknown) => new Notice(getErrorMessage(error)));
     };
 
-    if (!auth.configured) show("Vault Planner einrichten: Tenant-ID und Client-ID in den Plugin-Einstellungen eintragen.");
-    else if (!auth.signedIn) show("Nicht angemeldet – ohne Anmeldung kein Kalender und kein Planungsstatus.", ["Anmelden", login]);
-    else if (this.error !== null && this.error.needsLogin) show(this.error.message, ["Anmelden", login], true);
+    if (!auth.configured) show("Set up Vault Planner: enter the tenant id and client id in the plugin settings.");
+    else if (!auth.signedIn) show("Not signed in – without signing in there is no calendar and no planning status.", ["Sign in", login]);
+    else if (this.error !== null && this.error.needsLogin) show(this.error.message, ["Sign in", login], true);
     else if (this.error !== null) {
-      show(`Kalender nicht erreichbar – Planungsstatus unbekannt. ${this.error.message}`, ["Erneut versuchen", () => void this.refresh(true)], true);
-    } else if (!this.ready) show("Planungsstatus wird geladen…");
+      show(`Calendar unreachable – planning status unknown. ${this.error.message}`, ["Retry", () => void this.refresh(true)], true);
+    } else if (!this.ready) show("Loading planning status…");
     else if (this.dropped > 0) {
-      show(`Nicht alle Termine waren lesbar (${this.dropped}) – der Kalender zeigt nicht alles.`, ["Erneut versuchen", () => void this.refresh(true)], true);
+      show(`Not every event was readable (${this.dropped}) – the calendar does not show everything.`, ["Retry", () => void this.refresh(true)], true);
     } else el.toggle(false);
 
     this.loadingEl?.toggle(auth.configured && auth.signedIn && !this.everLoaded && this.error === null);
@@ -687,10 +689,10 @@ export class PlannerView extends ItemView {
     ): Hint => {
       const { snapshot, error } = source;
       // Everything but the first load is something missing.
-      if (error !== null) return { text: names.failed(error), warning: true, action: ["Erneut versuchen", retry] };
-      if (snapshot === null) return { text: `${names.tasks} werden geladen…`, warning: false };
+      if (error !== null) return { text: names.failed(error), warning: true, action: ["Retry", retry] };
+      if (snapshot === null) return { text: `Loading ${names.tasks}…`, warning: false };
       if (snapshot.truncated) return { text: names.truncated, warning: true };
-      if (snapshot.droppedCount > 0) return { text: `${snapshot.droppedCount} ${names.tasks} waren nicht lesbar und fehlen in der Liste.`, warning: true };
+      if (snapshot.droppedCount > 0) return { text: `${snapshot.droppedCount} ${names.tasks} were unreadable and are missing from the list.`, warning: true };
       return null;
     };
 
@@ -700,9 +702,9 @@ export class PlannerView extends ItemView {
         ? fromSource(
             this.plannerSource,
             {
-              tasks: "Planner-Aufgaben",
-              truncated: "Planner hat mehr Aufgaben geliefert, als das Plugin liest – es fehlen welche.",
-              failed: (error) => `Planner nicht erreichbar – ${error}`,
+              tasks: "Planner tasks",
+              truncated: "Planner returned more tasks than the plugin reads – some are missing.",
+              failed: (error) => `Planner unreachable – ${error}`,
             },
             () => void this.refreshPlanner(true),
           )
@@ -711,12 +713,12 @@ export class PlannerView extends ItemView {
 
     let todo: Hint = null;
     if (settings.todoEnabled && (!todoAuth.configured || !todoAuth.signedIn)) {
-      // Switched on, signed out: say so, with the one way forward (spec Nr. 39).
+      // Switched on, signed out: say so, with the one way forward (spec no. 39).
       todo = {
-        text: "Privates Konto nicht angemeldet – ohne Anmeldung keine To-Do-Aufgaben.",
+        text: "Personal account not signed in – without signing in there are no To Do tasks.",
         warning: false,
         action: [
-          "Anmelden",
+          "Sign in",
           () => {
             todoAuth.login().catch((error: unknown) => new Notice(getPersonalErrorMessage(error)));
           },
@@ -727,23 +729,23 @@ export class PlannerView extends ItemView {
       todo = fromSource(
         this.todoSource,
         {
-          tasks: "To-Do-Aufgaben",
-          truncated: "To Do hat mehr Aufgaben geliefert, als das Plugin liest – es fehlen welche.",
+          tasks: "To Do tasks",
+          truncated: "To Do returned more tasks than the plugin reads – some are missing.",
           failed: (error) => error,
         },
         () => void this.refreshTodo(true),
       );
-      // The private calendar (spec Nr. 51). Loading only while a read really runs: after a work
+      // The private calendar (spec no. 51). Loading only while a read really runs: after a work
       // read that succeeded — a failed or missing one has its own banner.
       const privateHint: Hint =
         this.privateError !== null
-          ? { text: this.privateError, warning: true, action: ["Erneut versuchen", () => void this.refresh(true)] }
+          ? { text: this.privateError, warning: true, action: ["Retry", () => void this.refresh(true)] }
           : this.ready && !this.privateReady
-            ? { text: "Privater Kalender wird geladen…", warning: false }
+            ? { text: "Loading private calendar…", warning: false }
             : this.privateDropped > 0
-              ? { text: `Nicht alle privaten Termine waren lesbar (${this.privateDropped}) – der Kalender zeigt nicht alles.`, warning: true }
+              ? { text: `Not every private event was readable (${this.privateDropped}) – the calendar does not show everything.`, warning: true }
               : null;
-      // An error first, from either side: a lasting "abgeschnitten" must not hide that drops fail.
+      // An error first, from either side: a lasting "truncated" must not hide that drops fail.
       todo = (todo?.action ? todo : null) ?? (privateHint?.action ? privateHint : null) ?? todo ?? privateHint;
     }
     draw(this.todoHintEl, todo);
@@ -762,16 +764,16 @@ export class PlannerView extends ItemView {
     const siblings = vault === null || vault.blockId === null ? undefined : byBlock.get(vault.blockId);
     const conflict =
       siblings !== undefined && siblings.length > 1
-        ? `Block-ID doppelt (${siblings.map((other) => other.path.split("/").pop()?.replace(/\.md$/, "")).join(", ")})`
+        ? `Duplicate block id (${siblings.map((other) => other.path.split("/").pop()?.replace(/\.md$/, "")).join(", ")})`
         : null;
 
     let status: CardData["status"] = null;
     const plan = statusOf?.(task);
-    if (plan?.kind === "geplant") {
+    if (plan?.kind === "planned") {
       const format = plan.next.start.getTime() >= weekEnd.getTime() ? formatSlotWithDate : formatSlot;
       status = { text: format(plan.next.start, plan.next.end), muted: false };
-    } else if (plan?.kind === "abgelaufen") {
-      status = { text: `abgelaufen: ${formatSlot(plan.last.start, plan.last.end)}`, muted: true };
+    } else if (plan?.kind === "past") {
+      status = { text: `past: ${formatSlot(plan.last.start, plan.last.end)}`, muted: true };
     }
 
     const bucket =
@@ -786,14 +788,14 @@ export class PlannerView extends ItemView {
       blockId: vault?.blockId ?? null,
       plannerId: planner?.id ?? null,
       todoId: todo?.id ?? null,
-      // ponytail: the safe default until the M9.0 report (spec Nr. 37); then per its answer.
+      // ponytail: the safe default until the M9.0 report (spec no. 37); then per its answer.
       checkable: todo === null || !todo.isRecurring,
       priority: PRIORITY_MARK[task.priority],
       title: cleanTitle(task.description) || task.description,
-      meta: task.projekt === null ? task.kunde : `${task.kunde} · ${task.projekt}`,
+      meta: task.project === null ? task.customer : `${task.customer} · ${task.project}`,
       bucket: bucket?.name ?? null,
-      shared: planner === null || !planner.othersAssigned ? null : `mit ${others(planner.othersAssigned)}`,
-      date: date === null ? null : `${task.due === null ? "⏳" : "bis"} ${formatDue(date, today)}`,
+      shared: planner === null || !planner.othersAssigned ? null : `with ${others(planner.othersAssigned)}`,
+      date: date === null ? null : `${task.due === null ? "⏳" : "due"} ${formatDue(date, today)}`,
       overdue: isOverdue(task, today),
       status,
       conflict,
@@ -819,12 +821,12 @@ export class PlannerView extends ItemView {
     const model = buildList(tasks, statusOf, this.options, today);
 
     // The chosen customer has no open task left: the filter was reset, so build the list again.
-    if (this.syncKunden(model.kunden)) {
+    if (this.syncCustomers(model.customers)) {
       this.renderList();
       return;
     }
     if (this.unplannedBox !== null) this.unplannedBox.disabled = statusOf === null;
-    this.countEl?.setText(model.openCount === 0 ? "" : `${model.shownCount} von ${model.openCount} offen`);
+    this.countEl?.setText(model.openCount === 0 ? "" : `${model.shownCount} of ${model.openCount} open`);
 
     const toRows = (tasks: AnyTask[]) =>
       tasks.map((task) => ({ task, card: this.cardData(task, statusOf, byBlock, today, weekEnd) }));
@@ -836,15 +838,15 @@ export class PlannerView extends ItemView {
       (settings.plannerEnabled && auth.configured && auth.signedIn && loading(this.plannerSource)) ||
       (settings.todoEnabled && todoAuth.configured && todoAuth.signedIn && loading(this.todoSource));
     const empty = (!index.complete || sourcesLoading) && model.openCount === 0
-      ? "Aufgaben werden gelesen…"
+      ? "Reading tasks…"
       : model.openCount === 0
-        ? "Keine offenen Aufgaben."
+        ? "No open tasks."
         : model.shownCount === 0
-          ? "Keine Aufgabe passt zum Filter."
+          ? "No task matches the filter."
           : null;
 
     // Rebuild only when something visible changed: a rebuild every 15 s would reset the scroll
-    // position and the open "Warten auf" section in the middle of reading.
+    // position and the open "Waiting for" section in the middle of reading.
     const cardsOf = (rows: { card: CardData }[]) => rows.map((row) => row.card);
     const signature = JSON.stringify({
       groups: groups.map((group) => [group.key, cardsOf(group.rows)]),
@@ -869,7 +871,7 @@ export class PlannerView extends ItemView {
       details.addEventListener("toggle", () => {
         this.waitingOpen = details.open;
       });
-      details.createEl("summary", { cls: "vp-group-title", text: `Warten auf · ${waiting.length}` });
+      details.createEl("summary", { cls: "vp-group-title", text: `Waiting for · ${waiting.length}` });
       for (const row of waiting) this.buildCard(details, row.task, row.card);
     }
     list.scrollTop = scrollTop;
@@ -897,7 +899,7 @@ export class PlannerView extends ItemView {
     }
 
     if (card.checkable) {
-      const check = el.createEl("input", { type: "checkbox", cls: "vp-check", attr: { "aria-label": "Erledigen", title: "Erledigen" } });
+      const check = el.createEl("input", { type: "checkbox", cls: "vp-check", attr: { "aria-label": "Complete", title: "Complete" } });
       // FullCalendar starts a drag on mousedown/touchstart of the list; the checkbox must not.
       for (const type of ["mousedown", "touchstart", "click"]) check.addEventListener(type, (event) => event.stopPropagation());
       // Saving: a second tick would send a used-up etag, or complete a task that is being booked.
@@ -908,16 +910,16 @@ export class PlannerView extends ItemView {
         else void this.complete(task, check);
       });
     } else {
-      // Where the checkbox would be, the same size: says why there is none (spec Nr. 30, 37).
-      const label = "Wiederkehrend – in To Do abhaken";
+      // Where the checkbox would be, the same size: says why there is none (spec no. 30, 37).
+      const label = "Recurring – tick it off in To Do";
       setIcon(el.createSpan({ cls: "vp-check-spacer", attr: { title: label, "aria-label": label, role: "img" } }), "repeat");
     }
 
-    const opens = isPlannerTask(task) ? "In Planner öffnen" : isTodoTask(task) ? "In To Do öffnen" : "Öffnen";
+    const opens = isPlannerTask(task) ? "Open in Planner" : isTodoTask(task) ? "Open in To Do" : "Open";
     const body = el.createDiv({ cls: "vp-card-body", attr: { role: "button", tabindex: "0", title: opens } });
     const title = body.createDiv({ cls: "vp-title" });
     if (card.priority !== null) {
-      const label = `Priorität ${card.priority.name}`;
+      const label = `Priority ${card.priority.name}`;
       title.createSpan({ cls: "vp-priority", text: card.priority.mark, attr: { title: label, "aria-label": label } });
     }
     title.appendText(card.title);
@@ -932,7 +934,7 @@ export class PlannerView extends ItemView {
       // Red is an addition, not the message: the date itself says what is wrong.
       meta.createSpan({ cls: card.overdue ? "vp-due is-overdue" : "vp-due", text: card.date });
     }
-    if (card.pending) body.createDiv({ cls: "vp-status", text: "Wird gespeichert…" });
+    if (card.pending) body.createDiv({ cls: "vp-status", text: "Saving…" });
     else if (card.conflict !== null) body.createDiv({ cls: "vp-status is-warning", text: card.conflict });
     else if (card.status !== null) body.createDiv({ cls: card.status.muted ? "vp-status is-muted" : "vp-status", text: card.status.text });
 
@@ -964,18 +966,18 @@ export class PlannerView extends ItemView {
   }
 
   /** Refresh the dropdown; true when the chosen customer disappeared and the filter was reset. */
-  private syncKunden(kunden: string[]): boolean {
-    const select = this.kundeSelect;
+  private syncCustomers(customers: string[]): boolean {
+    const select = this.customerSelect;
     if (select === null) return false;
-    const signature = kunden.join("\u0000");
-    if (signature === this.kundenSignature) return false;
-    this.kundenSignature = signature;
-    const reset = this.options.kunde !== null && !kunden.includes(this.options.kunde);
-    if (reset) this.options = { ...this.options, kunde: null };
+    const signature = customers.join("\u0000");
+    if (signature === this.customerSignature) return false;
+    this.customerSignature = signature;
+    const reset = this.options.customer !== null && !customers.includes(this.options.customer);
+    if (reset) this.options = { ...this.options, customer: null };
     select.empty();
-    select.createEl("option", { text: "Alle Kunden", value: "" });
-    for (const kunde of kunden) select.createEl("option", { text: kunde, value: kunde });
-    select.value = this.options.kunde ?? "";
+    select.createEl("option", { text: "All customers", value: "" });
+    for (const customer of customers) select.createEl("option", { text: customer, value: customer });
+    select.value = this.options.customer ?? "";
     return reset;
   }
 
@@ -984,7 +986,7 @@ export class PlannerView extends ItemView {
     return (blockId) => {
       const plannerId = plannerIdOf(blockId);
       if (plannerId !== null) {
-        // Switched off or not read yet: say nothing rather than "Aufgabe nicht gefunden".
+        // Switched off or not read yet: say nothing rather than "Task not found".
         if (this.plannerSource.snapshot === null) return "pending";
         const task = this.plannerTask(plannerId);
         if (task === undefined) return "missing";
@@ -994,7 +996,7 @@ export class PlannerView extends ItemView {
       if (todoId !== null) {
         const snapshot = this.todoSource.snapshot;
         if (this.todoSource.task(todoId) !== undefined) return "open";
-        // Completed To Dos are not read: not among the open ones means done or gone (spec Nr. 46) —
+        // Completed To Dos are not read: not among the open ones means done or gone (spec no. 46) —
         // but only after a complete read; a cut or unreadable one says nothing.
         return snapshot === null || snapshot.truncated || snapshot.droppedCount > 0 ? "pending" : "done";
       }
@@ -1047,7 +1049,7 @@ export class PlannerView extends ItemView {
       // Colour is never the only signal: our blocks carry an icon too.
       setIcon(wrap.createSpan({ cls: "vp-event-icon" }), props.state === "done" ? "check" : "list-todo");
     } else if (props.calendar === "private") {
-      // The private calendar's meetings: a lock, besides their grey (spec Nr. 45).
+      // The private calendar's meetings: a lock, besides their grey (spec no. 45).
       setIcon(wrap.createSpan({ cls: "vp-event-icon" }), "lock");
     }
     const text = wrap.createDiv({ cls: "vp-event-text" });
@@ -1059,17 +1061,17 @@ export class PlannerView extends ItemView {
   private onEventMount(arg: EventMountArg): void {
     const props = arg.event.extendedProps as Partial<EventProps>;
     const { start, end } = arg.event;
-    const when = start !== null && end !== null && !arg.event.allDay ? formatSlot(start, end) : "ganztägig";
+    const when = start !== null && end !== null && !arg.event.allDay ? formatSlot(start, end) : "all day";
     const todoId = typeof props.blockId === "string" ? todoIdOf(props.blockId) : null;
     const hint =
       props.state === "missing"
-        ? "\nAufgabe nicht gefunden"
+        ? "\nTask not found"
         : props.state === "conflict"
-          ? "\nBlock-ID doppelt"
+          ? "\nDuplicate block id"
           : todoId !== null && props.state === "done"
-            ? "\nAufgabe erledigt oder nicht mehr in To Do"
+            ? "\nTask completed or no longer in To Do"
             : "";
-    const side = props.calendar === "private" ? "\nPrivater Kalender" : "";
+    const side = props.calendar === "private" ? "\nPrivate calendar" : "";
     arg.el.setAttribute("title", `${arg.event.title}\n${when}${side}${hint}`);
 
     if (props.kind !== "own" || typeof props.blockId !== "string") return;
@@ -1083,20 +1085,20 @@ export class PlannerView extends ItemView {
       const plannerId = plannerIdOf(blockId);
       const tasks = this.plugin.index.blockIndex().get(blockId);
       if (plannerId !== null) {
-        menu.addItem((item) => item.setTitle("In Planner öffnen").setIcon("external-link").onClick(() => this.openPlanner(plannerId)));
+        menu.addItem((item) => item.setTitle("Open in Planner").setIcon("external-link").onClick(() => this.openPlanner(plannerId)));
         menu.addSeparator();
       } else if (todoId !== null) {
         // A click opens the browser (Invariant 6).
-        menu.addItem((item) => item.setTitle("In To Do öffnen").setIcon("external-link").onClick(() => this.openTodo(todoId)));
+        menu.addItem((item) => item.setTitle("Open in To Do").setIcon("external-link").onClick(() => this.openTodo(todoId)));
         menu.addSeparator();
       } else if (tasks !== undefined && tasks.length === 1) {
         const task = tasks[0];
-        menu.addItem((item) => item.setTitle("Aufgabe öffnen").setIcon("file-text").onClick(() => void this.openTask(task)));
+        menu.addItem((item) => item.setTitle("Open task").setIcon("file-text").onClick(() => void this.openTask(task)));
         menu.addSeparator();
       }
       menu.addItem((item) =>
         item
-          .setTitle("Block löschen…")
+          .setTitle("Delete block…")
           .setIcon("trash-2")
           .setWarning(true)
           .onClick(() => {
@@ -1121,19 +1123,19 @@ export class PlannerView extends ItemView {
     arg.revert();
     if (start === null || end === null || arg.event.allDay) return;
 
-    // A To Do card goes into the PRIVATE calendar, wherever it was dropped (spec Nr. 18). The
+    // A To Do card goes into the PRIVATE calendar, wherever it was dropped (spec no. 18). The
     // second door for each calendar; eventAllow is the first.
     const todoId = todoIdFrom(props);
     if (todoId !== null) {
       if (!this.privateReady) {
-        new Notice("Der private Kalender ist noch nicht bereit – bitte kurz warten.");
+        new Notice("The private calendar is not ready yet – please wait a moment.");
         return;
       }
       void this.bookTodo(todoId, start, end);
       return;
     }
     if (!this.ready) {
-      new Notice("Der Kalender ist noch nicht bereit – bitte kurz warten.");
+      new Notice("The calendar is not ready yet – please wait a moment.");
       return;
     }
     if (typeof props.plannerId === "string" && props.plannerId !== "") {
@@ -1149,7 +1151,7 @@ export class PlannerView extends ItemView {
     const { index, graph } = this.plugin;
     const task = index.find(path, raw, knownBlockId);
     if (task === null) {
-      new Notice("Die Aufgabe wurde zwischenzeitlich geändert – bitte erneut ziehen.");
+      new Notice("The task has changed in the meantime – please drag it again.");
       return;
     }
 
@@ -1179,11 +1181,11 @@ export class PlannerView extends ItemView {
         end,
         link: `${vaultName}|${blockId}`,
       });
-      new Notice(`Termin angelegt: ${formatSlot(start, end)}.`);
+      new Notice(`Event created: ${formatSlot(start, end)}.`);
     } catch (error) {
       new Notice(getErrorMessage(error));
     } finally {
-      // The card stays "Wird gespeichert…" until a read started NOW has come back.
+      // The card stays "Saving…" until a read started NOW has come back.
       this.gate.releaseAfterNextRead(blockId);
       this.gate.releaseAfterNextRead(draftKey);
       void this.refresh(true);
@@ -1192,8 +1194,8 @@ export class PlannerView extends ItemView {
 
   private onEventChange(arg: EventChangeArg): void {
     const { start, end, id } = arg.event;
-    // Back to the calendar it came from, with that account (spec Nr. 25, 44).
-    // toFullCalendarEvents sets both on every event; the grid id carries a prefix (spec Nr. 44).
+    // Back to the calendar it came from, with that account (spec no. 25, 44).
+    // toFullCalendarEvents sets both on every event; the grid id carries a prefix (spec no. 44).
     const { calendar, eventId } = arg.event.extendedProps as EventProps;
     const account = this.calendarAccount(calendar);
     if (start === null || end === null || id === "" || arg.event.allDay) {
@@ -1202,7 +1204,7 @@ export class PlannerView extends ItemView {
     }
     if (this.patching.has(id)) {
       arg.revert();
-      new Notice("Der Termin wird gerade verschoben.");
+      new Notice("The event is being moved right now.");
       return;
     }
     this.patching.add(id);
@@ -1225,13 +1227,13 @@ export class PlannerView extends ItemView {
 
   private confirmDelete(eventId: string, side: CalendarSide, title: string, start: Date | null, end: Date | null): void {
     const when = start !== null && end !== null ? ` (${formatSlot(start, end)})` : "";
-    const where = side === "private" ? "in deinem privaten Kalender" : "in Outlook";
+    const where = side === "private" ? "from your private calendar" : "from Outlook";
     new ConfirmModal(
       this.app,
       {
-        title: "Block löschen?",
-        message: `„${title}“${when} wird ${where} gelöscht. Die Aufgabe bleibt, wie sie ist.`,
-        confirm: "Löschen",
+        title: "Delete block?",
+        message: `“${title}”${when} will be deleted ${where}. The task stays as it is.`,
+        confirm: "Delete",
         warning: true,
       },
       () => void this.deleteBlock(eventId, side),
@@ -1242,7 +1244,7 @@ export class PlannerView extends ItemView {
     const account = this.calendarAccount(side);
     try {
       await account.graph.deleteBlock(eventId);
-      new Notice("Block gelöscht.");
+      new Notice("Block deleted.");
     } catch (error) {
       new Notice(account.describe(error));
     } finally {
@@ -1255,7 +1257,7 @@ export class PlannerView extends ItemView {
     try {
       await toggleDone(this.app, task);
       // Blocks stay in Outlook: booked time is history. The block menu can still delete them.
-      new Notice(`„${cleanTitle(task.description)}“ erledigt.`);
+      new Notice(`“${cleanTitle(task.description)}” completed.`);
     } catch (error) {
       box.checked = false;
       box.disabled = false;
@@ -1281,13 +1283,13 @@ export class PlannerView extends ItemView {
   }
 
   /**
-   * Like bookPlanner, but into the PRIVATE calendar through the personal account (spec Nr. 18, 24):
+   * Like bookPlanner, but into the PRIVATE calendar through the personal account (spec no. 18, 24):
    * the same block rules, the To Do link, nothing written to the vault or to To Do.
    */
   private async bookTodo(taskId: string, start: Date, end: Date): Promise<void> {
     const task = this.todoSource.task(taskId);
     if (task === undefined || !isOpen(task)) {
-      new Notice("Die To-Do-Aufgabe ist nicht mehr offen – bitte die Liste prüfen.");
+      new Notice("The To Do task is no longer open – please check the list.");
       return;
     }
     const key = todoKey(task.id);
@@ -1301,7 +1303,7 @@ export class PlannerView extends ItemView {
         end,
         link: key,
       });
-      new Notice(`Termin im privaten Kalender angelegt: ${formatSlot(start, end)}.`);
+      new Notice(`Event created in the private calendar: ${formatSlot(start, end)}.`);
     } catch (error) {
       new Notice(getPersonalErrorMessage(error));
     } finally {
@@ -1314,7 +1316,7 @@ export class PlannerView extends ItemView {
   private async bookPlanner(taskId: string, start: Date, end: Date): Promise<void> {
     const task = this.plannerTask(taskId);
     if (task === undefined || !isOpen(task)) {
-      new Notice("Die Planner-Aufgabe ist nicht mehr offen – bitte die Liste prüfen.");
+      new Notice("The Planner task is no longer open – please check the list.");
       return;
     }
     const key = plannerKey(task.id);
@@ -1328,7 +1330,7 @@ export class PlannerView extends ItemView {
         end,
         link: key,
       });
-      new Notice(`Termin angelegt: ${formatSlot(start, end)}.`);
+      new Notice(`Event created: ${formatSlot(start, end)}.`);
     } catch (error) {
       new Notice(getErrorMessage(error));
     } finally {
@@ -1349,7 +1351,7 @@ export class PlannerView extends ItemView {
     success: string,
   ): Promise<void> {
     if (target.source.isWriting(task.id)) {
-      new Notice("Die Aufgabe wird bereits gespeichert.");
+      new Notice("The task is already being saved.");
       return;
     }
     target.source.beginWrite(task.id);
@@ -1378,15 +1380,15 @@ export class PlannerView extends ItemView {
   /** Planner write #1. Shared with others: ask first, it closes the task on their board too. */
   private completePlanner(taskId: string, box: HTMLInputElement): void {
     const task = this.plannerTask(taskId);
-    // The card is rebuilt as "Wird gespeichert…" and then disappears; the tick itself is not the state.
+    // The card is rebuilt as "Saving…" and then disappears; the tick itself is not the state.
     box.checked = false;
     if (task === undefined || this.plannerSource.isWriting(taskId)) {
-      new Notice("Die Planner-Aufgabe ist nicht mehr offen – bitte die Liste prüfen.");
+      new Notice("The Planner task is no longer open – please check the list.");
       return;
     }
     // Blocks stay in Outlook: booked time is history.
     const run = (): void =>
-      void this.plannerWrite(task, () => this.plugin.graph.completePlannerTask(task), `„${task.description}“ in Planner abgeschlossen.`);
+      void this.plannerWrite(task, () => this.plugin.graph.completePlannerTask(task), `“${task.description}” completed in Planner.`);
     if (task.othersAssigned === 0) {
       run();
       return;
@@ -1394,12 +1396,12 @@ export class PlannerView extends ItemView {
     new ConfirmModal(
       this.app,
       {
-        title: "Aufgabe abschließen?",
+        title: "Complete task?",
         message:
           task.othersAssigned === null
-            ? `Für „${task.description}“ war nicht lesbar, wem die Aufgabe noch zugewiesen ist. Abschließen schließt sie in Planner für alle ab.`
-            : `„${task.description}“ ist noch ${others(task.othersAssigned)} zugewiesen. Abschließen schließt die Aufgabe in Planner für alle ab.`,
-        confirm: "Abschließen",
+            ? `For “${task.description}” it was not readable who else the task is assigned to. Completing it completes it in Planner for everyone.`
+            : `“${task.description}” is also assigned to ${others(task.othersAssigned)}. Completing it completes the task in Planner for everyone.`,
+        confirm: "Complete",
         warning: false,
       },
       run,
@@ -1411,10 +1413,10 @@ export class PlannerView extends ItemView {
     const task = this.plannerTask(taskId);
     if (task === undefined || this.plannerSource.isWriting(taskId)) return;
     const menu = new Menu();
-    menu.addItem((item) => item.setTitle("In Planner öffnen").setIcon("external-link").onClick(() => this.openPlanner(task.id)));
+    menu.addItem((item) => item.setTitle("Open in Planner").setIcon("external-link").onClick(() => this.openPlanner(task.id)));
     menu.addSeparator();
     const buckets = this.plannerSource.snapshot?.buckets.get(task.planId) ?? [];
-    menu.addItem((item) => item.setTitle(buckets.length === 0 ? "Keine Buckets gelesen" : "Bucket wechseln").setDisabled(true));
+    menu.addItem((item) => item.setTitle(buckets.length === 0 ? "No buckets read" : "Move to bucket").setDisabled(true));
     for (const bucket of buckets) {
       const current = bucket.id === task.bucketId;
       menu.addItem((item) =>
@@ -1435,26 +1437,26 @@ export class PlannerView extends ItemView {
   private movePlanner(shown: PlannerTask, bucket: PlannerBucket): void {
     const current = this.plannerTask(shown.id);
     if (current === undefined || current.etag !== shown.etag || this.plannerSource.isWriting(shown.id)) {
-      new Notice("Die Aufgabe hat sich inzwischen geändert – bitte das Menü erneut öffnen.");
+      new Notice("The task has changed in the meantime – please open the menu again.");
       return;
     }
-    void this.plannerWrite(shown, () => this.plugin.graph.movePlannerTask(shown, bucket.id), `„${shown.description}“ nach „${bucket.name}“ verschoben.`);
+    void this.plannerWrite(shown, () => this.plugin.graph.movePlannerTask(shown, bucket.id), `“${shown.description}” moved to “${bucket.name}”.`);
   }
 
   /**
-   * The one To Do write (M9, spec Nr. 27): complete, on a click. A shared list asks first — it
-   * closes the task for everyone (Nr. 28, 41). No If-Match until M9.0 says To Do honours it (Nr. 37).
+   * The one To Do write (M9, spec no. 27): complete, on a click. A shared list asks first — it
+   * closes the task for everyone (no. 28, 41). No If-Match until M9.0 says To Do honours it (no. 37).
    */
   private completeTodo(taskId: string, box: HTMLInputElement): void {
     const task: TodoTask | undefined = this.todoSource.task(taskId);
-    // The card is rebuilt as "Wird gespeichert…" and then disappears; the tick itself is not the state.
+    // The card is rebuilt as "Saving…" and then disappears; the tick itself is not the state.
     box.checked = false;
     if (task === undefined || this.todoSource.isWriting(taskId)) {
-      new Notice("Die To-Do-Aufgabe ist nicht mehr offen – bitte die Liste prüfen.");
+      new Notice("The To Do task is no longer open – please check the list.");
       return;
     }
     const run = (): void =>
-      void this.todoWrite(task, () => this.plugin.todoGraph.completeTodoTask(task.listId, task.id, null), `„${task.description}“ in To Do abgeschlossen.`);
+      void this.todoWrite(task, () => this.plugin.todoGraph.completeTodoTask(task.listId, task.id, null), `“${task.description}” completed in To Do.`);
     if (!task.shared) {
       run();
       return;
@@ -1462,9 +1464,9 @@ export class PlannerView extends ItemView {
     new ConfirmModal(
       this.app,
       {
-        title: "Aufgabe abschließen?",
-        message: `„${task.description}“ steht in einer geteilten Liste. Abschließen schließt die Aufgabe in To Do für alle ab.`,
-        confirm: "Abschließen",
+        title: "Complete task?",
+        message: `“${task.description}” is in a shared list. Completing it completes the task in To Do for everyone.`,
+        confirm: "Complete",
         warning: false,
       },
       run,
@@ -1475,7 +1477,7 @@ export class PlannerView extends ItemView {
   private async openTask(task: VaultTask): Promise<void> {
     const file = this.app.vault.getFileByPath(task.path);
     if (file === null) {
-      new Notice("Die Datei gibt es nicht mehr.");
+      new Notice("The file no longer exists.");
       return;
     }
     await this.app.workspace.getLeaf("tab").openFile(file, { active: true, eState: { line: task.line } });

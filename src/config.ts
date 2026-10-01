@@ -92,7 +92,7 @@ export const INTERN_ROOT = "20_Intern";
 export const INTERN_LABEL = "junis intern";
 
 /**
- * The Tasks plugin's global filter, if the live vault uses one (umsetzungsplan M0.2).
+ * The Tasks plugin's global filter, if the live vault uses one (implementation plan M0.2).
  * Empty means every checkbox line is a task, which is the Tasks default.
  */
 export const TASKS_GLOBAL_FILTER = "";
@@ -100,7 +100,7 @@ export const TASKS_GLOBAL_FILTER = "";
 /** Checkbox characters that count as open: Tasks' "todo" and "in progress". */
 export const OPEN_STATUSES: readonly string[] = [" ", "/"];
 
-/** A date this close lands in "Nächste 7 Tage" — the web app's urgency horizon. */
+/** A date this close lands in "Next 7 days" — the web app's urgency horizon. */
 export const URGENT_WITHIN_DAYS = 7;
 
 /** Every block is booked for one hour, the web app's proposal; resizing in the grid changes it. */

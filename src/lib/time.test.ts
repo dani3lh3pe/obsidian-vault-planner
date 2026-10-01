@@ -86,7 +86,7 @@ describe("formatSlotWithDate", () => {
   it("adds the date, for blocks outside the current week", () => {
     const slot = formatSlotWithDate(new Date("2026-09-28T08:00:00Z"), new Date("2026-09-28T09:00:00Z"));
     expect(slot).toMatch(/^Mo/);
-    expect(slot).toContain("28.09.");
+    expect(slot).toContain("28/09");
     expect(slot).toContain("10:00");
     expect(slot).toContain("11:00");
   });
@@ -102,8 +102,8 @@ describe("the test clock", () => {
 
 describe("formatDue", () => {
   it("names the weekday, and the year only when it is not this one", () => {
-    expect(formatDue("2026-09-22", "2026-09-28")).toBe("Di., 22.09.");
-    expect(formatDue("2027-01-15", "2026-09-28")).toBe("Fr., 15.01.2027");
+    expect(formatDue("2026-09-22", "2026-09-28")).toBe("Tue 22/09");
+    expect(formatDue("2027-01-15", "2026-09-28")).toBe("Fri 15/01/2027");
   });
 
   it("keeps a typo that is no real date as written, instead of throwing or rolling it over", () => {

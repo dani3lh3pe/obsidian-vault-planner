@@ -26,8 +26,8 @@ export class TaskIndex {
   ) {}
 
   /**
-   * Complete once every source file has been read — before that, "Aufgabe nicht gefunden" or
-   * "Keine offenen Aufgaben" would be guesses about files the cache simply has not delivered.
+   * Complete once every source file has been read — before that, "Task not found" or
+   * "No open tasks" would be guesses about files the cache simply has not delivered.
    */
   get complete(): boolean {
     return this.built && (this.resolvedOnce || this.awaiting.size === 0);
@@ -88,7 +88,7 @@ export class TaskIndex {
 
   /**
    * Entries are replaced in place, never cleared first: a second rebuild (on `resolved`) must not
-   * show an empty list, or blocks as "Aufgabe nicht gefunden", while it runs.
+   * show an empty list, or blocks as "Task not found", while it runs.
    */
   private async rebuild(): Promise<void> {
     const files = this.app.vault.getMarkdownFiles().filter((file) => taskSource(file.path) !== null);
@@ -215,7 +215,7 @@ export async function toggleDone(app: App, task: VaultTask): Promise<void> {
     if (!isOpen({ status: parseTaskLine(line, "")?.status ?? "" })) throw new LineChangedError();
     const output = api.executeToggleTaskDoneCommand(line, task.path).replace(/\n$/, "");
     if (output === "") throw new EmptyToggleError();
-    if (output === line) throw new Error("Tasks hat die Zeile nicht verändert.");
+    if (output === line) throw new Error("Tasks did not change the line.");
     return replaceLine(text, span, output);
   });
 }

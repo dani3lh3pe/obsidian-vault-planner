@@ -33,7 +33,7 @@ path `release/vault-planner.zip`. He downloads it, unpacks it into
 Settings → Community plugins. The test vault itself (`release/test-vault.zip`) is downloaded once.
 
 When the change touched Graph writes, vault writes or sign-in, list the manual checks from the
-milestone's table in `docs/umsetzungsplan.md` that this change needs — and what each one proves.
+milestone's table in `docs/implementation-plan.md` that this change needs — and what each one proves.
 
 ## Out of scope
 

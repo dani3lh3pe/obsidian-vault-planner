@@ -49,7 +49,7 @@ export default class VaultPlannerPlugin extends Plugin {
         authority: this.settings.tenantId,
         clientId: this.settings.clientId,
         scope: scopes(this.settings.plannerEnabled),
-        missing: "Zuerst Tenant-ID und Client-ID in den Einstellungen eintragen.",
+        missing: "First enter the tenant id and client id in the settings.",
       }),
       { secret: SECRET_REFRESH_TOKEN, account: LOCAL_ACCOUNT_KEY },
       () => this.emit("auth"),
@@ -59,10 +59,10 @@ export default class VaultPlannerPlugin extends Plugin {
       this.app,
       () => ({
         authority: TODO_AUTHORITY,
-        // The same registration, opened to personal accounts (umsetzungsplan M9, 2026-09-30).
+        // The same registration, opened to personal accounts (implementation plan M9, 2026-09-30).
         clientId: this.settings.clientId,
         scope: TODO_SCOPES,
-        missing: "Zuerst die Client-ID in den Einstellungen eintragen.",
+        missing: "First enter the client id in the settings.",
       }),
       { secret: SECRET_TODO_REFRESH_TOKEN, account: LOCAL_TODO_ACCOUNT_KEY },
       () => this.emit("todo"),
@@ -72,27 +72,27 @@ export default class VaultPlannerPlugin extends Plugin {
     this.index.start(this);
 
     this.registerView(VIEW_TYPE, (leaf) => new PlannerView(leaf, this));
-    this.addRibbonIcon("calendar-check", "Planner öffnen", () => void this.openPlanner());
-    this.addCommand({ id: "open-planner", name: "Planner öffnen", callback: () => void this.openPlanner() });
+    this.addRibbonIcon("calendar-check", "Open Vault Planner", () => void this.openPlanner());
+    this.addCommand({ id: "open-planner", name: "Open Vault Planner", callback: () => void this.openPlanner() });
 
     // Registered once: a second registration of the same action throws.
     // Both accounts share the redirect: it goes to the one whose sign-in is waiting for this state.
     this.registerObsidianProtocolHandler(REDIRECT_ACTION, (params) => {
       const personal = this.todoAuth.expects(params.state);
       const auth = personal ? this.todoAuth : this.auth;
-      const label = personal ? "Privates Konto angemeldet" : "Angemeldet";
+      const label = personal ? "Personal account signed in" : "Signed in";
       auth.handleRedirect(params).then(
-        () => new Notice(`${label}${auth.account === null ? "" : ` als ${auth.account}`}.`),
+        () => new Notice(`${label}${auth.account === null ? "" : ` as ${auth.account}`}.`),
         (error: unknown) => new Notice(personal ? getPersonalErrorMessage(error) : getErrorMessage(error)),
       );
     });
     // ponytail: the M9.0 probe command goes once its answers are in the plan.
     this.addCommand({
       id: "m9-probe",
-      name: "M9.0-Probe: privates Konto prüfen",
+      name: "M9.0 probe: check the personal account",
       callback: () => {
         if (!this.settings.todoEnabled || !this.todoAuth.signedIn) {
-          new Notice("Zuerst „To Do (privat)“ einschalten und das private Konto anmelden.");
+          new Notice("First switch on “To Do (personal)” and sign in the personal account.");
           return;
         }
         new ProbeModal(this.app, this.todoGraph).open();
@@ -154,15 +154,15 @@ class VaultPlannerSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl, plugin } = this;
     containerEl.empty();
-    // A sign-in comes back through the browser: redraw, or the tab keeps saying "Nicht angemeldet".
+    // A sign-in comes back through the browser: redraw, or the tab keeps saying "Not signed in".
     // Subscribed once per showing — a new subscription on every redraw would redraw forever.
     this.stopListening ??= plugin.onChange((reason) => {
       if (reason === "auth" || reason === "todo") this.display();
     });
 
     new Setting(containerEl)
-      .setName("Tenant-ID")
-      .setDesc("Verzeichnis-ID (Mandanten-ID) aus der App-Registrierung in Entra.")
+      .setName("Tenant id")
+      .setDesc("Directory (tenant) ID from the app registration in Entra.")
       .addText((text) =>
         text
           .setPlaceholder("00000000-0000-0000-0000-000000000000")
@@ -174,8 +174,8 @@ class VaultPlannerSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Client-ID")
-      .setDesc("Anwendungs-ID der Registrierung „Obsidian Vault Planner“ — für das Arbeitskonto und das private Konto.")
+      .setName("Client id")
+      .setDesc("Application (client) ID of the “Obsidian Vault Planner” registration — for the work account and the personal account.")
       .addText((text) =>
         text
           .setPlaceholder("00000000-0000-0000-0000-000000000000")
@@ -187,11 +187,11 @@ class VaultPlannerSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Planner-Aufgaben")
+      .setName("Planner tasks")
       .setDesc(
-        "Zeigt die dir zugewiesenen Aufgaben aus Microsoft Planner in der Liste; abhaken und Bucket wechseln " +
-          "gehen im Plugin. Braucht die Berechtigung Tasks.ReadWrite: Fehlt die Zustimmung, meldet sich das " +
-          "Plugin ab, und „Anmelden“ holt sie ein.",
+        "Shows the Microsoft Planner tasks assigned to you in the list; completing them and moving them to " +
+          "another bucket work in the plugin. Needs the Tasks.ReadWrite permission: without consent the plugin " +
+          "signs out, and “Sign in” asks for it.",
       )
       .addToggle((toggle) =>
         toggle.setValue(plugin.settings.plannerEnabled).onChange(async (value) => {
@@ -201,16 +201,16 @@ class VaultPlannerSettingTab extends PluginSettingTab {
         }),
       );
 
-    this.addAccountRow(containerEl, "Microsoft-Konto", plugin.auth);
+    this.addAccountRow(containerEl, "Microsoft account", plugin.auth);
 
-    new Setting(containerEl).setName("Microsoft To Do (privates Konto)").setHeading();
+    new Setting(containerEl).setName("Microsoft To Do (personal account)").setHeading();
 
     new Setting(containerEl)
-      .setName("To Do (privat)")
+      .setName("To Do (personal)")
       .setDesc(
-        "Zeigt die Aufgaben aus deinem privaten Microsoft To Do und deinen privaten Kalender. Setzt voraus, " +
-          "dass die App-Registrierung für private Konten geöffnet ist (README, Einrichtung 5). Ausschalten " +
-          "blendet beides aus, meldet das private Konto aber nicht ab.",
+        "Shows the tasks from your personal Microsoft To Do and your private calendar. Requires the app " +
+          "registration to be open to personal accounts (README, Setup step 5). Switching it off hides both " +
+          "but does not sign the personal account out.",
       )
       .addToggle((toggle) =>
         toggle.setValue(plugin.settings.todoEnabled).onChange(async (value) => {
@@ -220,7 +220,7 @@ class VaultPlannerSettingTab extends PluginSettingTab {
         }),
       );
 
-    this.addAccountRow(containerEl, "Privates Microsoft-Konto", plugin.todoAuth);
+    this.addAccountRow(containerEl, "Personal Microsoft account", plugin.todoAuth);
   }
 
   hide(): void {
@@ -232,10 +232,10 @@ class VaultPlannerSettingTab extends PluginSettingTab {
   private addAccountRow(containerEl: HTMLElement, name: string, auth: Auth): void {
     const account = new Setting(containerEl)
       .setName(name)
-      .setDesc(auth.signedIn ? `Angemeldet als ${auth.account ?? "unbekannt"}.` : "Nicht angemeldet.");
+      .setDesc(auth.signedIn ? `Signed in as ${auth.account ?? "unknown"}.` : "Not signed in.");
     if (auth.signedIn) {
       account.addButton((button) =>
-        button.setButtonText("Abmelden").onClick(() => {
+        button.setButtonText("Sign out").onClick(() => {
           auth.logout();
           this.display();
         }),
@@ -243,7 +243,7 @@ class VaultPlannerSettingTab extends PluginSettingTab {
     } else {
       account.addButton((button) =>
         button
-          .setButtonText("Anmelden")
+          .setButtonText("Sign in")
           .setCta()
           .onClick(() => {
             auth.login().catch((error: unknown) =>

@@ -84,7 +84,7 @@ export function mapGraphEvents(raw: readonly unknown[]): MapResult {
 
     events.push({
       id: item.id,
-      subject: typeof item.subject === "string" ? item.subject : "(ohne Betreff)",
+      subject: typeof item.subject === "string" ? item.subject : "(no subject)",
       start,
       end,
       isAllDay: item.isAllDay === true,

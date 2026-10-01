@@ -24,7 +24,7 @@ function tasksOf(path: string) {
 }
 
 describe("test vault fixtures", () => {
-  const migration = tasksOf("10_Kunden/Beispielkunde/Migration/Migration.md");
+  const migration = tasksOf("10_Kunden/SampleCustomer/Migration/Migration.md");
   const byText = (start: string) => {
     const hit = migration.find((task) => task.description.startsWith(start));
     if (hit === undefined) throw new Error(`fixture missing: ${start}`);
@@ -33,7 +33,7 @@ describe("test vault fixtures", () => {
 
   it("has every case the plan lists, and the code block is not one", () => {
     expect(migration).toHaveLength(21); // 19 open incl. the indented sub-task, 2 done
-    expect(migration.some((task) => task.description.includes("kein Task"))).toBe(false);
+    expect(migration.some((task) => task.description.includes("not a task"))).toBe(false);
   });
 
   it("reads the draft's link-after-fields line exactly like Tasks: no due date", () => {
@@ -43,32 +43,32 @@ describe("test vault fixtures", () => {
   });
 
   it("keeps an old effort note out of title and subject, and still sees the date behind it", () => {
-    const adr = byText("ADR-Liste");
+    const adr = byText("Update the ADR list");
     expect(adr.due).toBe("2026-09-29");
-    expect(cleanTitle(adr.description)).toBe("ADR-Liste aktualisieren");
-    expect(eventSubject(adr.description)).toBe("ADR-Liste aktualisieren");
+    expect(cleanTitle(adr.description)).toBe("Update the ADR list");
+    expect(eventSubject(adr.description)).toBe("Update the ADR list");
   });
 
   it("reads recurrence, block ids and the variation selector", () => {
-    expect(byText("Timesheet").isRecurring).toBe(true);
-    expect(byText("Mit Block-ID").blockId).toBe("t-demo01");
-    expect(byText("Mit fremder").blockId).toBe("abc123");
-    expect(byText("Mit Variation").due).toBe("2026-09-28");
-    expect(byText("Firewall").status).toBe("/");
+    expect(byText("Submit the timesheet").isRecurring).toBe(true);
+    expect(byText("With block id").blockId).toBe("t-demo01");
+    expect(byText("With a foreign").blockId).toBe("abc123");
+    expect(byText("With variation").due).toBe("2026-09-28");
+    expect(byText("Review the firewall").status).toBe("/");
     // The live vault's shape: only ⏳, and a long slug as block id.
-    expect(byText("Nur mit Sanduhr")).toMatchObject({ scheduled: "2026-09-23", due: null, blockId: "t-ops-nur-mit-sanduhr-geplant" });
+    expect(byText("Scheduled with hourglass")).toMatchObject({ scheduled: "2026-09-23", due: null, blockId: "t-ops-scheduled-with-hourglass-only" });
   });
 
   it("reads the CRLF file", () => {
-    const portal = tasksOf("10_Kunden/Zweitkunde/Portal/Portal.md");
+    const portal = tasksOf("10_Kunden/SecondCustomer/Portal/Portal.md");
     expect(portal.map((task) => [task.description, task.due, task.priority])).toEqual([
-      ["Login-Seite testen", "2026-09-26", "none"],
-      ["Zertifikat erneuern", "2026-10-02", "highest"],
+      ["Test the login page", "2026-09-26", "none"],
+      ["Renew the certificate", "2026-10-02", "highest"],
     ]);
   });
 
   it("keeps meeting notes and the inbox out", () => {
-    expect(taskSource("10_Kunden/Beispielkunde/Migration/Meetings/2026-09-24 Kickoff.md")).toBeNull();
+    expect(taskSource("10_Kunden/SampleCustomer/Migration/Meetings/2026-09-24 Kickoff.md")).toBeNull();
     expect(taskSource("00_Inbox/2026-09-24_101200_capture.md")).toBeNull();
   });
 });

@@ -12,7 +12,7 @@ function event(
 ): CalendarEvent {
   return {
     id: `ev_${startHour}`,
-    subject: "Termin",
+    subject: "Meeting",
     start: new Date(2026, 8, 24, startHour, 0),
     end: new Date(2026, 8, 24, endHour, 0),
     isAllDay: false,

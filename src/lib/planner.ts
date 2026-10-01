@@ -4,7 +4,7 @@ import { fromGraphUtc, plannerDay } from "./time";
 import type { AnyTask, PlannerBucket, PlannerTask, Priority } from "./types";
 
 /**
- * Planner's answers -> what the list needs (umsetzungsplan M6; the mappings come from the web
+ * Planner's answers -> what the list needs (implementation plan M6; the mappings come from the web
  * app's M13, briefing §12). Shape and meaning only — graph.ts reads, the view decides.
  */
 
@@ -51,7 +51,7 @@ export interface PlannerSnapshot {
   truncated: boolean;
 }
 
-/** `GET /me/planner/tasks` entries -> tasks. The plan title is filled in later (`projekt: null`). */
+/** `GET /me/planner/tasks` entries -> tasks. The plan title is filled in later (`project: null`). */
 export function mapPlannerTasks(raw: readonly unknown[]): { tasks: PlannerTask[]; droppedCount: number } {
   const tasks: PlannerTask[] = [];
   let droppedCount = 0;
@@ -78,14 +78,14 @@ export function mapPlannerTasks(raw: readonly unknown[]): { tasks: PlannerTask[]
       etag,
       planId: item.planId,
       bucketId: typeof item.bucketId === "string" && item.bucketId !== "" ? item.bucketId : null,
-      description: typeof item.title === "string" && item.title.trim() !== "" ? item.title.trim() : "(ohne Titel)",
+      description: typeof item.title === "string" && item.title.trim() !== "" ? item.title.trim() : "(untitled)",
       status: plannerStatus(item.percentComplete),
       priority: plannerPriority(item.priority),
       due: plannerDue(item.dueDateTime),
       scheduled: null,
       isWaiting: false,
-      kunde: PLANNER_LABEL,
-      projekt: null,
+      customer: PLANNER_LABEL,
+      project: null,
       // The signed-in user is one of them: /me/planner/tasks lists only what is assigned to them.
       othersAssigned: assigned === null ? null : Math.max(0, assigned - 1),
     });
@@ -107,7 +107,7 @@ export function readBuckets(raw: readonly unknown[]): PlannerBucket[] {
     if (!isRecord(item) || typeof item.id !== "string" || item.id === "") continue;
     buckets.push({
       id: item.id,
-      name: typeof item.name === "string" && item.name.trim() !== "" ? item.name.trim() : "(ohne Namen)",
+      name: typeof item.name === "string" && item.name.trim() !== "" ? item.name.trim() : "(unnamed)",
       orderHint: typeof item.orderHint === "string" ? item.orderHint : "",
     });
   }
@@ -117,7 +117,7 @@ export function readBuckets(raw: readonly unknown[]): PlannerBucket[] {
 
 /**
  * The task in Planner Web. ponytail: ASSUMED, not verified (the web app used the same form in M14) —
- * umsetzungsplan M6 checks it; the documented alternative needs the planId.
+ * implementation plan M6 checks it; the documented alternative needs the planId.
  */
 export function plannerWebUrl(tenantId: string, taskId: string): string {
   return `https://tasks.office.com/${encodeURIComponent(tenantId)}/Home/Task/${encodeURIComponent(taskId)}`;

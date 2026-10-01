@@ -102,12 +102,12 @@ export function blocksByTask(
 }
 
 /**
- * geplant: a block that has not ended (running counts). abgelaufen: blocks, all over — the task
- * counts as unplanned again, no button needed. ungeplant: no block in the window.
+ * planned: a block that has not ended (running counts). past: blocks, all over — the task
+ * counts as unplanned again, no button needed. unplanned: no block in the window.
  */
 export function planStatus(blocks: readonly Block[] | undefined, now: Date): PlanStatus {
-  if (blocks === undefined || blocks.length === 0) return { kind: "ungeplant" };
+  if (blocks === undefined || blocks.length === 0) return { kind: "unplanned" };
   const next = blocks.find((block) => block.end.getTime() > now.getTime());
-  if (next !== undefined) return { kind: "geplant", next };
-  return { kind: "abgelaufen", last: blocks[blocks.length - 1] };
+  if (next !== undefined) return { kind: "planned", next };
+  return { kind: "past", last: blocks[blocks.length - 1] };
 }

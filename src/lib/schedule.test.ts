@@ -32,7 +32,7 @@ describe("parseTaskLink", () => {
   });
 
   it("gives a To Do task its own vault-independent key, never a Planner one (M9)", () => {
-    const [task] = mapTodoTasks({ id: "L", name: "Privat", shared: false }, [{ id: "T1", title: "x" }]).tasks;
+    const [task] = mapTodoTasks({ id: "L", name: "Personal", shared: false }, [{ id: "T1", title: "x" }]).tasks;
     expect(linkKey(task)).toBe("todo:T1");
     expect(plannerIdOf(linkKey(task) ?? "")).toBeNull();
     // Its blocks are ours in any vault, like Planner's; "todo:" alone is no key.
@@ -116,9 +116,9 @@ describe("blocksByTask", () => {
 describe("planStatus", () => {
   const block = (start: string, end: string) => ({ eventId: start, start: new Date(start), end: new Date(end) });
 
-  it("is geplant for a future or running block", () => {
-    expect(planStatus([block("2026-09-24T08:00:00Z", "2026-09-24T09:00:00Z")], NOW)).toMatchObject({ kind: "geplant" });
-    expect(planStatus([block("2026-09-23T11:00:00Z", "2026-09-23T13:00:00Z")], NOW)).toMatchObject({ kind: "geplant" });
+  it("is planned for a future or running block", () => {
+    expect(planStatus([block("2026-09-24T08:00:00Z", "2026-09-24T09:00:00Z")], NOW)).toMatchObject({ kind: "planned" });
+    expect(planStatus([block("2026-09-23T11:00:00Z", "2026-09-23T13:00:00Z")], NOW)).toMatchObject({ kind: "planned" });
   });
 
   it("names the next block, not the first", () => {
@@ -126,16 +126,16 @@ describe("planStatus", () => {
       [block("2026-09-21T08:00:00Z", "2026-09-21T09:00:00Z"), block("2026-09-24T08:00:00Z", "2026-09-24T09:00:00Z")],
       NOW,
     );
-    expect(status.kind === "geplant" && status.next.start.toISOString()).toBe("2026-09-24T08:00:00.000Z");
+    expect(status.kind === "planned" && status.next.start.toISOString()).toBe("2026-09-24T08:00:00.000Z");
   });
 
-  it("is abgelaufen when every block is over", () => {
+  it("is past when every block is over", () => {
     const status = planStatus([block("2026-09-21T08:00:00Z", "2026-09-21T09:00:00Z")], NOW);
-    expect(status.kind).toBe("abgelaufen");
+    expect(status.kind).toBe("past");
   });
 
-  it("is ungeplant without blocks", () => {
-    expect(planStatus(undefined, NOW).kind).toBe("ungeplant");
-    expect(planStatus([], NOW).kind).toBe("ungeplant");
+  it("is unplanned without blocks", () => {
+    expect(planStatus(undefined, NOW).kind).toBe("unplanned");
+    expect(planStatus([], NOW).kind).toBe("unplanned");
   });
 });

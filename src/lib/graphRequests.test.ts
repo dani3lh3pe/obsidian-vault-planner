@@ -39,8 +39,8 @@ describe("calendarViewUrl", () => {
 describe("createEventBody", () => {
   const body = createEventBody(
     {
-      subject: "ADR-Liste aktualisieren",
-      body: "Fokus-Block aus Obsidian",
+      subject: "Update the ADR list",
+      body: "Focus block from Obsidian",
       start: new Date("2026-09-24T08:00:00Z"),
       end: new Date("2026-09-24T10:00:00Z"),
       link: "Vault|t-3f9a1c",

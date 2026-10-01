@@ -6,9 +6,9 @@ host cannot see. A handful of areas cost a rework round when the question comes 
 grow the design tree when the change touches the area; they are prompts, not a questionnaire to
 read out.
 
-**Where results go:** decisions into `docs/umsetzungsplan.md`, in the milestone's "Mit Daniel
-entschieden" or a "Bewusst so (mit Daniel, <date>)" line; this project has no `docs/adr/`.
-Parked ideas into the plan's "Offen, nicht blockierend", never into memory — the `retro` skill
+**Where results go:** decisions into `docs/implementation-plan.md`, in the milestone's "Decided with
+Daniel" or a "Deliberate (with Daniel, <date>)" line; this project has no `docs/adr/`.
+Parked ideas into the plan's "Open, not blocking", never into memory — the `retro` skill
 routes them there too.
 
 - **Used every morning?** The goal in CLAUDE.md: what does not speed up the morning flow (sight the
@@ -22,14 +22,14 @@ routes them there too.
   date-sorted list learned about `⏳` only from a screenshot.)
 - **Does the calendar count?** Blocks are the planning status (Invariant 1). Every grouping, filter,
   count or sort has to decide whether a block counts or only the task line does. (2026-09-29: a
-  task dragged onto today stayed under "Ohne Datum", fixed in M8.4.)
+  task dragged onto today stayed under "No date", fixed in M8.4.)
 - **Planner tasks too?** They have no `⏳` and no block id, their priority 0–10 maps onto Tasks
   priorities, their date is an instant, and they allow only two writes. Decide per feature
   whether and how it applies to them, not after the vault side is built.
 - **Does anything write?** Vault and Planner each allow exactly two writes (Invariants 2 and 7);
   Outlook gets blocks without `attendees` and without `categories`. A third write is its own
   decision with an invariant change and a high-level review, never a detail. (2026-09-29:
-  "Priorität per Drag and Drop verschieben" would have been a third write in both.)
+  "change the priority by drag and drop" would have been a third write in both.)
 - **A new Graph scope?** A new scope signs Daniel out once, and while consent is missing there
   is no calendar at all, unless a settings switch offers a way out. Planner has one, the category
   colours (`MailboxSettings.Read`, M7) deliberately do not. Settle the escape hatch before building.

@@ -1,171 +1,168 @@
 # CLAUDE.md
 
-Kanonische Projektregeln. Jede Regel steht an genau einer Stelle; wo ein anderes Artefakt das
-Detail besitzt, zeigt diese Datei darauf.
+Canonical project rules. Each rule lives in exactly one place; where another artifact owns the
+detail, this file points to it.
 
-## Projekt
+## Project
 
-Ein Obsidian-Plugin für **einen** Nutzer: links die offenen Tasks aus den Projektdateien des
-Vaults (per Schalter auch die eigenen Planner-Aufgaben und die privaten To Dos), rechts der eigene Outlook-Kalender. Zieht man einen Task in eine Lücke, entsteht in Outlook
-ein Fokus-Block.
+An Obsidian plugin for **one** user: on the left the open tasks from the vault's project files (with
+a switch also the user's own Planner tasks and their personal To Dos), on the right their own Outlook
+calendar. Dragging a task into a gap creates a focus block in Outlook.
 
-> **Das Ziel in einem Satz:** Morgens in unter zwei Minuten die offenen Aufgaben sichten, die für
-> heute relevanten in freie Kalenderlücken ziehen, fertig. Was diesen Ablauf nicht beschleunigt,
-> kommt nicht rein.
+> **The goal in one sentence:** in the morning, review the open tasks in under two minutes, drag
+> the ones relevant for today into free calendar gaps, done. Whatever does not speed up this flow
+> stays out.
 
-## Wichtige Dokumente
+## Key documents
 
-- `docs/umsetzungsplan.md` — Meilensteine, Stolperfallen mit Gegenmaßnahme, manuelle
-  Verifikation je Meilenstein, belegte Fakten mit Quelle. Vor jedem Meilenstein den Abschnitt lesen.
-  Er ist auch der Ort für Entscheidungen (kein `docs/adr/`) und für zurückgestellte Ideen
-  („Offen, nicht blockierend").
-- `.claude/skills/graph-calendar/` — Graph-Regeln (UTC lesen, Wandzeit schreiben, Immutable IDs,
-  Extended Property). **Vor jeder Änderung an einem Graph-Aufruf lesen.**
-- `.claude/skills/verify/` — das Gate und die Übergabe eines Builds.
-- `.claude/skills/retro/` — Abschluss-Durchgang einer Sitzung: jedes Learning an seinen einen Ort.
-- `.claude/grilling-seeds.md` — Fragen, die der `grilling`-Skill hier früh stellen muss, weil sie
-  sonst zu spät kamen.
-- `.claude/agents/invariant-reviewer.md` — prüft Token, HTTP und beide Schreibpfade gegen die
-  Invarianten, ändert nichts. Pflicht vor M5.
-- `README.md` — Einrichtung (Entra-App, Einstellungen), Bedienung, Fehlerbilder.
-- Vorbild ist die Web-App **daily-planner** (`../daily-planner`): Bei „wie wurde das dort
-  gelöst" dort nachsehen, statt neu zu erfinden.
+- `docs/implementation-plan.md` — milestones, pitfalls with countermeasures, manual verification per
+  milestone, verified facts with sources. Read the section before every milestone.
+  It is also the place for decisions (no `docs/adr/`) and for deferred ideas
+  ("Open, not blocking").
+- `.claude/skills/graph-calendar/` — Graph rules (read UTC, write wall-clock time, immutable ids,
+  extended property). **Read before every change to a Graph call.**
+- `.claude/skills/verify/` — the gate and the hand-off of a build.
+- `.claude/skills/retro/` — end-of-session pass: every learning into its one place.
+- `.claude/grilling-seeds.md` — questions the `grilling` skill must ask early here, because
+  otherwise they came too late.
+- `.claude/agents/invariant-reviewer.md` — checks tokens, HTTP and both write paths against the
+  invariants, changes nothing. Mandatory before M5.
+- `README.md` — setup (Entra app, settings), usage, troubleshooting.
+- The model is the web app **daily-planner** (`../daily-planner`): for "how was this solved
+  there", look there instead of reinventing it.
 
-**Obsidian, Tasks, FullCalendar 6.1.21 und Graph nie aus dem Gedächtnis.** Die Trainingsdaten
-kennen andere Versionen und veraltete Muster. Belegen (installierter Quelltext, `obsidian.d.ts`,
-Primärdoku) oder als offen markieren.
+**Obsidian, Tasks, FullCalendar 6.1.21 and Graph never from memory.** The training data knows
+other versions and outdated patterns. Verify (installed source, `obsidian.d.ts`, primary docs) or
+mark as open.
 
-## Entwicklung hier, Ausführung auf Windows
+## Developed here, run on Windows
 
-Gebaut und getestet wird auf diesem Linux-Host. Obsidian und der Vault laufen auf dem
-Windows-Notebook. Jeder verify-Lauf erzeugt `release/vault-planner.zip` mit einer Build-Kennung
-(`0.1.0-dev.<Zeitstempel>`) im Manifest. Daniel entpackt das Zip in
-`<Testvault>/.obsidian/plugins/` und schaltet das Plugin aus und wieder ein. `release/test-vault.zip`
-enthält den Testvault und wird einmal übertragen.
+Built and tested on this Linux host. Obsidian and the vault run on the Windows laptop. Every
+verify run produces `release/vault-planner.zip` with a build id (`0.1.0-dev.<timestamp>`) in the
+manifest. Daniel unpacks the zip into `<test vault>/.obsidian/plugins/` and turns the plugin off and
+on again. `release/test-vault.zip` contains the test vault and is transferred once.
 
-**Nie gegen den Live-Vault entwickeln.** Er synchronisiert per Self-hosted LiveSync mit Server und
-Handy, und Claude bearbeitet ihn parallel. Das Plugin läuft seit 2026-09-29 auf Daniels Entscheidung
-darin (M5 vorgezogen), aber Claude liest oder schreibt ihn von hier nie. Jeder Build geht an ihn:
-Ein Fehler im Schreibpfad trifft echte Zeilen und verteilt sich sofort.
+**Never develop against the live vault.** It syncs via self-hosted LiveSync with a server and a
+phone, and Claude edits it in parallel. Since 2026-09-29, by Daniel's decision, the plugin runs in it
+(M5 moved up), but Claude never reads or writes it from here. Every build goes to it: a bug in a
+write path hits real lines and spreads at once.
 
-## Befehle
+## Commands
 
 ```bash
-npx npm@11 install     # Distro-npm 9.2.0 ist auf diesem Host mit Node 22 kaputt
-bash scripts/verify.sh # das Gate: tsc, Tests (TZ=UTC), Build, Paket — auch der Stop-Hook
-npm test               # nur die Tests
-npm run dev            # esbuild im Watch-Modus nach build/main.js
+npx npm@11 install     # the distro's npm 9.2.0 is broken with Node 22 on this host
+bash scripts/verify.sh # the gate: tsc, tests (TZ=UTC), build, package — also the Stop hook
+npm test               # tests only
+npm run dev            # esbuild in watch mode to build/main.js
 ```
 
-## Invarianten
+## Invariants
 
-1. **Der Kalender ist die Wahrheit für den Planungsstatus.** Weder im Vault noch in `data.json`
-   steht je ein Planungsdatum oder eine Event-ID. Kein `⏳`-Schreibpfad, auch nicht „nur als
-   Hinweis". Ob ein Task geplant ist, leitet `lib/schedule.ts` bei jedem Rendern aus dem geladenen
-   Kalender ab.
-2. **In den Vault schreibt das Plugin genau zweierlei, beides nur auf eine Handlung des Nutzers
-   hin:** eine Block-ID ans Ende der Task-Zeile (einmal, nie geändert), und beim Erledigen ersetzt
-   es genau die Zielzeile durch die Ausgabe der Tasks-API (eine oder zwei Zeilen). Nie im
-   Hintergrund, nie eine andere Zeile, nie eine Datei anlegen, löschen oder umbenennen.
-3. **Jeder Schreibvorgang läuft über `app.vault.process()`**, nachdem offene Editoren der Datei
-   gespeichert wurden. Die Zielzeile wird im aktuellen Inhalt per Block-ID oder eindeutigem
-   Rohtext gefunden, nie per Zeilennummer; Zeilenenden bleiben byte-genau. Nicht gefunden oder
-   mehrdeutig heißt: abbrechen und melden.
-4. **Graph folgt dem graph-calendar-Skill**, in beiden Kalendern. Nie `attendees`. To-Do-Blöcke
-   liegen nur im privaten Kalender, alle anderen nur im Arbeitskalender.
-5. **Alle HTTP-Aufrufe über `requestUrl`, nie `fetch`**, und nur zu `login.microsoftonline.com`
-   und `graph.microsoft.com`. Keine Telemetrie.
-6. **Tokens nie in `data.json`** — sie liegt im Vault, und ein Vault-Sync kann sie mitnehmen. Die
-   Refresh-Tokens liegen in `app.secretStorage`, je Konto unter eigenem Namen (Arbeitskonto, seit M9
-   das private Konto). Abmelden oder ein Fehler bei einem Konto lässt das andere unberührt. Nur ein Klick öffnet den Browser („Anmelden" für
-   beide Konten, „In Planner öffnen", eine Planner- oder To-Do-Karte), nie ein Timer.
-7. **In Planner schreibt das Plugin genau zweierlei, beides nur auf eine Handlung des Nutzers
-   hin:** abschließen (`percentComplete: 100`) und den Bucket wechseln. Immer mit `If-Match`; ein
-   412 wird nie automatisch wiederholt. Ist die Aufgabe weiteren Personen zugewiesen, fragt vorher
-   ein Dialog.
-8. **In To Do (privates Konto, M9) schreibt das Plugin genau eines, nur auf einen Klick:**
-   abschließen (`status: completed`). Kein Listenwechsel. Steht die Aufgabe in einer geteilten Liste,
-   fragt vorher ein Dialog. `If-Match` erst, wenn M9.0 zeigt, dass To Do es beachtet.
+1. **The calendar is the truth for the planning status.** Neither the vault nor `data.json` ever
+   holds a planning date or an event id. No `⏳` write path, not even "just as a hint". Whether a
+   task is planned, `lib/schedule.ts` derives from the loaded calendar on every render.
+2. **The plugin writes exactly two things to the vault, both only on a user action:** a block id
+   at the end of the task line (once, never changed), and on completing it replaces exactly the
+   target line with the output of the Tasks API (one or two lines). Never in the background, never
+   another line, never create, delete or rename a file.
+3. **Every write goes through `app.vault.process()`**, after open editors of the file have been
+   saved. The target line is found in the current content by block id or by unique raw text, never
+   by line number; line endings stay byte-exact. Not found or ambiguous means: abort and report.
+4. **Graph follows the graph-calendar skill**, in both calendars. Never `attendees`. To Do blocks
+   live only in the private calendar, all others only in the work calendar.
+5. **All HTTP calls go through `requestUrl`, never `fetch`**, and only to `login.microsoftonline.com`
+   and `graph.microsoft.com`. No telemetry.
+6. **Tokens never in `data.json`** — it lives in the vault, and a vault sync can carry it along. The
+   refresh tokens live in `app.secretStorage`, each account under its own name (work account, since
+   M9 the personal account). Signing out of, or a failure in, one account leaves the other untouched.
+   Only a click opens the browser ("Sign in" for both accounts, "Open in Planner", a Planner or To Do
+   card), never a timer.
+7. **The plugin writes exactly two things to Planner, both only on a user action:** completing
+   (`percentComplete: 100`) and moving to another bucket. Always with `If-Match`; a 412 is never
+   retried automatically. If the task is assigned to other people too, a dialog asks first.
+8. **The plugin writes exactly one thing to To Do (personal account, M9), only on a click:**
+   completing (`status: completed`). No list change. If the task is in a shared list, a dialog asks
+   first. `If-Match` only once M9.0 shows that To Do honours it.
 
-Die Verknüpfung Task ↔ Termin ist die Extended Property mit dem Wert `<vaultName>|<blockId>`, bei
-Planner-Aufgaben vault-unabhängig `planner:<taskId>`, bei To-Do-Aufgaben `todo:<taskId>` (im
-privaten Kalender).
-Ihre GUID in `src/config.ts` wird **nie** geändert.
+The link task ↔ event is the extended property with the value `<vaultName>|<blockId>`, for Planner
+tasks vault-independent `planner:<taskId>`, for To Do tasks `todo:<taskId>` (in the private
+calendar).
+Its GUID in `src/config.ts` is **never** changed.
 
-## Tasks-Plugin
+## Tasks plugin
 
-- Der Parser (`lib/parseTask.ts`) liest wie Tasks: Felder vom Zeilenende her, hinter den Feldern
-  nur Block-Link und Tags. Ein Link hinter `📅` macht das Datum unsichtbar — in Tasks wie hier.
-- `⏳` wird nur **gelesen**: als Datum der Liste, wo `📅` fehlt (die Importe im Live-Vault haben nur
-  `⏳`). Nie geschrieben und nie der Planungsstatus — der kommt aus dem Kalender (Invariante 1).
-- `[aufwand:: …]` liest das Plugin seit M8 nicht mehr: Jeder Block ist eine Stunde lang. Alte
-  Angaben in den Zeilen blendet `cleanTitle` nur aus Titel und Betreff aus.
-- Quelldateien sind nur `<Ordner>/<Ordner>.md` unter `10_Kunden/` und `20_Intern/`.
-- Ein globaler Filter der Tasks-Einstellungen gehört nach `TASKS_GLOBAL_FILTER` in `src/config.ts`.
-- Erledigen nur über `apiV1.executeToggleTaskDoneCommand` — sie gibt Text zurück und schreibt
-  nichts; ein eigenes Abhaken würde bei `🔁` die Folgeaufgabe verlieren.
+- The parser (`lib/parseTask.ts`) reads like Tasks: fields from the end of the line, behind the
+  fields only a block link and tags. A link behind `📅` makes the date invisible — in Tasks as here.
+- `⏳` is only **read**: as the list's date where `📅` is missing (the imports in the live vault only
+  have `⏳`). Never written and never the planning status — that comes from the calendar
+  (Invariant 1).
+- Since M8 the plugin no longer reads `[aufwand:: …]`: every block is one hour long. `cleanTitle`
+  only hides old values in the lines from title and subject.
+- Source files are only `<Folder>/<Folder>.md` below `10_Kunden/` and `20_Intern/`.
+- A global filter in the Tasks settings belongs in `TASKS_GLOBAL_FILTER` in `src/config.ts`.
+- Completing only through `apiV1.executeToggleTaskDoneCommand` — it returns text and writes
+  nothing; a home-made toggle would lose the next occurrence for `🔁`.
 
-## Nebenläufigkeit
+## Concurrency
 
-`lib/readGate.ts` besitzt die Regeln für den Kalender, `lib/remoteSource.ts` dieselben für Planner und
-To Do (neuester Lesevorgang zählt, Schreibmarke bis zu einem anderen etag). Für den Kalender: nur die
-Antwort des zuletzt gestarteten Lesevorgangs zählt,
-während einer Geste (Ziehen, Größe ändern, PATCH) wird nichts angewendet, und „Wird gespeichert…"
-endet erst nach dem ersten Lesevorgang, der nach dem POST gestartet wurde. `droppable` sperrt
-externe Drops in FullCalendar 6.1.21 **nicht** — das Tor ist `eventAllow`. `eventDragMinDistance`
-bleibt 0: Mit Schwelle öffnet die Geste zu spät, und ein Lesevorgang dazwischen erzeugt einen
-Geister-Block.
+`lib/readGate.ts` owns the rules for the calendar, `lib/remoteSource.ts` the same for Planner and
+To Do (the newest read counts, write mark until a different etag). For the calendar: only the
+answer of the most recently started read counts, during a gesture (drag, resize, PATCH) nothing is
+applied, and "Saving…" ends only after the first read that was started after the POST. `droppable`
+does **not** block external drops in FullCalendar 6.1.21 — the gate is `eventAllow`.
+`eventDragMinDistance` stays 0: with a threshold the gesture opens too late, and a read in between
+creates a ghost block.
 
-## Code-Standards
+## Code standards
 
-- Die kleinste Lösung, die das Problem löst. Keine Abstraktionen für Einmalcode, keine
-  Konfigurierbarkeit auf Vorrat.
-- TypeScript strict, kein `any` — `unknown` plus Einengung an den Rändern. `import type` für
-  reine Typ-Importe (`verbatimModuleSyntax`).
-- Reine Logik gehört nach `src/lib/` und hat Tests; `src/lib/` importiert nie `obsidian`.
-- Kein `console.log`, kein `alert()`, kein `confirm()`. Rückmeldung über `Notice`, Bestätigung
-  über ein `Modal`, das die Sache beim Namen nennt.
-- FullCalendar bleibt exakt auf 6.1.21 (v7 hat andere Pakete und kein automatisches CSS).
-- **Kein Feld und keine Methode einer von Obsidian abgeleiteten Klasse (`View`, `Modal`,
-  `PluginSettingTab`) darf wie ein internes Mitglied heißen** (`open`, `close`, `load`, `unload` …).
-  Diese Klassen haben Mitglieder, die in `obsidian.d.ts` fehlen; ein gleichnamiges ersetzt sie still,
-  `tsc` merkt nichts. So hat `open(task)` einmal das Öffnen der Ansicht verhindert: weiße Seite.
-  Eigene Namen tragen deshalb ihren Zweck (`openCard`, `probeReport`, `stopListening`).
-- **Bezeichner, Kommentare, Skills, Commit-Nachrichten: Englisch. Oberflächentexte, diese Datei,
-  `README.md`, `docs/` und Antworten an den Nutzer: Deutsch.** Jede Datei bleibt beim Bearbeiten in
-  ihrer Sprache; nie nebenbei übersetzen.
-- Jeder Commit ist potenziell lesbar: keine echten Kundennamen, keine Tenant- oder Client-IDs,
-  keine Zugangsdaten. Der Testvault nutzt neutrale Namen.
+- The smallest solution that solves the problem. No abstractions for one-off code, no
+  configurability in advance.
+- TypeScript strict, no `any` — `unknown` plus narrowing at the edges. `import type` for pure type
+  imports (`verbatimModuleSyntax`).
+- Pure logic belongs in `src/lib/` and has tests; `src/lib/` never imports `obsidian`.
+- No `console.log`, no `alert()`, no `confirm()`. Feedback via `Notice`, confirmation via a
+  `Modal` that names the thing.
+- FullCalendar stays at exactly 6.1.21 (v7 has different packages and no automatic CSS).
+- **No field or method of a class derived from Obsidian (`View`, `Modal`, `PluginSettingTab`) may
+  be named like an internal member** (`open`, `close`, `load`, `unload` …). These classes have
+  members that `obsidian.d.ts` lacks; one with the same name silently replaces them, `tsc` notices
+  nothing. That is how `open(task)` once kept the view from opening: a white page. Own names
+  therefore carry their purpose (`openCard`, `probeReport`, `stopListening`).
+- **The repository is public and English throughout:** identifiers, comments, UI texts, tests,
+  docs, skills, commit messages. Replies to Daniel stay German. German stays only where it is data
+  from the live vault or from To Do: the folders `10_Kunden/` and `20_Intern/`, the field
+  `[aufwand:: …]`, the label `junis intern`, the titles of the M9.0 probe tasks.
+- Every commit is public: no real customer names, no tenant or client ids, no credentials. The test
+  vault uses neutral names.
 
-## UX-Regeln
+## UX rules
 
-1. **Ladezustände sind Pflicht.** Graph braucht 2–10 s: Ladehinweis, nie eine leere Fläche.
-2. **Fehler in Klartext** mit einer Handlung (`lib/errors.ts`), nie rohes Graph- oder AADSTS-JSON.
-3. **Zerstörende Aktionen brauchen einen echten Dialog** mit dem Namen der Sache.
-4. **Kalender nicht bereit → Status unbekannt:** keine Statuszeilen, kein Drop, Banner.
+1. **Loading states are mandatory.** Graph takes 2–10 s: a loading hint, never an empty area.
+2. **Errors in plain language** with an action (`lib/errors.ts`), never raw Graph or AADSTS JSON.
+3. **Destructive actions need a real dialog** naming the thing.
+4. **Calendar not ready → status unknown:** no status lines, no drop, a banner.
 
-## Commit-Stil und Reviews
+## Commit style and reviews
 
-Conventional Commits. Vor einem mehrdateiigen Commit `/ponytail-review`, jeden Fund mit Daniel
-entscheiden, dann `/code-review`. Keiner ersetzt den anderen: ponytail-review sucht keine Fehler.
-Die Stufe richtet sich danach, was ein Fehler kostet, nicht nach der Größe des Diffs:
+Conventional Commits. Before a multi-file commit `/ponytail-review`, decide every finding with
+Daniel, then `/code-review`. Neither replaces the other: ponytail-review does not look for bugs.
+The level depends on what a bug costs, not on the size of the diff:
 
-- **high** — alles, was schreibt: Outlook-Termine, die zwei Vault-, die zwei Planner- und der
-  To-Do-Schreibvorgang, Anmeldung
-- **medium** — Graph-Lesepfad (Kalender, Planner, To Do), Task-Index
-- **low** — reine UI
+- **high** — everything that writes: Outlook events, the two vault, the two Planner and the To Do
+  write, sign-in
+- **medium** — Graph read path (calendar, Planner, To Do), task index
+- **low** — pure UI
 
-Berührt ein Diff mehrere Stufen, gilt die höchste. `/code-review` entfällt nur bei Doku- oder
-Tippfehler-Diffs.
+If a diff touches several levels, the highest applies. `/code-review` is skipped only for docs or
+typo diffs.
 
-Nach einer für den Nutzer sichtbaren Änderung: die manuellen Checks aus der Tabelle des
-Meilensteins nennen, die diese Änderung braucht, und was jeder beweist, also nur, was
-Automatisierung nicht beweist. Deckt das Gate die Änderung ganz ab (Umbenennung, reiner Refactor),
-das in einer Zeile sagen, statt Schritte zu erfinden.
+After a change the user can see: name the manual checks from the milestone's table that this
+change needs, and what each one proves — only what automation does not prove. If the gate covers
+the change completely (a rename, a pure refactor), say so in one line instead of inventing steps.
 
-## Learning Loop
+## Learning loop
 
-Zeigt eine Sitzung, dass eine Behauptung hier, im Plan oder im Skill falsch war, wird sie in
-derselben Sitzung korrigiert — am kanonischen Ort. Neue Graph-Erkenntnisse gehören in den
-graph-calendar-Skill, mit ihrem Beleg („live geprüft", „dokumentiert", „abgeleitet"). Wohin alles
-andere gehört, regelt der `retro`-Skill. Ein falsches Dokument ist schlimmer als keines.
+If a session shows that a claim here, in the plan or in a skill was wrong, it is corrected in the
+same session — at the canonical place. New Graph findings belong in the graph-calendar skill, with
+their evidence ("verified live", "documented", "derived"). Where everything else goes is up to the
+`retro` skill. A wrong document is worse than none.

@@ -1,6 +1,6 @@
 ---
 name: invariant-reviewer
-description: Read-only audit of the Vault Planner's safety invariants — where tokens live, which hosts get a request, the two vault writes, the two Planner writes and the Outlook write path. Use before the plugin goes into the live vault (umsetzungsplan M5, step 4), after changes to src/auth.ts, src/lib/oauth.ts, src/graph.ts, src/lib/graphRequests.ts, src/vault.ts, src/lib/taskLine.ts or the drop and menu handlers in src/view.ts, and when asked for a security or safety review. Reports findings by severity and changes nothing.
+description: Read-only audit of the Vault Planner's safety invariants — where tokens live, which hosts get a request, the two vault writes, the two Planner writes and the Outlook write path. Use before the plugin goes into the live vault (implementation plan M5, step 4), after changes to src/auth.ts, src/lib/oauth.ts, src/graph.ts, src/lib/graphRequests.ts, src/vault.ts, src/lib/taskLine.ts or the drop and menu handlers in src/view.ts, and when asked for a security or safety review. Reports findings by severity and changes nothing.
 tools: Read, Glob, Grep, Bash
 ---
 
@@ -17,10 +17,10 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
 
 ## Authority (read first)
 
-- `CLAUDE.md` — "Invarianten" 1–7, "Tasks-Plugin", "Nebenläufigkeit", "UX-Regeln". The rules
+- `CLAUDE.md` — "Invariants" 1–8, "Tasks plugin", "Concurrency", "UX rules". The rules
   live there; cite them by number instead of restating them.
 - `.claude/skills/graph-calendar/SKILL.md` — "Writing" and "The task link".
-- `docs/umsetzungsplan.md` — "Bewusst nicht enthalten" and "Offen, nicht blockierend". A gap
+- `docs/implementation-plan.md` — "Deliberately left out" and "Open, not blocking". A gap
   recorded there with a reason is not a new finding; say so and move on.
 
 ## Tokens and sign-in (`src/auth.ts`, `src/lib/oauth.ts`, `src/main.ts`)
@@ -32,7 +32,7 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
       touches the other
 - [ ] `state` is checked before the code is exchanged; PKCE uses S256; a redirect without a
       pending sign-in changes nothing
-- [ ] `window.open` is reachable only from a click — the two sign-in buttons, "In Planner öffnen",
+- [ ] `window.open` is reachable only from a click — the two sign-in buttons, "Open in Planner",
       a Planner or To Do card;
       trace every caller. No timer, no 401 path, no failed refresh opens the browser (Invariant 6)
 - [ ] A refresh still in flight after sign-out or a new sign-in neither stores its token nor
@@ -54,7 +54,7 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
       with the Planner switch on, `Tasks.ReadWrite`; the personal scope (M9, `consumers`) for nothing
       beyond `Tasks.ReadWrite` and `Calendars.ReadWrite` (plus the OIDC scopes each). The personal
       token goes to `graph.microsoft.com` only, its token requests to `LOGIN_BASE/consumers`
-- [ ] Nothing reads the personal account while the "To Do (privat)" switch is off
+- [ ] Nothing reads the personal account while the "To Do (personal)" switch is off
 
 ## Outlook writes (`src/graph.ts`, `src/lib/graphRequests.ts`, `src/view.ts`)
 
@@ -86,7 +86,7 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
       and nothing else, through the PERSONAL account's Graph client (`todoGraph`) only
 - [ ] It follows a click on a To Do card; a task in a shared list asks in a `Modal` first
 - [ ] `If-Match` only once the M9.0 report says To Do honours it; no automatic retry either way
-- [ ] Nothing reads or writes the personal account while the "To Do (privat)" switch is off
+- [ ] Nothing reads or writes the personal account while the "To Do (personal)" switch is off
 
 ## Vault writes (`src/vault.ts`, `src/lib/taskLine.ts`, Invariants 2–3)
 

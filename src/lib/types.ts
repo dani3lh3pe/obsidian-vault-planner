@@ -56,8 +56,8 @@ export interface VaultTask {
   blockId: string | null;
   isWaiting: boolean;
   isRecurring: boolean;
-  kunde: string;
-  projekt: string | null;
+  customer: string;
+  project: string | null;
 }
 
 /**
@@ -79,9 +79,9 @@ export interface PlannerTask {
   due: string | null;
   scheduled: null;
   isWaiting: false;
-  kunde: string;
+  customer: string;
   /** The plan's title, or null while it is unknown. */
-  projekt: string | null;
+  project: string | null;
   /**
    * How many OTHER people the task is assigned to: completing it closes it for them too. null when
    * the assignments could not be read — treated as shared, never as "only me".
@@ -97,7 +97,7 @@ export interface TodoTask {
   source: "todo";
   id: string;
   listId: string;
-  /** From the last read. Sent as If-Match only once M9.0 shows To Do honours it (spec Nr. 29). */
+  /** From the last read. Sent as If-Match only once M9.0 shows To Do honours it (spec no. 29). */
   etag: string | null;
   /** The title. */
   description: string;
@@ -106,12 +106,12 @@ export interface TodoTask {
   priority: Priority;
   due: string | null;
   scheduled: null;
-  /** waitingOnOthers and deferred: nothing to plan today (spec Nr. 10). */
+  /** waitingOnOthers and deferred: nothing to plan today (spec no. 10). */
   isWaiting: boolean;
   isRecurring: boolean;
-  kunde: string;
+  customer: string;
   /** The list's name. */
-  projekt: string;
+  project: string;
   /** A shared list: completing closes the task for everyone, so a dialog asks first. */
   shared: boolean;
 }
@@ -132,6 +132,6 @@ export interface Block {
 
 /** Derived on every render from the calendar — never stored. */
 export type PlanStatus =
-  | { kind: "geplant"; next: Block }
-  | { kind: "abgelaufen"; last: Block }
-  | { kind: "ungeplant" };
+  | { kind: "planned"; next: Block }
+  | { kind: "past"; last: Block }
+  | { kind: "unplanned" };

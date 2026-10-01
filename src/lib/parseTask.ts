@@ -140,17 +140,17 @@ export function parseTaskLine(line: string, globalFilter: string = TASKS_GLOBAL_
 /**
  * Which customer and project a file belongs to — or null when it is not a task source.
  * A source is any `<Folder>/<Folder>.md` below 10_Kunden/ or 20_Intern/. Meeting notes, OneDrive
- * conflict copies ("Projekt-DESKTOP.md") and everything else stay out.
+ * conflict copies ("Project-DESKTOP.md") and everything else stay out.
  */
-export function taskSource(path: string): { kunde: string; projekt: string | null } | null {
+export function taskSource(path: string): { customer: string; project: string | null } | null {
   const parts = path.split("/");
   const file = parts[parts.length - 1];
   if (parts.length < 3 || !file.endsWith(".md")) return null;
   const folder = parts[parts.length - 2];
   if (file.slice(0, -3) !== folder) return null;
 
-  if (parts[0] === CUSTOMER_ROOT) return { kunde: parts[1], projekt: parts.length === 3 ? null : folder };
-  if (parts[0] === INTERN_ROOT) return { kunde: INTERN_LABEL, projekt: folder };
+  if (parts[0] === CUSTOMER_ROOT) return { customer: parts[1], project: parts.length === 3 ? null : folder };
+  if (parts[0] === INTERN_ROOT) return { customer: INTERN_LABEL, project: folder };
   return null;
 }
 

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { mapTodoTasks, readTodoLists, todoDue, todoPriority, todoStatus, todoWebUrl } from "./todo";
 
-const LIST = { id: "L1", name: "Privat", shared: false };
+const LIST = { id: "L1", name: "Personal", shared: false };
 
 const entry = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
   "@odata.etag": 'W/"xzyPKP0BiUGgld+lMKXwbQ=="',
   id: "AAMkT1",
-  title: "Reifen wechseln",
+  title: "Change the tyres",
   status: "notStarted",
   importance: "normal",
   ...overrides,
@@ -15,14 +15,14 @@ const entry = (overrides: Record<string, unknown> = {}): Record<string, unknown>
 describe("readTodoLists", () => {
   it("keeps every list but flagged emails, with its name and whether it is shared", () => {
     const lists = readTodoLists([
-      { id: "L1", displayName: "Aufgaben", wellknownListName: "defaultList", isShared: false },
+      { id: "L1", displayName: "Tasks", wellknownListName: "defaultList", isShared: false },
       { id: "L2", displayName: "Gekennzeichnete E-Mail", wellknownListName: "flaggedEmails" },
-      { id: "L3", displayName: "Familie", wellknownListName: "none", isShared: true },
-      { displayName: "ohne id" },
+      { id: "L3", displayName: "Family", wellknownListName: "none", isShared: true },
+      { displayName: "no id" },
     ]);
     expect(lists).toEqual([
-      { id: "L1", name: "Aufgaben", shared: false },
-      { id: "L3", name: "Familie", shared: true },
+      { id: "L1", name: "Tasks", shared: false },
+      { id: "L3", name: "Family", shared: true },
     ]);
   });
 
@@ -72,14 +72,14 @@ describe("mapTodoTasks", () => {
       source: "todo",
       id: "AAMkT1",
       listId: "L1",
-      description: "Reifen wechseln",
+      description: "Change the tyres",
       status: "/",
       priority: "high",
       due: "2026-10-01",
       isWaiting: false,
       isRecurring: false,
-      kunde: "To Do",
-      projekt: "Privat",
+      customer: "To Do",
+      project: "Personal",
       shared: false,
     });
   });
@@ -94,8 +94,8 @@ describe("mapTodoTasks", () => {
     ]);
     expect(droppedCount).toBe(2);
     expect(tasks.map((task) => [task.id, task.isRecurring, task.etag, task.description])).toEqual([
-      ["R", true, 'W/"xzyPKP0BiUGgld+lMKXwbQ=="', "Reifen wechseln"],
-      ["E", false, null, "(ohne Titel)"],
+      ["R", true, 'W/"xzyPKP0BiUGgld+lMKXwbQ=="', "Change the tyres"],
+      ["E", false, null, "(untitled)"],
     ]);
   });
 });

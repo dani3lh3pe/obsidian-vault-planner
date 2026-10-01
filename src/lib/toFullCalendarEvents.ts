@@ -41,7 +41,7 @@ function classesOf(
     if (plannerIdOf(blockId) !== null) return [...block, "vp-source-planner"];
     return todoIdOf(blockId) !== null ? [...block, "vp-source-todo"] : block;
   }
-  // The private calendar: one colour of its own, never the work account's categories (spec Nr. 45).
+  // The private calendar: one colour of its own, never the work account's categories (spec no. 45).
   const preset =
     calendar === "private" ? undefined : event.categories.map((name) => categoryColors.get(name)).find((value) => value !== undefined);
   return [

@@ -48,7 +48,7 @@ function errorBody(value: unknown): GraphErrorResponse | null {
 export class Graph {
   /** Plan titles for the session: they rarely change, and each is one request per plan. */
   private readonly planTitles = new Map<string, string>();
-  /** Graph refused To Do's status filter once: do not ask again every minute (spec Nr. 37). */
+  /** Graph refused To Do's status filter once: do not ask again every minute (spec no. 37). */
   private todoFilterRejected = false;
 
   constructor(private readonly auth: Auth) {}
@@ -60,7 +60,7 @@ export class Graph {
     body?: unknown,
     headers: Record<string, string> = IMMUTABLE_ID_HEADER,
   ): Promise<unknown> {
-    if (!isGraphUrl(url)) throw new Error("Graph hat auf eine fremde Adresse verwiesen. Die Anfrage wurde nicht gesendet.");
+    if (!isGraphUrl(url)) throw new Error("Graph pointed to a foreign address. The request was not sent.");
     const attempt = async (token: string) =>
       withTimeout(
         requestUrl({
@@ -140,7 +140,7 @@ export class Graph {
     await Promise.allSettled(planIds.flatMap((planId) => [readPlan(planId), readPlanBuckets(planId)]));
 
     return {
-      tasks: tasks.map((task) => ({ ...task, projekt: this.planTitles.get(task.planId) ?? null })),
+      tasks: tasks.map((task) => ({ ...task, project: this.planTitles.get(task.planId) ?? null })),
       buckets,
       droppedCount,
       truncated,
@@ -198,7 +198,7 @@ export class Graph {
         if (!(error instanceof GraphApiError)) throw error;
         // Deleted between the list read and this one: gone from the next read, nothing to report.
         if (error.status === 404) continue;
-        // ponytail: the status filter is undocumented (spec Nr. 37); unfiltered, a long history can hit
+        // ponytail: the status filter is undocumented (spec no. 37); unfiltered, a long history can hit
         // the page limit. Drop this fallback once M9.0 shows the filter works.
         if (error.status !== 400 || this.todoFilterRejected) throw error;
         this.todoFilterRejected = true;

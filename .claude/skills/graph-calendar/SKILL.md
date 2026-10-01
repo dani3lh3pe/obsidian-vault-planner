@@ -1,6 +1,6 @@
 ---
 name: graph-calendar
-description: Microsoft Graph calendar rules for the Vault Planner plugin — UTC-only reads, wall-clock writes, immutable ids, server-side series expansion, all-day and showAs handling, and the extended property that links an Outlook block to a task line. Use BEFORE touching src/graph.ts, src/lib/graphRequests.ts, src/lib/mapGraphEvents.ts, src/lib/time.ts or src/lib/schedule.ts, before adding any /me/events or /me/calendarView call, header or $select field, and whenever a block lands an hour off, a block is not recognised as our own, a task shows as unplanned although it has a block, or Outlook sends invitations nobody asked for — in German too: "der Termin liegt eine Stunde daneben", "der Block wird nicht wiedererkannt", "warum ist die Aufgabe ungeplant", "Outlook verschickt Einladungen". Do not rely on memory — several of these contradict the obvious reading of the Microsoft docs. Not for FullCalendar dragging or rendering (that is src/view.ts), and not for sign-in or redirect problems (that is README.md, "Anmeldung").
+description: Microsoft Graph calendar rules for the Vault Planner plugin — UTC-only reads, wall-clock writes, immutable ids, server-side series expansion, all-day and showAs handling, and the extended property that links an Outlook block to a task line. Use BEFORE touching src/graph.ts, src/lib/graphRequests.ts, src/lib/mapGraphEvents.ts, src/lib/time.ts or src/lib/schedule.ts, before adding any /me/events or /me/calendarView call, header or $select field, and whenever a block lands an hour off, a block is not recognised as our own, a task shows as unplanned although it has a block, or Outlook sends invitations nobody asked for — in German too: "der Termin liegt eine Stunde daneben", "der Block wird nicht wiedererkannt", "warum ist die Aufgabe ungeplant", "Outlook verschickt Einladungen". Do not rely on memory — several of these contradict the obvious reading of the Microsoft docs. Not for FullCalendar dragging or rendering (that is src/view.ts), and not for sign-in or redirect problems (that is README.md, "Sign in").
 ---
 
 # Graph Calendar
@@ -93,7 +93,7 @@ A block is ours when it carries the single-value extended property
 
 - **The vault name is part of the value** because the test vault and the live vault share one
   calendar. Another vault's block is a foreign meeting.
-- **A Planner task's block carries `planner:<taskId>`, with NO vault name** (umsetzungsplan M6): the
+- **A Planner task's block carries `planner:<taskId>`, with NO vault name** (implementation plan M6): the
   task is the same in every vault, and the vaults share one calendar. Block ids are `[a-zA-Z0-9-]`
   and a Windows folder name cannot hold `:`, so it never reads as `<vaultName>|<blockId>`. Planner requests do NOT get the
   `Prefer: IdType` header — it is the calendar's; the Planner facts live in the plan's M6.
@@ -105,7 +105,7 @@ A block is ours when it carries the single-value extended property
 - **The POST response does not contain the property** (documented). The next read shows it.
 - **`$expand` on calendarView:** documented only for single events; a Microsoft employee confirms
   it for calendarView (Q&A 462964); one report says the property vanishes when combined with
-  `$select` (Q&A 1180665). **Not verified here yet — umsetzungsplan M1.0.** If it vanishes only
+  `$select` (Q&A 1180665). **Not verified here yet — implementation plan M1.0.** If it vanishes only
   with `$select`, drop `$select` (two weeks of events is a small payload). Record the result
   in this section with the date.
 - `mapGraphEvents` takes the **first** expanded property's value and does not compare its id:
@@ -128,7 +128,7 @@ POST /me/events            // Prefer: IdType="ImmutableId"
 - **Windows zone name on the write path**, not `Europe/Berlin`: the create docs warn that methods
   "might not support all" zones.
 - **`transactionId`** guards a POST that the transport re-sends. It does NOT stop a second drop —
-  every drop is a new transaction; the "Wird gespeichert…" marker (`lib/readGate.ts`) does that.
+  every drop is a new transaction; the "Saving…" marker (`lib/readGate.ts`) does that.
 - **`isReminderOn: false`** — a self-blocker that beeps is noise.
 - **No `categories`** — the user had the category removed in the web app.
 
@@ -137,7 +137,7 @@ matters here: the plugin keeps event ids only from one read to the next write, a
 property.
 
 `DELETE /me/events/{id}`: **a 404 counts as success** (documented). Plugin-path check:
-umsetzungsplan M4.4.
+implementation plan M4.4.
 
 `encodeURIComponent` the id in the path — base64-ish, can carry `=` and `/`.
 
@@ -192,8 +192,8 @@ planned) and can be moved — for recurring To Dos too.
 | `/me/events` for reading | Client-side series expansion, exceptions, cancellations |
 | Delta query, webhooks | A two-week read is small and always correct; no public endpoint |
 | `categories` or a subject prefix as the marker | The user can strip them; the property they cannot |
-| Retry/backoff on 429 | One user: a notice and "Erneut versuchen" are more honest than a hidden wait |
-| Mirroring the plan into the vault (`⏳`, a sync service, an event cache) | A second store drifts; see CLAUDE.md, "Invarianten" |
+| Retry/backoff on 429 | One user: a notice and "Retry" are more honest than a hidden wait |
+| Mirroring the plan into the vault (`⏳`, a sync service, an event cache) | A second store drifts; see CLAUDE.md, "Invariants" |
 
 ## Where the code is
 

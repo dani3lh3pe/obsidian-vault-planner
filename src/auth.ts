@@ -157,7 +157,7 @@ export class Auth {
       );
       return tokens.accessToken;
     } catch (error) {
-      // Also the missing consent after switching Planner on (AADSTS65001): "Anmelden" asks for it.
+      // Also the missing consent after switching Planner on (AADSTS65001): "Sign in" asks for it.
       const expired = error instanceof AuthError && (error.code === "invalid_grant" || error.code === "interaction_required");
       // A refresh for a scope the switch has left since must not end the session of the new one.
       if (expired && generation === this.generation && scope === this.scope()) this.forget();

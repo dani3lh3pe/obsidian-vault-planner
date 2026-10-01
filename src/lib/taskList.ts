@@ -7,7 +7,7 @@ import type { AnyTask, PlanStatus } from "./types";
 export interface ListOptions {
   search: string;
   /** null = all customers. */
-  kunde: string | null;
+  customer: string | null;
   onlyUnplanned: boolean;
 }
 
@@ -16,7 +16,7 @@ export interface ListModel {
   /** WAITING tasks: their own group, collapsed at the end — waiting is not something to plan. */
   waiting: AnyTask[];
   /** Every customer with an open task, for the dropdown — independent of the filters. */
-  kunden: string[];
+  customers: string[];
   openCount: number;
   shownCount: number;
 }
@@ -27,7 +27,7 @@ export function isOpen(task: Pick<AnyTask, "status">): boolean {
 
 /**
  * The planning list. `statusOf` is null while the calendar is not ready: the status is unknown
- * then, and "nur ungeplante" must not claim anything (the view disables the box too).
+ * then, and "unplanned only" must not claim anything (the view disables the box too).
  */
 export function buildList(
   tasks: readonly AnyTask[],
@@ -40,24 +40,24 @@ export function buildList(
   const dateOf = (task: AnyTask): string | null => {
     const own = listDate(task);
     const plan = statusOf?.(task);
-    if (plan?.kind !== "geplant") return own;
+    if (plan?.kind !== "planned") return own;
     // Not before today: a block still running past midnight started "yesterday".
     const start = plannerDay(plan.next.start);
     const day = start < today ? today : start;
     return own === null || day < own ? day : own;
   };
   const open = tasks.filter(isOpen);
-  const kunden = [...new Set(open.map((task) => task.kunde))].sort((a, b) => a.localeCompare(b, "de"));
+  const customers = [...new Set(open.map((task) => task.customer))].sort((a, b) => a.localeCompare(b, "de"));
   const needle = options.search.trim().toLocaleLowerCase("de");
 
   const visible = open
     .filter((task) => {
-      if (options.kunde !== null && task.kunde !== options.kunde) return false;
+      if (options.customer !== null && task.customer !== options.customer) return false;
       if (needle !== "") {
-        const haystack = [cleanTitle(task.description), task.kunde, task.projekt ?? ""];
+        const haystack = [cleanTitle(task.description), task.customer, task.project ?? ""];
         if (!haystack.some((text) => text.toLocaleLowerCase("de").includes(needle))) return false;
       }
-      if (options.onlyUnplanned && statusOf !== null && statusOf(task).kind === "geplant") return false;
+      if (options.onlyUnplanned && statusOf !== null && statusOf(task).kind === "planned") return false;
       return true;
     })
     .sort((a, b) => compareTasks(a, b, dateOf));
@@ -68,5 +68,5 @@ export function buildList(
     if (task.isWaiting) waiting.push(task);
     else groups[GROUP_ORDER.indexOf(groupOf(dateOf(task), today))].tasks.push(task);
   }
-  return { groups, waiting, kunden, openCount: open.length, shownCount: visible.length };
+  return { groups, waiting, customers, openCount: open.length, shownCount: visible.length };
 }
