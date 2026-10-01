@@ -46,6 +46,10 @@ Prefer: IdType="ImmutableId"
   selectable on calendarView; expect a 400.
 - **The `Prefer` header is per request** — documented. `graph.ts` sets it on every call.
 - `MAX_EVENT_PAGES = 10` is a hard stop against a broken nextLink loop.
+- **At most four requests at once per mailbox** — documented Outlook limit per app id and
+  mailbox; a fifth is a 429. Read a mailbox's collections one after another, never `Promise.all`
+  over them. The work calendar and its categories share the work mailbox, the private calendar and
+  To Do the personal one.
 
 ### Do NOT send `Prefer: outlook.timezone`
 
@@ -166,6 +170,16 @@ MailboxSettings.Read went through.
 
 **Verified live in the plugin, 2026-09-30:** `$expand` of the task property together with
 `$select` returns the value (M1.0) — booked blocks come back filled, with the task icon, as our own.
+
+**Documented by Microsoft (throttling-limits, "Outlook service limits"):** four concurrent
+requests and 10,000 per 10 minutes, per app id and mailbox; the list covers events and
+outlookCategory. To Do's `todoTask` is not listed — that it counts against the same mailbox is
+derived. **Live 2026-10-01:** reading every To Do list in parallel beside the private calendar drew
+a 429 on the personal account. Not yet verified live that reading them one after another ends it.
+
+**Verified live in the plugin, 2026-10-01 (M9.1b):** in the personal account's calendar
+(outlook.com) a To Do block is created, comes back carrying `todo:<taskId>` (the card shows it as
+planned) and can be moved — for recurring To Dos too.
 
 **Open, to verify live:** a categorized meeting actually tinted, i.e. masterCategories readable
 (M7).

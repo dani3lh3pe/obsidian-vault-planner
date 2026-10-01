@@ -1023,9 +1023,12 @@ versioniert).
   Lesen der Liste mit. Der Probe-Bericht zu `If-Match`, Wiederholung beim Abschließen und Filter
   fehlt noch.
 - **M9.1a (To Do in der Liste):** als Code fertig (2026-09-30), auf Windows noch ungeprüft.
-- **M9.1b (privater Kalender):** als Code fertig (2026-10-01), auf Windows noch ungeprüft. Daniel hat
-  freigegeben, ohne den Probe-Bericht abzuwarten: Das erste Einplanen in den privaten Kalender ist
-  zugleich die Probe für die Property dort.
+- **M9.1b (privater Kalender):** als Code fertig (2026-10-01). Daniel hat freigegeben, ohne den
+  Probe-Bericht abzuwarten. **Live geprüft (2026-10-01):** Einplanen in den privaten Kalender, auch
+  von Serien-To-Dos, und Verschieben funktionieren; die Property kommt dort zurück. Dabei stand das
+  Banner „Privates Konto: Zu viele Anfragen": Alle Listen parallel neben dem privaten Kalender
+  überschreiten die vier gleichzeitigen Anfragen, die Outlook je App und Postfach erlaubt. Seitdem
+  liest `readTodo` die Listen nacheinander; dass das Banner weg ist, ist noch ungeprüft.
 
 **Verifikation M9.1b** (manuell):
 

@@ -181,29 +181,29 @@ export class Graph {
   }
 
   /**
-   * The personal account's open To Do tasks, every list but flagged emails, read in parallel. A
-   * failing list fails the read: the view keeps the last good one and says so.
+   * The personal account's open To Do tasks, every list but flagged emails. A failing list fails
+   * the read: the view keeps the last good one and says so.
    */
   async readTodo(): Promise<TodoSnapshot> {
     const listsRead = await this.readTodoLists();
-    const reads = await Promise.all(
-      readTodoLists(listsRead.raw).map(async (list) => {
-        try {
-          return { list, read: await this.readTodoTasks(list.id, !this.todoFilterRejected) };
-        } catch (error) {
-          if (!(error instanceof GraphApiError)) throw error;
-          // Deleted between the list read and this one: gone from the next read, nothing to report.
-          if (error.status === 404) return { list, read: { raw: [], truncated: false } };
-          // ponytail: the status filter is undocumented (spec Nr. 37); unfiltered, a long history can hit
-          // the page limit. Drop this fallback once M9.0 shows the filter works.
-          if (error.status !== 400 || this.todoFilterRejected) throw error;
-          this.todoFilterRejected = true;
-          return { list, read: await this.readTodoTasks(list.id) };
-        }
-      }),
-    );
     const snapshot: TodoSnapshot = { tasks: [], droppedCount: 0, truncated: listsRead.truncated };
-    for (const { list, read } of reads) {
+    // One list after another: Outlook allows four concurrent requests per app and mailbox, and the
+    // private calendar reads alongside. With all lists at once, the live read drew a 429 (M9.1b).
+    // ponytail: one round trip per list; a $batch of four if many lists make the read slow.
+    for (const list of readTodoLists(listsRead.raw)) {
+      let read: { raw: unknown[]; truncated: boolean };
+      try {
+        read = await this.readTodoTasks(list.id, !this.todoFilterRejected);
+      } catch (error) {
+        if (!(error instanceof GraphApiError)) throw error;
+        // Deleted between the list read and this one: gone from the next read, nothing to report.
+        if (error.status === 404) continue;
+        // ponytail: the status filter is undocumented (spec Nr. 37); unfiltered, a long history can hit
+        // the page limit. Drop this fallback once M9.0 shows the filter works.
+        if (error.status !== 400 || this.todoFilterRejected) throw error;
+        this.todoFilterRejected = true;
+        read = await this.readTodoTasks(list.id);
+      }
       const mapped = mapTodoTasks(list, read.raw);
       snapshot.tasks.push(...mapped.tasks);
       snapshot.droppedCount += mapped.droppedCount;
