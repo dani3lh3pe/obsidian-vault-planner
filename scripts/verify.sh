@@ -6,7 +6,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT" || exit 0
+cd "$ROOT" || { echo "verify: cannot enter $ROOT" >&2; exit 2; }
 
 if [ "${1:-}" = "--hook" ]; then
   INPUT="$(timeout 1 cat 2>/dev/null || true)"
