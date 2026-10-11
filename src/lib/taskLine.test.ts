@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ensureBlockId, locateLine, newBlockId, replaceLine } from "./taskLine";
+import { ensureBlockId, insertTaskLines, locateLine, newBlockId, newTaskLines, replaceLine } from "./taskLine";
 
 const FILE = ["# Project", "", "## Open tasks", "- [ ] First 📅 2026-09-28", "- [ ] Second ^t-abc123", "Paragraph ^t-zzz999", ""].join("\n");
 
@@ -129,5 +129,97 @@ describe("replaceLine", () => {
     const span = locateLine(text, { raw: "- [ ] Target" });
     if (typeof span === "string") throw new Error(span);
     expect(replaceLine(text, span, "x\ny")).toBe("a\r\nx\r\ny");
+  });
+});
+
+describe("newTaskLines", () => {
+  it("writes the task line and one tab-indented bullet per non-empty info line", () => {
+    expect(newTaskLines("  Call Jörg  ", "Number in the CRM\r\n\n  Ask about the offer  \n", "2026-10-11", "t-new001")).toEqual([
+      "- [ ] Call Jörg ➕ 2026-10-11 ^t-new001",
+      "\t- Number in the CRM",
+      "\t- Ask about the offer",
+    ]);
+  });
+
+  it("never splits the task over two lines", () => {
+    expect(newTaskLines("First\r\n  second", "", "2026-10-11", "t-new001")).toEqual(["- [ ] First second ➕ 2026-10-11 ^t-new001"]);
+  });
+
+  it("drops a bullet typed out of habit, but keeps a typed sub-task", () => {
+    expect(newTaskLines("X", "- Number\n* two\n+ three\n- [ ] Call back\n-", "2026-10-11", "t-new001").slice(1)).toEqual([
+      "\t- Number",
+      "\t- two",
+      "\t- three",
+      "\t- [ ] Call back",
+    ]);
+  });
+
+  it("puts a set global filter in front, or Tasks would not see the line", () => {
+    expect(newTaskLines("Call", "", "2026-10-11", "t-new001", "#task")).toEqual(["- [ ] #task Call ➕ 2026-10-11 ^t-new001"]);
+  });
+});
+
+describe("insertTaskLines", () => {
+  const NEW = ["- [ ] New ➕ 2026-10-11 ^t-new001", "\t- Info"];
+
+  it("goes below the last open top-level task and the lines that belong to it", () => {
+    const text = [
+      "## Open tasks",
+      "- [ ] First",
+      "- [/] Last open, with its lines",
+      "    ```yaml",
+      "    time: 1h",
+      "",
+      "    more: 2h",
+      "    ```",
+      "    - [ ] Sub-task",
+      "- [x] Done",
+      "",
+      "> - [ ] Quoted",
+      "```",
+      "- [ ] Copy in a code block",
+      "```",
+      "",
+    ].join("\n");
+    const expected = text.replace("    - [ ] Sub-task\n", "    - [ ] Sub-task\n- [ ] New ➕ 2026-10-11 ^t-new001\n\t- Info\n");
+    expect(insertTaskLines(text, NEW)).toBe(expected);
+  });
+
+  it("keeps the lines after a blank line that still belong to the task, as Markdown does", () => {
+    const text = "- [ ] A\n    - sub\n\n    - [ ] Deep sub-task\n\n## Next\n";
+    expect(insertTaskLines(text, NEW)).toBe(text.replace("Deep sub-task\n", "Deep sub-task\n- [ ] New ➕ 2026-10-11 ^t-new001\n\t- Info\n"));
+  });
+
+  it("stops at an unindented code block after the task: it is not the task's", () => {
+    const text = "- [ ] A\n```yaml\nmeta: 1\n```\n## Notes\n";
+    expect(insertTaskLines(text, NEW)).toBe(text.replace("- [ ] A\n", "- [ ] A\n- [ ] New ➕ 2026-10-11 ^t-new001\n\t- Info\n"));
+  });
+
+  it("takes the anchor line's own ending in a mixed file", () => {
+    expect(insertTaskLines("# P\r\n- [ ] A\nb\r\n", NEW)).toBe("# P\r\n- [ ] A\n- [ ] New ➕ 2026-10-11 ^t-new001\n\t- Info\nb\r\n");
+  });
+
+  it.each([
+    ["a fence left open under the task", "- [ ] A\n    ```\n    code\n"],
+    ["a fence left open in a note without tasks", "# C\n\n```\ncode\n"],
+    ["a closer the fence rules do not accept", "- [ ] A\n  ```\n  code\n   ```\n- [ ] B\n## H\ntext\n"],
+    ["a fence on a list marker's own line", "- [ ] A\n    - ```bash\n      echo 1\n\n      echo 2\n      ```\n## Notes\n"],
+  ])("refuses %s rather than write into code", (_case, text) => {
+    expect(insertTaskLines(text, NEW)).toBeNull();
+  });
+
+  it("keeps CRLF and a last line without an ending", () => {
+    expect(insertTaskLines("# P\r\n- [ ] Only", NEW)).toBe("# P\r\n- [ ] Only\r\n- [ ] New ➕ 2026-10-11 ^t-new001\r\n\t- Info");
+  });
+
+  it("appends to a note without an open task", () => {
+    expect(insertTaskLines("# Customer\n\n- [x] Done\n", NEW)).toBe("# Customer\n\n- [x] Done\n- [ ] New ➕ 2026-10-11 ^t-new001\n\t- Info\n");
+    expect(insertTaskLines("# Customer\r\nText", NEW)).toBe("# Customer\r\nText\r\n- [ ] New ➕ 2026-10-11 ^t-new001\r\n\t- Info\r\n");
+    expect(insertTaskLines("", NEW)).toBe("- [ ] New ➕ 2026-10-11 ^t-new001\n\t- Info\n");
+  });
+
+  it("never takes a task in a code block as the place", () => {
+    const text = "Intro\n\n```\n- [ ] Copy\n```\n";
+    expect(insertTaskLines(text, NEW)).toBe(`${text}- [ ] New ➕ 2026-10-11 ^t-new001\n\t- Info\n`);
   });
 });

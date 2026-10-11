@@ -1,6 +1,6 @@
 ---
 name: invariant-reviewer
-description: Read-only audit of the Vault Planner's safety invariants — where tokens live, which hosts get a request, the two vault writes, the two Planner writes and the Outlook write path. Use before the plugin goes into the live vault (implementation plan M5, step 4), after changes to src/auth.ts, src/lib/oauth.ts, src/graph.ts, src/lib/graphRequests.ts, src/vault.ts, src/lib/taskLine.ts or the drop and menu handlers in src/view.ts, and when asked for a security or safety review. Reports findings by severity and changes nothing.
+description: Read-only audit of the Vault Planner's safety invariants — where tokens live, which hosts get a request, the three vault writes, the two Planner writes and the Outlook write path. Use before the plugin goes into the live vault (implementation plan M5, step 4), after changes to src/auth.ts, src/lib/oauth.ts, src/graph.ts, src/lib/graphRequests.ts, src/vault.ts, src/lib/taskLine.ts or the drop and menu handlers in src/view.ts, and when asked for a security or safety review. Reports findings by severity and changes nothing.
 tools: Read, Glob, Grep, Bash
 ---
 
@@ -90,10 +90,14 @@ You do NOT write code. You find risks, rank them, and name the fix with file and
 
 ## Vault writes (`src/vault.ts`, `src/lib/taskLine.ts`, Invariants 2–3)
 
-- [ ] Exactly two writers exist: `writeBlockId` and `toggleDone`. Grep `vault.process`,
-      `vault.modify`, `vault.create`, `vault.delete`, `vault.rename`, `adapter.write` — nothing else
-- [ ] Both call `flushEditors` first and find the line in the CURRENT text by block id or unique
-      raw text, never by line number; missing or ambiguous aborts with a Notice
+- [ ] Exactly three writers exist: `writeBlockId`, `toggleDone` and `writeNewTask` (M10). Grep
+      `vault.process`, `vault.modify`, `vault.create`, `vault.delete`, `vault.rename`,
+      `adapter.write` — nothing else
+- [ ] All call `flushEditors` first. The first two find the line in the CURRENT text by block id or
+      unique raw text, never by line number; missing or ambiguous aborts with a Notice
+- [ ] `writeNewTask` only adds lines to a note that exists — never creates one — and computes their
+      place on the current text; it never changes an existing line, and never lands inside a code
+      block
 - [ ] Only the target line changes, its line ending byte-exact; an existing block id is reused,
       never replaced
 - [ ] Completion is only `executeToggleTaskDoneCommand`'s output; without the Tasks API there is

@@ -1,7 +1,7 @@
 import { MarkdownView, TFile, type App, type CachedMetadata, type Plugin } from "obsidian";
-import { EmptyToggleError, LineChangedError, TasksMissingError } from "./lib/errors";
+import { EmptyToggleError, InsideCodeBlockError, LineChangedError, NoteMissingError, TasksMissingError } from "./lib/errors";
 import { parseFileTasks, parseTaskLine } from "./lib/parseTask";
-import { ensureBlockId, locateLine, newBlockId, replaceLine } from "./lib/taskLine";
+import { ensureBlockId, insertTaskLines, locateLine, newBlockId, replaceLine } from "./lib/taskLine";
 import { isOpen } from "./lib/taskList";
 import type { VaultTask } from "./lib/types";
 
@@ -182,6 +182,21 @@ export async function writeBlockId(app: App, task: VaultTask, isTaken: (id: stri
   });
   if (result.blockId === null) throw new LineChangedError();
   return result.blockId;
+}
+
+/**
+ * Vault write #3 (M10): insert a new task's lines into an existing note, from the "New task" form.
+ * Where they go is decided on the current text, like the other two writes; no file is ever created.
+ */
+export async function writeNewTask(app: App, path: string, lines: readonly string[]): Promise<void> {
+  const file = app.vault.getFileByPath(path);
+  if (file === null) throw new NoteMissingError(path);
+  await flushEditors(app, path);
+  await app.vault.process(file, (text) => {
+    const next = insertTaskLines(text, lines);
+    if (next === null) throw new InsideCodeBlockError(path);
+    return next;
+  });
 }
 
 interface TasksApi {

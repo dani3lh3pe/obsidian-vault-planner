@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseFileTasks } from "./parseTask";
 import { cleanTitle, eventSubject } from "./subject";
+import { insertTaskLines, newTaskLines } from "./taskLine";
 
 /**
  * The test vault's fixture files, read through the real parser — so the vault Daniel tests with and
@@ -74,5 +75,30 @@ describe("test vault fixtures", () => {
       ["SampleCustomer", "2026-09-24 Kickoff"],
     ]);
     expect(label("00_Inbox/2026-09-24_101200_capture.md")).toEqual([["00_Inbox", "2026-09-24_101200_capture"]]);
+  });
+
+  it("puts a new task at the right place in the real notes, and reads it back", () => {
+    const lines = newTaskLines("Test new task", "First info\nSecond info", "2026-10-11", "t-new001");
+    const insert = (path: string) => {
+      const text = readFileSync(`test-vault/${path}`, "utf8");
+      const next = insertTaskLines(text, lines);
+      if (next === null) throw new Error(`no place in ${path}`);
+      return { text, next, created: parseFileTasks(path, next, checkboxLines(next)).filter((task) => task.blockId === "t-new001") };
+    };
+
+    // Below the last open top-level task, its code block and its sub-task; above "## Done".
+    const migration = insert("10_Kunden/SampleCustomer/Migration/Migration.md");
+    expect(migration.next).toBe(migration.text.replace("    - [ ] Indented sub-task\n", `    - [ ] Indented sub-task\n${lines.join("\n")}\n`));
+    expect(migration.created).toMatchObject([{ description: "Test new task", customer: "SampleCustomer", project: "Migration" }]);
+
+    // CRLF stays CRLF, below the last open task.
+    const portal = insert("10_Kunden/SecondCustomer/Portal/Portal.md");
+    expect(portal.next).toBe(portal.text.replace("📅 2026-10-02\r\n", `📅 2026-10-02\r\n${lines.join("\r\n")}\r\n`));
+    expect(portal.created).toMatchObject([{ customer: "SecondCustomer", project: "Portal" }]);
+
+    // The customer page without a task gets it at the end.
+    const infos = insert("10_Kunden/SecondCustomer/_infos.md");
+    expect(infos.next).toBe(`${infos.text}${lines.join("\n")}\n`);
+    expect(infos.created).toMatchObject([{ customer: "SecondCustomer", project: null }]);
   });
 });

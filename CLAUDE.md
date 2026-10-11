@@ -67,13 +67,15 @@ files.
 1. **The calendar is the truth for the planning status.** Neither the vault nor `data.json` ever
    holds a planning date or an event id. No `⏳` write path, not even "just as a hint". Whether a
    task is planned, `lib/schedule.ts` derives from the loaded calendar on every render.
-2. **The plugin writes exactly two things to the vault, both only on a user action:** a block id
-   at the end of the task line (once, never changed), and on completing it replaces exactly the
-   target line with the output of the Tasks API (one or two lines). Never in the background, never
-   another line, never create, delete or rename a file.
+2. **The plugin writes exactly three things to the vault, all only on a user action:** a block id
+   at the end of the task line (once, never changed); on completing it replaces exactly the target
+   line with the output of the Tasks API (one or two lines); and the "New task" form (M10) inserts
+   one new task line plus its info lines into an existing note. Never in the background, never
+   change another line, never create, delete or rename a file.
 3. **Every write goes through `app.vault.process()`**, after open editors of the file have been
    saved. The target line is found in the current content by block id or by unique raw text, never
-   by line number; line endings stay byte-exact. Not found or ambiguous means: abort and report.
+   by line number; line endings stay byte-exact. Not found or ambiguous means: abort and report. A
+   new task's place is computed on the current content as well.
 4. **Graph follows the graph-calendar skill**, in both calendars. Never `attendees`. To Do blocks
    live only in the private calendar, all others only in the work calendar.
 5. **All HTTP calls go through `requestUrl`, never `fetch`**, and only to `login.microsoftonline.com`
@@ -156,7 +158,7 @@ Conventional Commits. Before a multi-file commit `/ponytail-review`, decide ever
 Daniel, then `/code-review`. Neither replaces the other: ponytail-review does not look for bugs.
 The level depends on what a bug costs, not on the size of the diff:
 
-- **high** — everything that writes: Outlook events, the two vault, the two Planner and the To Do
+- **high** — everything that writes: Outlook events, the three vault, the two Planner and the To Do
   write, sign-in
 - **medium** — Graph read path (calendar, Planner, To Do), task index
 - **low** — pure UI

@@ -33,6 +33,7 @@ contradict verified pitfalls. Both are corrected below, and the scope is cut.
 
 ## Implementation status (2026-09-24)
 
+- **M10.0 (every note) and M10 (new task) done as code (2026-10-11)**, not yet checked on Windows.
 - **M6 (Planner) done as code (2026-09-28)**, not yet checked on Windows.
 - **M8 (list by date) done as code (2026-09-29)**, not yet checked on Windows.
 - **M7 (presentation) done as code (2026-09-28).** Seen on Windows: sign-in with
@@ -688,7 +689,7 @@ Errors appear in plain language from `errors.ts`.
 | The line already has a block id | Reuse it, never append a second one |
 | A copied line with the same block id | Conflict as in "Planning status", no "first wins" |
 | The file has `\r\n` (written by Claude or Python) | Keep the line ending, with fixture and test |
-| A copy of the task line is in a code block of the same file | `locateLine` skips code blocks (```` ``` ````/`~~~`), like the index. Otherwise the copy would get the block id. A block closes only on a fence that looks like its opener (same character, at least as long, same quote marks and indentation), and never once a line has left the opener's list item or quote. Stricter than CommonMark, so a misread aborts instead of writing into code; not covered are a fence on a list marker's own line, one inside an HTML comment, and indented code; a toggle on every fence line once took the copy in a ```` ```` ```` block for the task (2026-10-11). That the cache pairs fences like CommonMark is derived, not verified (check below) |
+| A copy of the task line is in a code block of the same file | `locateLine` skips code blocks (```` ``` ````/`~~~`), like the index. Otherwise the copy would get the block id. A block closes only on a fence that looks like its opener (same character, at least as long, same quote marks and indentation), and never once a line has left the opener's list item or quote. Stricter than CommonMark, so a misread aborts instead of writing into code — the new-task write (M10) too; not covered are a fence on a list marker's own line, one inside an HTML comment, and indented code; a toggle on every fence line once took the copy in a ```` ```` ```` block for the task (2026-10-11). That the cache pairs fences like CommonMark is derived, not verified (check below) |
 | Daniel types in the open file and drags before the editor has saved | First `view.save()`, then `vault.process`. Otherwise the editor's later save overwrites the block id, or the keystrokes get lost |
 | The temporary event stays next to the real one (Full Calendar Remastered #338) | `info.revert()` first, the grid comes only from Graph |
 | The subject is too long or contains links, `[aufwand::]` or `WAITING` | `lib/subject.ts` + test |
@@ -1119,10 +1120,11 @@ after a triage.
 
 **Decided with Daniel (2026-10-11):**
 
-- A button above the task list opens a modal with three fields: name, info (optional) and the
-  target note.
+- A button above the task list opens a modal with name, info (optional), customer and project.
+  Enter in the name creates; the button stays disabled until name and project are set. On
+  success the modal closes and a notice names the note.
 - **A third vault write.** Invariant 2 grows by: insert one new task line, plus its info lines, into
-  an existing source file, only on the modal's button. It still never creates a file. CLAUDE.md
+  an existing note, only on the modal's button. It still never creates a file. CLAUDE.md
   changes together with the code; review level high.
 - Vault tasks only, even with Planner or To Do switched on: for those it would be a third write in
   invariants 7 and 8, and both have their own way to create a task.
@@ -1130,7 +1132,21 @@ after a triage.
   Outlook block do not show it. Completing (write #2) already leaves indented lines alone.
 - No date and no priority field: the task gets dragged right away, and a planned task moves to
   its block's day (M8.4). A `📅` typed into the name is read as usual.
-- The target list: open again since M10.0 makes every note a source.
+- **Target: two native dropdowns.** Customer: the folders below `10_Kunden/`, plus "junis intern".
+  Project: every note of that customer (recursive), named by its path below the customer folder —
+  unique, unlike names — with the customer's own note (`_infos`) first. The customer comes preselected from the list filter, else
+  the last one used (in memory only). Rejected: one search field with suggestions — Daniel asked
+  for dropdowns, and the numbers are small.
+- **The line:** `- [ ] <name> ➕ <today> ^t-xxxxxx`, inserted below the last open, unindented task
+  of the note and the lines that belong to it, as Markdown reads a list item (blank lines followed
+  by more indented ones included); a note without one gets it at the end. The block id comes
+  with the line, so two tasks of the same name stay addressable and the view can find the card.
+  Info lines: a tab, then `-` and a space, then the text; a bullet typed out of habit is dropped.
+- **Never into a code block (invariant review, 2026-10-11):** if the new line would land inside one
+  by the fence rules of the other writes — a fence left open at the end, a misread one — nothing is
+  written and the notice says so. Those rules fail closed, so this write does too.
+- **Finding the card:** once the index delivers it, the list scrolls to it and highlights it briefly.
+  If a filter hides it, the filter stays and only the notice names the note.
 
 **M10.0 first, as its own commit: the task source follows the vault again (decided with Daniel,
 2026-10-11).** Daniel restructured the live vault away from `<Folder>/<Folder>.md` (customer page
@@ -1161,6 +1177,27 @@ up. The vault is being rebuilt so that tasks may stand in any note. So the plann
 | Drag the inbox task, tick the meeting-note task, diff the test vault | Each write changes exactly its one line, outside customer notes too |
 | Move a note with a planned task into another customer folder | The card changes customer, the block stays planned: the link is the block id, not the path |
 | Start Obsidian with the live vault | Not noticeably slower: only notes with a task item are read |
+
+**M10 done as code (2026-10-11).** Spec in `.scratch/m10-new-task/spec.md` (not versioned). The
+place for a new task is a pure text operation beside the other two writes (`insertTaskLines`), the
+target list a pure function of the note paths (`lib/newTask.ts`).
+
+**Verification M10** (manual, after transferring `release/test-vault.zip` again):
+
+| Action | What it proves |
+| --- | --- |
+| "+", SampleCustomer / Migration, name "Test new task", two info lines, Create | The line lands below "Indented sub-task", with `➕` today and a block id, plus two tab-indented bullets; the list scrolls to the card and it flashes; the notice names the note |
+| Drag the new card into the calendar | A block is created; the diff shows no further change to the line: the id came with it |
+| Tick the new card | Only the task line changes; the info bullets stay |
+| Create in SecondCustomer / Portal | The new lines end in CRLF too |
+| Create in SecondCustomer (the `_infos` note, first in the list) | The lines are at the end of the note, which has no task |
+| Type in the target note without saving, then create from the planner | Both changes are in the note |
+| Filter the list to SecondCustomer, open the form | SecondCustomer is preselected, the project shows "Choose project" |
+| A filter that hides the new task ("unplanned only" plus a search) | The filter stays; only the notice names the note |
+| Rename the chosen note while the form is open, then Create | Nothing is written; the notice says the note no longer exists; the form stays open |
+| Create in the dark theme | The flash is visible |
+| Planner and To Do switched on | The customer dropdown lists only vault customers |
+| Create in a note whose last code block is never closed | Nothing is written; the notice says the task would land in a code block |
 
 ## M5 — Go-live in the real vault
 
@@ -1290,3 +1327,18 @@ prove.
   this repo; it still names folder notes as the only place the planner reads.
 - Open statuses: Tasks counts every status character except `x` and `-` as open, the planner only
   ` ` and `/`. Older than M10.0; decide once M0.2 shows the live vault's statuses.
+- Comments (M10, invariant review): a task inside `%% … %%` or `<!-- … -->` can be the place below
+  which a new task goes, and then it lands in the comment. Whether the metadata cache lists tasks in
+  `%%` at all is unverified (Windows). Skip comment blocks only if it happens.
+- Name and info are written as typed (M10, spec no. 13): a `%%`, `<!--` or ```` ``` ```` typed into
+  them can comment out or fence the following lines of the note. Reject them only if it happens.
+- Plugin-owned notes in the target list (M10, code review): `*.excalidraw.md` and Kanban boards
+  below a customer can be chosen, and the task is then appended to them. Their names show what they
+  are; filter them out only if one is ever picked by mistake.
+- A lazy continuation (M10, code review): an unindented line right after the last open task that
+  Markdown still counts to it ends that task's lines, and the new task goes in between. The vault's
+  task syntax is one line per task; handle it only if it happens.
+- Scope as a setting (M10, 2026-10-11): Daniel would like to set in the settings where the planner
+  may create tasks. Not now: `10_Kunden` and `20_Intern` also name the customer, so a setting for
+  the targets alone is half the flexibility, and reading stays every note (M10.0). Build it once a
+  root folder actually moves.

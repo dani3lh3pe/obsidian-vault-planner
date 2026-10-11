@@ -8,7 +8,7 @@ import {
 import enGbLocale from "@fullcalendar/core/locales/en-gb";
 import interactionPlugin, { Draggable, type EventReceiveArg } from "@fullcalendar/interaction";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import { ItemView, Menu, Modal, Notice, setIcon, type App, type WorkspaceLeaf } from "obsidian";
+import { ItemView, Menu, Modal, Notice, Setting, setIcon, type App, type DropdownComponent, type WorkspaceLeaf } from "obsidian";
 import {
   BUSINESS_HOURS,
   CALENDAR_VIEW_KEY,
@@ -23,6 +23,7 @@ import type { Graph } from "./graph";
 import type VaultPlannerPlugin from "./main";
 import type { ChangeReason } from "./main";
 import { getErrorMessage, getPersonalErrorMessage, isAuthExpired } from "./lib/errors";
+import { preselect, targetName, taskTargets, type CustomerTargets } from "./lib/newTask";
 import { isPlannerTask, plannerWebUrl, type PlannerSnapshot } from "./lib/planner";
 import { RemoteSource } from "./lib/remoteSource";
 import { isTodoTask, todoWebUrl, type TodoSnapshot } from "./lib/todo";
@@ -30,13 +31,14 @@ import { GROUP_TITLE, isOverdue, listDate, PRIORITY_MARK } from "./lib/priority"
 import { ReadGate } from "./lib/readGate";
 import { blocksByTask, fetchRange, inRange, linkKey, plannerIdOf, plannerKey, planStatus, statusWindow, todoIdOf, todoKey } from "./lib/schedule";
 import { cleanTitle, eventBody, eventSubject, plannerEventBody, todoEventBody } from "./lib/subject";
+import { newBlockId, newTaskLines } from "./lib/taskLine";
 import { buildList, isOpen, type ListOptions } from "./lib/taskList";
 import { formatDue, formatSlot, formatSlotWithDate, plannerDay, shiftWorkdays } from "./lib/time";
 import type { MapResult } from "./lib/mapGraphEvents";
 import { toFullCalendarEvents, type BlockState, type CalendarSide, type EventProps } from "./lib/toFullCalendarEvents";
 import type { AnyTask, CalendarEvent, PlannerBucket, PlannerTask, PlanStatus, TimeRange, TodoTask, VaultTask } from "./lib/types";
 import { visibleHours } from "./lib/visibleHours";
-import { toggleDone, writeBlockId } from "./vault";
+import { toggleDone, writeBlockId, writeNewTask } from "./vault";
 
 const UNPLANNED: PlanStatus = { kind: "unplanned" };
 
@@ -117,14 +119,101 @@ class ConfirmModal extends Modal {
   }
 }
 
+/**
+ * The "New task" form (M10): name, info, customer, project. It only collects; the view writes and
+ * says whether the form may close.
+ */
+class NewTaskModal extends Modal {
+  constructor(
+    app: App,
+    private readonly customers: readonly CustomerTargets[],
+    private readonly preset: { customer: string | null; path: string | null },
+    private readonly submitTask: (path: string, name: string, info: string) => Promise<boolean>,
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.titleEl.setText("New task");
+    let name = "";
+    let info = "";
+    let path = "";
+    let busy = false;
+    let create: HTMLButtonElement | null = null;
+    const update = () => {
+      if (create !== null) create.disabled = busy || name.trim() === "" || path === "";
+    };
+    const submit = async () => {
+      if (create === null || create.disabled) return;
+      busy = true;
+      update();
+      const done = await this.submitTask(path, name, info);
+      busy = false;
+      if (done) this.close();
+      else update();
+    };
+
+    new Setting(this.contentEl).setName("Name").addText((text) => {
+      text.onChange((value) => {
+        name = value;
+        update();
+      });
+      text.inputEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.isComposing) void submit();
+      });
+      text.inputEl.focus();
+    });
+    new Setting(this.contentEl).setName("Info").addTextArea((area) =>
+      area.onChange((value) => {
+        info = value;
+      }),
+    );
+    let projects: DropdownComponent | null = null;
+    const fillProjects = (customer: string, chosen: string | null) => {
+      if (projects === null) return;
+      projects.selectEl.empty();
+      projects.addOption("", "Choose project");
+      for (const target of this.customers.find((entry) => entry.customer === customer)?.targets ?? []) {
+        projects.addOption(target.path, target.label);
+      }
+      path = chosen ?? "";
+      projects.setValue(path);
+      update();
+    };
+    new Setting(this.contentEl).setName("Customer").addDropdown((dropdown) => {
+      dropdown.addOption("", "Choose customer");
+      for (const entry of this.customers) dropdown.addOption(entry.customer, entry.customer);
+      dropdown.setValue(this.preset.customer ?? "");
+      dropdown.onChange((customer) => fillProjects(customer, null));
+    });
+    new Setting(this.contentEl).setName("Project").addDropdown((dropdown) => {
+      projects = dropdown;
+      dropdown.onChange((value) => {
+        path = value;
+        update();
+      });
+    });
+
+    const buttons = this.contentEl.createDiv({ cls: "modal-button-container" });
+    buttons.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.close());
+    create = buttons.createEl("button", { text: "Create", cls: "mod-cta" });
+    create.addEventListener("click", () => void submit());
+    fillProjects(this.preset.customer ?? "", this.preset.path);
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
 /** "one other person" / "2 other people". */
 const others = (count: number): string => (count === 1 ? "one other person" : `${count} other people`);
 
 /**
  * Tasks on the left, the Outlook week on the right. The calendar is the truth: the view derives
- * "planned" from what Graph returns and writes nothing to the vault except a block id on drop
- * and a completion through the Tasks API. Planner tasks (M6) join the same list; their writes go
- * to Planner only.
+ * "planned" from what Graph returns and writes nothing to the vault except a block id on drop,
+ * a completion through the Tasks API and a new task from the form (M10). Planner tasks (M6) join
+ * the same list; their writes go to Planner only.
  */
 export class PlannerView extends ItemView {
   private calendar: Calendar | null = null;
@@ -167,6 +256,10 @@ export class PlannerView extends ItemView {
   private categoryColors: ReadonlyMap<string, number> = new Map();
   /** Only the newest category read may land: an older one may be the previous account's. */
   private categorySeq = 0;
+  /** The note the "New task" form wrote into last (M10), for its preselection. Memory only. */
+  private lastPath: string | null = null;
+  /** A new task's block id, until the list has had its card once (M10). */
+  private revealBlockId: string | null = null;
 
   private bannerEl: HTMLElement | null = null;
   private plannerHintEl: HTMLElement | null = null;
@@ -255,7 +348,11 @@ export class PlannerView extends ItemView {
 
   private buildLeft(left: HTMLElement): void {
     const header = left.createDiv({ cls: "vp-header" });
-    header.createEl("h3", { text: "Tasks" });
+    const heading = header.createDiv({ cls: "vp-heading" });
+    heading.createEl("h3", { text: "Tasks" });
+    const add = heading.createEl("button", { cls: "clickable-icon", attr: { "aria-label": "New task", title: "New task" } });
+    setIcon(add, "plus");
+    add.addEventListener("click", () => this.openNewTask());
     this.countEl = header.createDiv({ cls: "vp-count" });
     this.bannerEl = left.createDiv({ cls: "vp-banner" });
     this.plannerHintEl = left.createDiv({ cls: "vp-banner" });
@@ -853,6 +950,11 @@ export class PlannerView extends ItemView {
       waiting: cardsOf(waiting),
       empty,
     });
+    // The new task's card (M10): shown once the index has it. A filter that hides it stays; the
+    // notice already said where the task went.
+    const wanted = this.revealBlockId;
+    const reveal = wanted !== null && index.tasks.some((task) => task.blockId === wanted) ? wanted : null;
+    if (reveal !== null) this.revealBlockId = null;
     if (signature === this.listSignature) return;
     this.listSignature = signature;
 
@@ -875,6 +977,37 @@ export class PlannerView extends ItemView {
       for (const row of waiting) this.buildCard(details, row.task, row.card);
     }
     list.scrollTop = scrollTop;
+    if (reveal !== null) {
+      const card = [...list.querySelectorAll<HTMLElement>(".vp-card")].find((el) => el.dataset.blockId === reveal);
+      card?.scrollIntoView({ block: "center" });
+      card?.addClass("is-new");
+      // Gone once it has played: FullCalendar's drag preview copies the card, class and all.
+      card?.addEventListener("animationend", () => card.removeClass("is-new"), { once: true });
+    }
+  }
+
+  /** "+" above the list (M10). */
+  private openNewTask(): void {
+    const customers = taskTargets(this.app.vault.getMarkdownFiles().map((file) => file.path));
+    const preset = preselect(customers, this.options.customer, this.lastPath);
+    const submit = (path: string, name: string, info: string) => this.createTask(path, targetName(customers, path), name, info);
+    new NewTaskModal(this.app, customers, preset, submit).open();
+  }
+
+  /** Vault write #3, from the form. True when the task was written and the form may close. */
+  private async createTask(path: string, where: string, name: string, info: string): Promise<boolean> {
+    const taken = this.plugin.index.blockIndex();
+    const blockId = newBlockId((id) => taken.has(id));
+    try {
+      await writeNewTask(this.app, path, newTaskLines(name, info, plannerDay(new Date()), blockId));
+    } catch (error) {
+      new Notice(getErrorMessage(error));
+      return false;
+    }
+    this.lastPath = path;
+    this.revealBlockId = blockId;
+    new Notice(`Task created in ${where}`);
+    return true;
   }
 
   private buildCard(parent: HTMLElement, task: AnyTask, card: CardData): void {

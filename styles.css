@@ -43,8 +43,15 @@ body {
   gap: var(--size-4-2);
 }
 
+.vault-planner-view .vp-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  margin-bottom: var(--size-4-2);
+}
+
 .vault-planner-view .vp-header h3 {
-  margin: 0 0 var(--size-4-2);
+  margin: 0;
 }
 
 .vault-planner-view .vp-count {
@@ -193,6 +200,21 @@ body {
 
 .vp-card.is-conflict {
   border-color: var(--text-warning);
+}
+
+/* A card the "New task" form just created flashes once in the accent colour, which follows the
+   theme (M10). */
+.vp-card.is-new {
+  animation: vp-new 2s ease-out;
+}
+
+@keyframes vp-new {
+  from {
+    box-shadow: 0 0 0 3px var(--interactive-accent);
+  }
+  to {
+    box-shadow: 0 0 0 3px transparent;
+  }
 }
 
 .vp-card .vp-check {

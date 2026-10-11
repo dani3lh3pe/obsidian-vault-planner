@@ -54,6 +54,22 @@ export class LineChangedError extends Error {
   }
 }
 
+/** The note chosen in the "New task" form is gone (M10). Nothing was written. */
+export class NoteMissingError extends Error {
+  constructor(path: string) {
+    super(`The note “${path}” no longer exists – please choose it again.`);
+    this.name = "NoteMissingError";
+  }
+}
+
+/** The new task would land inside a code block of the note (M10). Nothing was written. */
+export class InsideCodeBlockError extends Error {
+  constructor(path: string) {
+    super(`The new task would land inside a code block of “${path}” – please add it in the editor.`);
+    this.name = "InsideCodeBlockError";
+  }
+}
+
 /** Completing needs the Tasks plugin's API; a home-made toggle would lose recurrences silently. */
 export class TasksMissingError extends Error {
   constructor() {

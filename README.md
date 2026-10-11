@@ -116,6 +116,10 @@ and the private calendar, but does not sign the personal account out.
 - **View:** the buttons above the calendar on the right switch between 1, 2, 3 or 4 work days, the
   work week and the full week with the weekend. In the day views the arrows page by as many work
   days as are visible. The choice is remembered on this device.
+- **New task:** the "+" beside "Tasks" opens a form: name, info, customer and project. "Create"
+  adds the task to that note, below its last open task (or at the end), with the info as
+  sub-bullets. The list scrolls to the new card, ready to be dragged. The customer filter of the list
+  preselects the customer.
 - **Plan:** drag a card into the calendar. A block is one hour long; dragging its edge changes the
   length. The card shows "Saving…" until the event appears in the calendar.
 - **Move or resize:** drag the block in the calendar, or drag its edge.
@@ -141,12 +145,14 @@ and the private calendar, but does not sign the personal account out.
 
 ## What the plugin writes to the vault
 
-Exactly two things, and only when you trigger them:
+Exactly three things, and only when you trigger them:
 
 1. **Block id:** on the first booking it appends `^t-xxxxxx` to the end of the task line. It is
    never changed. It stays when you reword or move the task; when you copy or split it, only the
    original keeps it.
 2. **Complete:** the Tasks plugin rewrites the line, for `🔁` with the next occurrence above it.
+3. **New task:** the form inserts `- [ ] <name> ➕ <today> ^t-xxxxxx`, plus one indented bullet per
+   info line, into the note you chose — never into a new file.
 
 Nothing else: no `⏳`, no date, no event id, no writing in the background. Booking a Planner task
 writes nothing to the vault.
