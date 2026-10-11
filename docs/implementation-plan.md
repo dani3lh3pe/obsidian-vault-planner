@@ -684,7 +684,7 @@ Errors appear in plain language from `errors.ts`.
 | The line already has a block id | Reuse it, never append a second one |
 | A copied line with the same block id | Conflict as in "Planning status", no "first wins" |
 | The file has `\r\n` (written by Claude or Python) | Keep the line ending, with fixture and test |
-| A copy of the task line is in a code block of the same file | `locateLine` skips code blocks (```` ``` ````/`~~~`), like the index. Otherwise the copy would get the block id |
+| A copy of the task line is in a code block of the same file | `locateLine` skips code blocks (```` ``` ````/`~~~`), like the index. Otherwise the copy would get the block id. A block closes only on a fence that looks like its opener (same character, at least as long, same quote marks and indentation), and never once a line has left the opener's list item or quote. Stricter than CommonMark, so a misread aborts instead of writing into code; not covered are a fence on a list marker's own line, one inside an HTML comment, and indented code; a toggle on every fence line once took the copy in a ```` ```` ```` block for the task (2026-10-11). That the cache pairs fences like CommonMark is derived, not verified (check below) |
 | Daniel types in the open file and drags before the editor has saved | First `view.save()`, then `vault.process`. Otherwise the editor's later save overwrites the block id, or the keystrokes get lost |
 | The temporary event stays next to the real one (Full Calendar Remastered #338) | `info.revert()` first, the grid comes only from Graph |
 | The subject is too long or contains links, `[aufwand::]` or `WAITING` | `lib/subject.ts` + test |
@@ -707,6 +707,7 @@ Errors appear in plain language from `errors.ts`.
 | Drag a task (since M8 there is no effort any more) | 60 min |
 | Type into the line, drag within 2 s, wait 5 s | The line contains the text **and** `^t-…`, the block is recognized |
 | Drag a task with a link and umlauts | The subject is cleaned, the umlauts are right |
+| A note with a ```` ```` ```` block that shows a ```` ``` ```` block holding `- [ ] Copy` | The line is not in the list: Obsidian pairs fences as `locateLine` assumes |
 
 ## M4 — Moving and deleting blocks, completing tasks
 

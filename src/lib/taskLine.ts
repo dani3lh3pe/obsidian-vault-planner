@@ -29,21 +29,46 @@ function lineSpans(text: string): LineSpan[] {
 /** Found by our block id when the task has one, else by its exact text — never by line number. */
 export type LineTarget = { blockId: string } | { raw: string };
 
-const FENCE = /^\s*(```|~~~)/;
+/** A fence: indentation and quote marks, three or more backticks or tildes, the rest of the line. */
+const FENCE = /^([\s>]*)(`{3,}|~{3,})(.*)/;
 
 /**
  * Lines inside fenced code blocks are skipped, as the metadata cache skips them for the index:
  * a copy of a task line in a code block must never receive a block id or a completion.
+ *
+ * A block closes only on a fence that looks like its opener: the same character, at least as long,
+ * the same quote marks and indentation, nothing after it. Once a line leaves the opener's list item
+ * or quote, nothing closes it. That is stricter than CommonMark, so a misread keeps a block open:
+ * the task is then "missing" and the write aborts. Not covered, and then a copy can be taken: a
+ * fence on a list marker's own line (`1. ```js`), a fence inside an HTML comment, indented code.
  */
 export function locateLine(text: string, target: LineTarget): LineSpan | "missing" | "ambiguous" {
-  let inFence = false;
+  let open: { run: string; prefix: string; left: boolean } | null = null;
   const hits = lineSpans(text).filter((span) => {
     const line = text.slice(span.start, span.end);
-    if (FENCE.test(line)) {
-      inFence = !inFence;
-      return false;
+    if (open !== null) {
+      // A blank line ends a quote unless it keeps the `>`; a list item only ends at a line outside it.
+      const quotes = (s: string) => (s.match(/>/g) ?? []).length;
+      const stays = /^[\s>]*$/.test(line)
+        ? quotes(line) >= quotes(open.prefix)
+        : line.replace(/\t/g, "    ").startsWith(open.prefix);
+      if (!stays) open.left = true;
     }
-    if (inFence) return false;
+    const fence = FENCE.exec(line);
+    if (fence !== null) {
+      const [, rawPrefix, run, rest] = fence;
+      const prefix = rawPrefix.replace(/\t/g, "    ");
+      // A backtick in the info string makes it inline code ("```a``` b").
+      if (open === null && !(run[0] === "`" && rest.includes("`"))) {
+        open = { run, prefix, left: false };
+        return false;
+      }
+      if (open !== null && !open.left && run[0] === open.run[0] && run.length >= open.run.length && prefix === open.prefix && /^[ \t]*$/.test(rest)) {
+        open = null;
+        return false;
+      }
+    }
+    if (open !== null) return false;
     if ("raw" in target) return line === target.raw;
     // The global filter is irrelevant here: the id alone says which line it is.
     return parseTaskLine(line, "")?.blockId === target.blockId;

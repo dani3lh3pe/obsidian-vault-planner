@@ -33,6 +33,35 @@ describe("locateLine", () => {
     expect(locateLine(text, { blockId: "t-abc123" })).toBe("missing");
   });
 
+  it("pairs fences as CommonMark does", () => {
+    // A ```` block shows a ``` block: the copy inside stays a copy, the real line is found.
+    const nested = "````md\n```\n- [ ] Weekly review ^t-abc123\n````\n\n- [ ] Weekly review ^t-abc123\n";
+    const span = locateLine(nested, { blockId: "t-abc123" });
+    if (typeof span === "string") throw new Error(span);
+    expect(span.start).toBe(nested.lastIndexOf("- [ ] Weekly"));
+    expect(locateLine("````md\n```\n- [ ] Original\n````\n", { raw: "- [ ] Original" })).toBe("missing");
+    // A `~~~` line inside a ``` block is content, not a fence.
+    expect(typeof locateLine("```\n~~~\n```\n\n- [ ] Pay invoice\n", { raw: "- [ ] Pay invoice" })).toBe("object");
+    // A fence in a quote, and inline code that only looks like one.
+    expect(locateLine("> ```\n> - [ ] Copy ^t-abc123\n> ```\n", { blockId: "t-abc123" })).toBe("missing");
+    expect(typeof locateLine("```a``` b\n- [ ] Task\n", { raw: "- [ ] Task" })).toBe("object");
+  });
+
+  it.each([
+    ["a quoted fence inside a code block", "```\n> ```\n- [ ] Copy ^t-abc123\n```\n"],
+    ["a top-level fence after a quoted one", "> ```\n> code\n```\n- [ ] Copy ^t-abc123\n```\n"],
+    ["an indented fence inside a code block", "```\n    ```\n- [ ] Copy ^t-abc123\n```\n"],
+    ["a tab-indented fence inside a code block", "```\n\t```\n- [ ] Copy ^t-abc123\n```\n"],
+    ["a fence with a no-break space after it", "```\n``` \n- [ ] Copy ^t-abc123\n```\n"],
+    ["an opener ending in a stray carriage return", "```js\r\r\n- [ ] Copy ^t-abc123\r\n```\r\n"],
+    ["a fence left open in a list item", "- [ ] Parent\n  ```\n  code\n- [ ] Next\n\n```\n- [ ] Copy ^t-abc123\n```\n"],
+    ["a sibling item's fence after an unclosed one", "- [ ] Parent\n  ```\n  code\n- [ ] Next\n  ```\n  - [ ] Copy ^t-abc123\n  ```\n"],
+    ["a callout's fence after an unclosed one", "> [!note]\n> ```\n> x\n\n> [!tip]\n> ```\n> - [ ] Copy ^t-abc123\n> ```\n"],
+    ["a fence indented as code after a paragraph", "Para\n\n    ```\n```\n- [ ] x\n    ```\n- [ ] Copy ^t-abc123\n```\n"],
+  ])("keeps the block open on %s: the copy is never taken", (_case, text) => {
+    expect(locateLine(text, { blockId: "t-abc123" })).toBe("missing");
+  });
+
   it("finds the line after an indented fence under a task", () => {
     const text = "- [ ] With time tracking\n    ```yaml\n    time: 1h\n    ```\n    - [ ] Sub-task\n";
     const span = locateLine(text, { raw: "    - [ ] Sub-task" });
