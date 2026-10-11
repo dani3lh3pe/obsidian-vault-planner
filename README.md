@@ -7,7 +7,7 @@ right. Drag a task into a free slot, and a focus block appears in Outlook.
 
 **Three task sources in one list:**
 
-- <img src="docs/icons/obsidian.svg" width="16" height="16" alt=""> **Obsidian** — the open tasks from your project notes, in the format of the Tasks plugin.
+- <img src="docs/icons/obsidian.svg" width="16" height="16" alt=""> **Obsidian** — the open tasks from your notes, in the format of the Tasks plugin.
 - <img src="docs/icons/microsoft-planner.svg" width="16" height="16" alt=""> **Microsoft Planner** — the tasks assigned to you (work account), with plan and bucket. Complete
   them or move them to another bucket without leaving Obsidian.
 - <img src="docs/icons/microsoft-to-do.svg" width="16" height="16" alt=""> **Microsoft To Do** — your personal tasks (personal Microsoft account). Their blocks go into your
@@ -174,7 +174,7 @@ again instead of overwriting the change.
 | "Conditional Access blocks …" (AADSTS53003/53000) | A CA policy applies | Look up the policy in the sign-in logs |
 | "This response belongs to no pending sign-in" | The link went to another vault window, or Obsidian was restarted | Keep only one vault open, "Sign in" again |
 | "Calendar unreachable – planning status unknown" | Network or Graph trouble | "Retry"; dragging is blocked until then |
-| "No open tasks" although the vault has tasks | `10_Kunden` and `20_Intern` are not directly in the vault folder, e.g. one level deeper after unpacking | Move the folders up one level, then turn the plugin off and on |
+| Every task sits under one customer named after a folder, e.g. "test-vault" | `10_Kunden` and `20_Intern` are not directly in the vault folder, e.g. one level deeper after unpacking | Move the folders up one level, then turn the plugin off and on |
 | "Personal account: No access to To Do" | `Tasks.ReadWrite` is missing from the app registration or not consented for the personal account | Add the permission, sign the personal account out and in again |
 | "No access to Planner" | `Tasks.ReadWrite` is missing from the app registration or not consented | Add the permission, sign out, sign in again |
 | "… changed in Planner in the meantime" | The task was changed in Planner since the plugin read it | Try again after the reload |
@@ -188,7 +188,7 @@ Desktop only, main window only (no pop-out), default calendar only. The weekend 
 view.
 No attendees, no events without a task. From Planner only Basic plans: the API does not return
 Premium plans.
-Built for one vault and one user: tasks come only from `10_Kunden/` and `20_Intern/`, and all times
+Built for one vault and one user: the customer comes from the folders `10_Kunden/` and `20_Intern/`, and all times
 are Europe/Berlin (`src/config.ts`).
 
 ## Development

@@ -1,12 +1,12 @@
 import { MarkdownView, TFile, type App, type CachedMetadata, type Plugin } from "obsidian";
 import { EmptyToggleError, LineChangedError, TasksMissingError } from "./lib/errors";
-import { parseFileTasks, parseTaskLine, taskSource } from "./lib/parseTask";
+import { parseFileTasks, parseTaskLine } from "./lib/parseTask";
 import { ensureBlockId, locateLine, newBlockId, replaceLine } from "./lib/taskLine";
 import { isOpen } from "./lib/taskList";
 import type { VaultTask } from "./lib/types";
 
 /**
- * Every task line of the source files, kept current through the metadata cache.
+ * Every task line in the vault, kept current through the metadata cache.
  *
  * The cache, not a regex over the file: it already knows which checkbox lines are tasks and which
  * sit inside a code block. Changes by Claude, LiveSync or the editor all arrive as `changed`.
@@ -15,7 +15,7 @@ export class TaskIndex {
   private readonly byPath = new Map<string, VaultTask[]>();
   /** Bumped by every `changed` event, so a slower read started earlier cannot overwrite it. */
   private readonly versions = new Map<string, number>();
-  /** Source files whose metadata the cache has not delivered yet. */
+  /** Notes whose metadata the cache has not delivered yet. */
   private readonly awaiting = new Set<string>();
   private built = false;
   private resolvedOnce = false;
@@ -26,7 +26,7 @@ export class TaskIndex {
   ) {}
 
   /**
-   * Complete once every source file has been read — before that, "Task not found" or
+   * Complete once every note has been read — before that, "Task not found" or
    * "No open tasks" would be guesses about files the cache simply has not delivered.
    */
   get complete(): boolean {
@@ -91,7 +91,7 @@ export class TaskIndex {
    * show an empty list, or blocks as "Task not found", while it runs.
    */
   private async rebuild(): Promise<void> {
-    const files = this.app.vault.getMarkdownFiles().filter((file) => taskSource(file.path) !== null);
+    const files = this.app.vault.getMarkdownFiles();
     const current = new Set(files.map((file) => file.path));
     for (const path of [...this.byPath.keys()]) {
       if (!current.has(path)) this.byPath.delete(path);
@@ -105,7 +105,8 @@ export class TaskIndex {
   }
 
   private async indexFile(file: TFile): Promise<void> {
-    if (taskSource(file.path) === null) return;
+    // `rename` hands over any file, an image or a PDF too.
+    if (file.extension !== "md") return;
     const cache = this.app.metadataCache.getFileCache(file);
     if (cache === null) {
       // Freshly synced and not parsed yet: its `changed` event delivers it.
@@ -113,26 +114,33 @@ export class TaskIndex {
       return;
     }
     const version = this.versions.get(file.path) ?? 0;
-    const text = await this.app.vault.cachedRead(file);
+    // Like Tasks: only a note with a task item is read, not every note of the vault.
+    const hasTask = (cache.listItems ?? []).some((item) => item.task !== undefined);
+    const text = hasTask ? await this.app.vault.cachedRead(file) : "";
     // A `changed` event arrived while reading: its text and cache are newer than this pair.
     if ((this.versions.get(file.path) ?? 0) !== version) return;
     this.store(file.path, text, cache);
   }
 
   private update(file: TFile, data: string, cache: CachedMetadata): void {
-    if (taskSource(file.path) === null) return;
+    if (file.extension !== "md") return;
     this.versions.set(file.path, (this.versions.get(file.path) ?? 0) + 1);
+    // An awaited note counts as one with tasks: its arrival can complete the index.
+    const had = this.byPath.has(file.path) || this.awaiting.has(file.path);
     // Text and cache from the SAME event. Read separately, they can come from two versions of a
     // file Claude just rewrote, and the line numbers would point at the wrong lines.
     this.store(file.path, data, cache);
-    this.changed();
+    // Typing in a note without tasks must not redraw the planner.
+    if (had || this.byPath.has(file.path)) this.changed();
   }
 
   private store(path: string, text: string, cache: CachedMetadata): void {
     const lines = (cache.listItems ?? [])
       .filter((item) => item.task !== undefined)
       .map((item) => item.position.start.line);
-    this.byPath.set(path, parseFileTasks(path, text, lines));
+    const tasks = parseFileTasks(path, text, lines);
+    if (tasks.length > 0) this.byPath.set(path, tasks);
+    else this.byPath.delete(path);
     this.awaiting.delete(path);
   }
 }

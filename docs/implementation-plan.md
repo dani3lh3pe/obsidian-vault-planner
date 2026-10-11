@@ -9,7 +9,7 @@
 
 Planning has so far failed because tasks and calendar live in two separate interfaces. The
 Obsidian plugin "Day Planner" is broken when deleting and sluggish when moving. The goal is **one**
-Obsidian view: on the left the open tasks from the vault's project files, on the right the
+Obsidian view: on the left the open tasks from the vault's notes, on the right the
 Outlook work week. Dragging a task into the calendar creates a focus block in Outlook.
 
 The plan takes its yardstick from the web app daily-planner: **In the morning, review the open
@@ -56,11 +56,11 @@ contradict verified pitfalls. Both are corrected below, and the scope is cut.
 | Question | Decision |
 | --- | --- |
 | Data model | **The calendar is the truth.** Neither the vault nor `data.json` holds a `⏳`, a date or an event id. Whether a task is planned is derived from the calendar on every load. Claude does not need the planning |
-| Task source | Only project and customer files: every `.md` under `10_Kunden/` or `20_Intern/` whose name matches the folder it is in. Meeting notes and everything else stay out |
+| Task source | (Replaced by M10.0, 2026-10-11: every note.) Only project and customer files: every `.md` under `10_Kunden/` or `20_Intern/` whose name matches the folder it is in. Meeting notes and everything else stay out |
 | Sign-in | OAuth auth code + PKCE in the system browser, without a secret, lean and self-built (no MSAL) |
 | Entra app | Its own registration "Obsidian Vault Planner". The web app's registration (SPA, "Allow public client flows = No") stays untouched |
 | Development | **On the Linux host**, in its own repo `~/dev/personal/obsidian-vault-planner`, as with entra-pim-manager: build, tests and package run here. Every verify run produces `release/vault-planner.zip`. Daniel downloads the file and unpacks it on the Windows laptop into the test vault's plugin folder. The live vault only comes in M5 |
-| Dropped | New-task modal, Delete key, category "Vault" plus `🟣` prefix, adjustable splitter |
+| Dropped | New-task modal (back in M10, 2026-10-11), Delete key, category "Vault" plus `🟣` prefix, adjustable splitter |
 | Foreign events | Are shown but not editable. Without them there are no gaps |
 | Completed tasks | Their blocks stay in Outlook, because booked time is history (rule of the web app). They can be deleted from the block's context menu |
 
@@ -153,10 +153,12 @@ The live vault runs on 1.13.x.
   decision 2) as the drag duration. Now every block is `BLOCK_DURATION` long, one hour, and only
   `cleanTitle` hides old values. The POST uses the `end` that `eventReceive`
   delivers.
-- **Customer and project:** The customer is the first folder under `10_Kunden/`; for `20_Intern/`
-  it is "junis intern". The project is the file's folder, unless it is the customer itself.
-  Example: `10_Kunden/<C>/<C>.md` gives customer C without a project, `10_Kunden/<C>/<P>/<P>.md`
-  gives customer C, project P.
+- **Customer and project** (since M10.0, `taskLabel`): The customer is the first folder under
+  `10_Kunden/`, "junis intern" for `20_Intern/`, otherwise the top folder; a note in the vault root
+  names itself. The project is the file name, none for the customer's own note and for a note
+  whose name starts with `_`. Example: `10_Kunden/<C>/_infos.md` gives customer C without a
+  project, `10_Kunden/<C>/<P>.md` and `10_Kunden/<C>/<P>/<P>.md` give C · P, `00_Inbox/<N>.md`
+  gives 00_Inbox · N.
 - **WAITING:** The description starts with `WAITING`.
 
 **Outlook event** (`POST /me/events`, with `Prefer: IdType="ImmutableId"`):
@@ -223,7 +225,7 @@ is `<vaultName>|<blockId>` into a `Map<blockId, Block[]>`, sorted by start. Per 
   Otherwise "planning status unknown" is shown above the list.
 - **Task not found:** If an own block finds no task line, it still stays an own block. It keeps
   the border in its source's color, shows "Task not found" and can be deleted from its menu.
-  For this the index knows the block ids of **all** task lines in the source files, completed ones
+  For this the index knows the block ids of **all** task lines in the vault, completed ones
   too. The hint only appears once the index is complete (M2.2).
 - **Duplicate block id:** If a block id is in more than one task line (a copied or split line;
   Obsidian keeps block ids unique only per file), that is a **conflict**.
@@ -530,7 +532,8 @@ works because own blocks are never series.
 
 ## M2 — Task index and list (read only)
 
-**Goal:** All open tasks of the project and customer files appear, correctly grouped.
+**Goal:** All open tasks of the vault appear (until M10.0 only those of the project and customer
+files), correctly grouped.
 Changes appear in under a second after Obsidian has saved.
 
 **2.1 Parser** (`lib/parseTask.ts` + test), pure and with the semantics of the Tasks plugin. Tasks
@@ -568,8 +571,9 @@ with a Tasks query: same `due`, same priority.
 
 **2.2 Index** (`vault.ts`):
 
-- **Build** in `workspace.onLayoutReady`: per source file `getFileCache(file).listItems` with
-  `task !== undefined`. `position.start.line` is 0-based. `cachedRead` supplies the text.
+- **Build** in `workspace.onLayoutReady`: per note `getFileCache(file).listItems` with
+  `task !== undefined`. `position.start.line` is 0-based. `cachedRead` supplies the text, since
+  M10.0 only for a note with a task item, as in Tasks.
 - **Updates via `metadataCache.on("changed", (file, data, cache) => …)`:** Use exactly this
   `data` and this `cache`. Read separately, the two can come from different file
   versions, and then the line numbers do not match. Plus `vault.on("delete")` and
@@ -619,7 +623,7 @@ with a Tasks query: same `due`, same priority.
 | Change a task in the editor | After saving, the change is in the list in under a second |
 | Change a file outside Obsidian (like Claude's triage) | The index follows via `metadataCache` |
 | Rename a file, then delete it | The tasks move along or disappear |
-| Create a meeting note with `- [ ]` | The line does **not** appear |
+| Create a meeting note with `- [ ]` | Since M10.0 the line appears, the note's name as project |
 | Scroll down, open "Waiting for", wait 15 s | Scroll position and `<details>` are kept |
 
 ## M3 — Planning by drag and drop (the first write path)
@@ -1106,6 +1110,58 @@ blocks there as in the work calendar.
   the block does not belong in the work calendar.
 - **Consequence:** A block in the private calendar does not show Daniel as busy in the work calendar.
 
+## M10 — New task from the planner (in planning)
+
+**Trigger (2026-10-11):** Daniel creates a task on the customer page, then switches back to the
+planner to drag it. He wants to do both in the planner. This reverses "New-task modal; Quick
+Capture covers that" (2026-09-24): a capture lands in the inbox and reaches the right page only
+after a triage.
+
+**Decided with Daniel (2026-10-11):**
+
+- A button above the task list opens a modal with three fields: name, info (optional) and the
+  target note.
+- **A third vault write.** Invariant 2 grows by: insert one new task line, plus its info lines, into
+  an existing source file, only on the modal's button. It still never creates a file. CLAUDE.md
+  changes together with the code; review level high.
+- Vault tasks only, even with Planner or To Do switched on: for those it would be a third write in
+  invariants 7 and 8, and both have their own way to create a task.
+- Every line of the info becomes an indented sub-bullet below the task line. The card and the
+  Outlook block do not show it. Completing (write #2) already leaves indented lines alone.
+- No date and no priority field: the task gets dragged right away, and a planned task moves to
+  its block's day (M8.4). A `📅` typed into the name is read as usual.
+- The target list: open again since M10.0 makes every note a source.
+
+**M10.0 first, as its own commit: the task source follows the vault again (decided with Daniel,
+2026-10-11).** Daniel restructured the live vault away from `<Folder>/<Folder>.md` (customer page
+`10_Kunden/<C>/_infos.md`, projects as files beside it), and since then no customer task shows
+up. The vault is being rebuilt so that tasks may stand in any note. So the planner reads every
+`.md` file the way Tasks does, instead of a folder rule.
+
+- **Rejected:** adapting the folder rule to the new layout. The layout is still changing, and
+  every move would make tasks vanish again without a word.
+- **Consequence:** meeting notes count now. That was the reason for the folder rule in 2026-09-24.
+  So do `00_Inbox`, `90_Archiv` and `99_System`, which the web app left out on purpose: here they
+  count, as in Tasks ("Verified facts").
+- **Accepted:** a task from a private note (`30_Privat/…`) goes to the work calendar like any other
+  vault task (invariant 4), with its folder, note name and `obsidian://` path in the body. Only a
+  drag sends it there.
+- **Labels:** Data model, "Customer and project". Outside both roots the top folder names the
+  customer, so the dropdown can filter the inbox.
+- **Index:** only a note with a task item redraws the list on `changed`; typing in any other note
+  must not.
+
+**Verification M10.0** (manual, after transferring `release/test-vault.zip` again):
+
+| Action | What it proves |
+| --- | --- |
+| Before installing: a `not done` / `group by folder` query in the live vault | Which folders now bring tasks: templates, `*-DESKTOP-*` copies, inbox lines already triaged ("Open, not blocking") |
+| `10_Kunden/SecondCustomer/Rollout.md` shows as "SecondCustomer · Rollout" | The flat layout is read |
+| The inbox and the meeting-note line appear | Every note counts |
+| Drag the inbox task, tick the meeting-note task, diff the test vault | Each write changes exactly its one line, outside customer notes too |
+| Move a note with a planned task into another customer folder | The card changes customer, the block stays planned: the link is the block id, not the path |
+| Start Obsidian with the live vault | Not noticeably slower: only notes with a task item are read |
+
 ## M5 — Go-live in the real vault
 
 **Moved up (with Daniel, 2026-09-30):** The plugin has been running in the real vault since 2026-09-29, before the
@@ -1177,6 +1233,7 @@ prove.
 | Protocol handler | `obsidian://<action>?k=v` becomes `{ action, k }`. Without `vault` the link goes to the most recently focused window; a second registration throws; the fix came in 1.12.2 | d.ts, Obsidian code, changelog 1.12.2 |
 | Obsidian version | Desktop 1.13.7 (2026-08-12), typings 1.13.2 | obsidian-releases |
 | Tasks API | `executeToggleTaskDoneCommand(line, path): string` since 7.2.0, a pure string function: two lines with `🔁`, empty with `🏁 delete`. Currently 8.4.0 | `TasksApiV1.ts`, `ToggleDone.ts` |
+| Tasks task source (2026-10-11) | Every file of `getMarkdownFiles()`, no folder or template exclusion; folders are left out only in queries. A task is a line the metadata cache marks as a task and that matches `^([\s\t>]*)([-*+]\|[0-9]+[.)]) +\[(.)\]`: `-`, `*`, `+`, `1.`, `1)`, any indentation, quotes and callouts, any status character. Same in 8.4.0 and 8.5.0 | `Cache.ts`, `TaskRegularExpressions.ts`, docs "Getting Started" |
 | Tasks parsing | From the end of the line. After the fields only block links and tags, block link matching `/ \^[a-zA-Z0-9-]+$/` | Tasks docs "Order of metadata" |
 | Recurrence and block id | The completed line keeps the id; the new recurrence gets none and by default sits above it | `Task.ts` `createNextOccurrence` |
 | FullCalendar | v7 since 2026-06-19 (7.1.0), `@fullcalendar/core@latest` is 7.x. In v6.1.21: `droppable` is not checked for external drops, `eventAllow` is; the drag starts via `mousedown`/`touchstart`; `eventReceive` has `revert()`; the CSS is injected by itself | fullcalendar.io, source 6.1.21 locally, #7301 |
@@ -1199,7 +1256,6 @@ prove.
 - **Dropped by the new data model:** `⏳`, SyncService, event cache and orphan list
   (invariant 1).
 - **Not needed:**
-  - New-task modal; Quick Capture covers that
   - Delete key; the menu is the way
   - a category on the block and `🟣` (categories of foreign events are only read, since M7)
   - Splitter
@@ -1224,3 +1280,13 @@ prove.
 - `urgentDays` is 7 (web app) instead of 3 (draft). Check after the first week.
 - Should the plugin flag lines in which emoji fields sit in the middle of the description? Only
   if the cleanup from M5.1 is not enough.
+- Templates (since M10.0): a drag from a template writes a block id into it, and every note made
+  from it inherits the id ("Duplicate block id"). Ticking its card completes the template line, with
+  `🔁` it even adds a second one. Daniel checks the live vault with `not done` /
+  `group by folder` first; only if templates hold open `- [ ]`, that one folder is left out.
+- vault-triage (since M10.0): it copies an inbox task into a note and leaves the original open, so
+  both show as cards; once the inbox line was dragged, the copy also carries its block id and both
+  become "Duplicate block id". The fix belongs in the skill and in the vault `CLAUDE.md` §3, outside
+  this repo; it still names folder notes as the only place the planner reads.
+- Open statuses: Tasks counts every status character except `x` and `-` as open, the planner only
+  ` ` and `/`. Older than M10.0; decide once M0.2 shows the live vault's statuses.

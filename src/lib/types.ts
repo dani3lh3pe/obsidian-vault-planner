@@ -34,7 +34,7 @@ export interface GraphErrorResponse {
 
 export type Priority = "highest" | "high" | "medium" | "none" | "low" | "lowest";
 
-/** One checkbox line of a source file, as the index saw it. */
+/** One checkbox line of a note, as the index saw it. */
 export interface VaultTask {
   path: string;
   /** 0-based line at index time. For opening the file only — writes locate by text. */

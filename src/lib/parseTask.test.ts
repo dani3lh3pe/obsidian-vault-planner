@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseFileTasks, parseTaskLine, taskSource } from "./parseTask";
+import { parseFileTasks, parseTaskLine, taskLabel } from "./parseTask";
 
 /** The shape every case is checked against; only the fields a case names are compared. */
 function parse(line: string) {
@@ -141,22 +141,24 @@ describe("parseTaskLine — what is a task", () => {
   });
 });
 
-describe("taskSource", () => {
-  it("accepts customer and project files", () => {
-    expect(taskSource("10_Kunden/SampleCustomer/SampleCustomer.md")).toEqual({ customer: "SampleCustomer", project: null });
-    expect(taskSource("10_Kunden/SampleCustomer/Migration/Migration.md")).toEqual({
-      customer: "SampleCustomer",
-      project: "Migration",
-    });
-    expect(taskSource("20_Intern/KnowledgeBase/KnowledgeBase.md")).toEqual({ customer: "junis intern", project: "KnowledgeBase" });
-  });
-
-  it("rejects meeting notes, conflict copies and other folders", () => {
-    expect(taskSource("10_Kunden/SampleCustomer/Migration/Meetings/2026-09-24 Kickoff.md")).toBeNull();
-    expect(taskSource("10_Kunden/SampleCustomer/Migration/Migration-DESKTOP-1.md")).toBeNull();
-    expect(taskSource("00_Inbox/Inbox/Inbox.md")).toBeNull();
-    expect(taskSource("10_Kunden/SampleCustomer.md")).toBeNull();
-    expect(taskSource("10_Kunden/SampleCustomer/SampleCustomer.canvas")).toBeNull();
+describe("taskLabel", () => {
+  it.each([
+    // Folder notes, the old layout.
+    ["10_Kunden/SampleCustomer/SampleCustomer.md", "SampleCustomer", null],
+    ["10_Kunden/SampleCustomer/Migration/Migration.md", "SampleCustomer", "Migration"],
+    ["20_Intern/KnowledgeBase/KnowledgeBase.md", "junis intern", "KnowledgeBase"],
+    // The flat layout: projects beside the customer's `_infos` note.
+    ["10_Kunden/SampleCustomer/_infos.md", "SampleCustomer", null],
+    ["10_Kunden/SampleCustomer/Rollout.md", "SampleCustomer", "Rollout"],
+    ["20_Intern/Sales/Elevator Pitch.md", "junis intern", "Elevator Pitch"],
+    // Every other note counts too, named by its top folder.
+    ["10_Kunden/SampleCustomer/Migration/Meetings/2026-09-24 Kickoff.md", "SampleCustomer", "2026-09-24 Kickoff"],
+    ["00_Inbox/2026-09-24_101200_capture.md", "00_Inbox", "2026-09-24_101200_capture"],
+    ["30_Privat/Garden/Shed.md", "30_Privat", "Shed"],
+    ["10_Kunden/_overview.md", "10_Kunden", null],
+    ["Home.md", "Home", null],
+  ])("%s → %s · %s", (path, customer, project) => {
+    expect(taskLabel(path)).toEqual({ customer, project });
   });
 });
 
@@ -172,7 +174,7 @@ describe("parseFileTasks", () => {
     expect(tasks[0]).toMatchObject({ customer: "SecondCustomer", project: "Portal" });
   });
 
-  it("returns nothing for a file that is not a task source", () => {
-    expect(parseFileTasks("00_Inbox/x.md", "- [ ] a", [0])).toEqual([]);
+  it("reads a note outside the customer folders", () => {
+    expect(parseFileTasks("00_Inbox/x.md", "- [ ] a", [0])[0]).toMatchObject({ customer: "00_Inbox", project: "x" });
   });
 });

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseFileTasks, taskSource } from "./parseTask";
+import { parseFileTasks } from "./parseTask";
 import { cleanTitle, eventSubject } from "./subject";
 
 /**
@@ -67,8 +67,12 @@ describe("test vault fixtures", () => {
     ]);
   });
 
-  it("keeps meeting notes and the inbox out", () => {
-    expect(taskSource("10_Kunden/SampleCustomer/Migration/Meetings/2026-09-24 Kickoff.md")).toBeNull();
-    expect(taskSource("00_Inbox/2026-09-24_101200_capture.md")).toBeNull();
+  it("reads every note: the flat layout, meeting notes and the inbox", () => {
+    const label = (path: string) => tasksOf(path).map((task) => [task.customer, task.project]);
+    expect(label("10_Kunden/SecondCustomer/Rollout.md")).toEqual([["SecondCustomer", "Rollout"]]);
+    expect(label("10_Kunden/SampleCustomer/Migration/Meetings/2026-09-24 Kickoff.md")).toEqual([
+      ["SampleCustomer", "2026-09-24 Kickoff"],
+    ]);
+    expect(label("00_Inbox/2026-09-24_101200_capture.md")).toEqual([["00_Inbox", "2026-09-24_101200_capture"]]);
   });
 });

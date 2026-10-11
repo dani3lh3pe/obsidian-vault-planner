@@ -5,7 +5,7 @@ detail, this file points to it.
 
 ## Project
 
-An Obsidian plugin for **one** user: on the left the open tasks from the vault's project files (with
+An Obsidian plugin for **one** user: on the left the open tasks from the vault's notes (with
 a switch also the user's own Planner tasks and their personal To Dos), on the right their own Outlook
 calendar. Dragging a task into a gap creates a focus block in Outlook.
 
@@ -104,7 +104,9 @@ Its GUID in `src/config.ts` is **never** changed.
   (Invariant 1).
 - Since M8 the plugin no longer reads `[aufwand:: …]`: every block is one hour long. `cleanTitle`
   only hides old values in the lines from title and subject.
-- Source files are only `<Folder>/<Folder>.md` below `10_Kunden/` and `20_Intern/`.
+- Every `.md` note is a task source, as in Tasks, which excludes no folder: a line counts when the
+  metadata cache marks it as a task and `TASK_LINE` matches. `10_Kunden/` and `20_Intern/` only name
+  the customer (`taskLabel`).
 - A global filter in the Tasks settings belongs in `TASKS_GLOBAL_FILTER` in `src/config.ts`.
 - Completing only through `apiV1.executeToggleTaskDoneCommand` — it returns text and writes
   nothing; a home-made toggle would lose the next occurrence for `🔁`.

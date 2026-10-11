@@ -86,7 +86,7 @@ export const BUSINESS_HOURS = { daysOfWeek: [1, 2, 3, 4, 5], startTime: "08:00",
 /** The planning status looks at this week and the next, whatever week is on screen. */
 export const STATUS_WINDOW_DAYS = 14;
 
-/** Where tasks come from: `<Folder>/<Folder>.md` below these roots. */
+/** The folders that name a task's customer. Tasks come from every note (`taskLabel`). */
 export const CUSTOMER_ROOT = "10_Kunden";
 export const INTERN_ROOT = "20_Intern";
 export const INTERN_LABEL = "junis intern";

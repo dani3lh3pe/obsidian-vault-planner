@@ -37,8 +37,8 @@ cpSync("styles.css", "release/vault-planner/styles.css");
 writeFileSync("release/vault-planner/manifest.json", `${JSON.stringify(manifest, null, 2)}\n`);
 
 execFileSync("python3", ["-m", "zipfile", "-c", "vault-planner.zip", "vault-planner"], { cwd: "release" });
-// The zip's root is the vault root. One level deeper, no path starts with 10_Kunden/ and the task
-// list stays empty.
+// The zip's root is the vault root. One level deeper, every task sits under one customer named after
+// the extra folder.
 execFileSync("python3", ["-m", "zipfile", "-c", "../release/test-vault.zip", ...readdirSync("test-vault")], {
   cwd: "test-vault",
 });

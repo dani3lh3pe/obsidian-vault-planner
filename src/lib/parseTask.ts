@@ -138,20 +138,16 @@ export function parseTaskLine(line: string, globalFilter: string = TASKS_GLOBAL_
 }
 
 /**
- * Which customer and project a file belongs to — or null when it is not a task source.
- * A source is any `<Folder>/<Folder>.md` below 10_Kunden/ or 20_Intern/. Meeting notes, OneDrive
- * conflict copies ("Project-DESKTOP.md") and everything else stay out.
+ * The label of a note's tasks. Every note is a task source, as in Tasks; the path only names it.
+ * The customer is the folder below 10_Kunden/, "junis intern" for 20_Intern/, else the top folder.
+ * The project is the file name — none for the customer's own note or a `_` note such as `_infos`.
  */
-export function taskSource(path: string): { customer: string; project: string | null } | null {
-  const parts = path.split("/");
-  const file = parts[parts.length - 1];
-  if (parts.length < 3 || !file.endsWith(".md")) return null;
-  const folder = parts[parts.length - 2];
-  if (file.slice(0, -3) !== folder) return null;
-
-  if (parts[0] === CUSTOMER_ROOT) return { customer: parts[1], project: parts.length === 3 ? null : folder };
-  if (parts[0] === INTERN_ROOT) return { customer: INTERN_LABEL, project: folder };
-  return null;
+export function taskLabel(path: string): { customer: string; project: string | null } {
+  const parts = path.replace(/\.md$/u, "").split("/");
+  const name = parts[parts.length - 1];
+  const customer =
+    parts[0] === CUSTOMER_ROOT && parts.length > 2 ? parts[1] : parts[0] === INTERN_ROOT ? INTERN_LABEL : parts[0];
+  return { customer, project: name === customer || name.startsWith("_") ? null : name };
 }
 
 /**
@@ -159,8 +155,7 @@ export function taskSource(path: string): { customer: string; project: string | 
  * tasks — it already skips code blocks, which a regex over the whole file would not.
  */
 export function parseFileTasks(path: string, text: string, taskLines: readonly number[]): VaultTask[] {
-  const source = taskSource(path);
-  if (source === null) return [];
+  const source = taskLabel(path);
   const lines = text.split(/\r?\n/);
   const tasks: VaultTask[] = [];
   for (const line of taskLines) {
