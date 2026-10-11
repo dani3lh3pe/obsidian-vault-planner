@@ -20,6 +20,11 @@ routes them there too.
   (`^t-<area>-<slug>`), and old `[aufwand::]` notes remain. Ask for a real line or a screenshot
   before the data model settles, never read the live vault from here. (2026-09-29: the
   date-sorted list learned about `⏳` only from a screenshot.)
+- **Does the live folder layout still match?** Daniel restructures the vault with Claude agents,
+  and the planner never sees the live vault. Before any path goes into the design (labels, a target
+  list, a folder rule), ask for a screenshot of the file tree. (2026-10-11: a new-task feature was
+  being designed for customer notes the planner had stopped reading; only the tree in round 2
+  showed it.)
 - **Does the calendar count?** Blocks are the planning status (Invariant 1). Every grouping, filter,
   count or sort has to decide whether a block counts or only the task line does. (2026-09-29: a
   task dragged onto today stayed under "No date", fixed in M8.4.)
