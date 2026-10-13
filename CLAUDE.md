@@ -107,8 +107,8 @@ Its GUID in `src/config.ts` is **never** changed.
 - Since M8 the plugin no longer reads `[aufwand:: …]`: every block is one hour long. `cleanTitle`
   only hides old values in the lines from title and subject.
 - Every `.md` note is a task source, as in Tasks, which excludes no folder: a line counts when the
-  metadata cache marks it as a task and `TASK_LINE` matches. `10_Kunden/` and `20_Intern/` only name
-  the customer (`taskLabel`).
+  metadata cache marks it as a task and `TASK_LINE` matches. The two customer folders in the
+  settings (M11) only name the customer (`taskLabel`); no setting hides a task.
 - A global filter in the Tasks settings belongs in `TASKS_GLOBAL_FILTER` in `src/config.ts`.
 - Completing only through `apiV1.executeToggleTaskDoneCommand` — it returns text and writes
   nothing; a home-made toggle would lose the next occurrence for `🔁`.
@@ -140,8 +140,8 @@ creates a ghost block.
   therefore carry their purpose (`openCard`, `probeReport`, `stopListening`).
 - **The repository is public and English throughout:** identifiers, comments, UI texts, tests,
   docs, skills, commit messages. Replies to Daniel stay German. German stays only where it is data
-  from the live vault or from To Do: the folders `10_Kunden/` and `20_Intern/`, the field
-  `[aufwand:: …]`, the label `junis intern`, the titles of the M9.0 probe tasks.
+  from the live vault or from To Do: the test vault's folders `10_Kunden/` and `20_Intern/`, the
+  field `[aufwand:: …]`, the titles of the M9.0 probe tasks.
 - Every commit is public: no real customer names, no tenant or client ids, no credentials. The test
   vault uses neutral names.
 

@@ -142,30 +142,56 @@ describe("parseTaskLine — what is a task", () => {
 });
 
 describe("taskLabel", () => {
+  const folders = { customerFolder: "10_Company/Customers", ownFolder: "10_Company/20_Internal" };
+
   it.each([
-    // Folder notes, the old layout.
-    ["10_Kunden/SampleCustomer/SampleCustomer.md", "SampleCustomer", null],
-    ["10_Kunden/SampleCustomer/Migration/Migration.md", "SampleCustomer", "Migration"],
-    ["20_Intern/KnowledgeBase/KnowledgeBase.md", "junis intern", "KnowledgeBase"],
-    // The flat layout: projects beside the customer's `_infos` note.
-    ["10_Kunden/SampleCustomer/_infos.md", "SampleCustomer", null],
-    ["10_Kunden/SampleCustomer/Rollout.md", "SampleCustomer", "Rollout"],
-    ["20_Intern/Sales/Elevator Pitch.md", "junis intern", "Elevator Pitch"],
-    // Every other note counts too, named by its top folder.
-    ["10_Kunden/SampleCustomer/Migration/Meetings/2026-09-24 Kickoff.md", "SampleCustomer", "2026-09-24 Kickoff"],
+    // A subfolder of the customer folder is a customer, whatever lies below it.
+    ["10_Company/Customers/Contoso/_infos.md", "Contoso", null],
+    ["10_Company/Customers/Contoso/Rollout.md", "Contoso", "Rollout"],
+    ["10_Company/Customers/Contoso/Projects/Plan.md", "Contoso", "Plan"],
+    ["10_Company/Customers/Contoso/Meetings/2026-09-24 Kickoff.md", "Contoso", "2026-09-24 Kickoff"],
+    // The old folder note, and a digit prefix dropped.
+    ["10_Company/Customers/Fabrikam/Fabrikam.md", "Fabrikam", null],
+    ["10_Company/Customers/03_Fabrikam/Audit.md", "Fabrikam", "Audit"],
+    ["10_Company/Customers/03_Fabrikam/03_Fabrikam.md", "Fabrikam", null],
+    // The own folder is one customer, named without its prefix.
+    ["10_Company/20_Internal/Sales/Elevator Pitch.md", "Internal", "Elevator Pitch"],
+    ["10_Company/20_Internal/_infos.md", "Internal", null],
+    // Every other note counts too, named by its top folder: one directly in the customer folder, and
+    // a folder that only starts like a chosen one.
+    ["10_Company/Customers/_overview.md", "10_Company", null],
+    ["10_Company/Customers2/Contoso/Plan.md", "10_Company", "Plan"],
+    ["10_Company/20_InternalOld/Old.md", "10_Company", "Old"],
     ["00_Inbox/2026-09-24_101200_capture.md", "00_Inbox", "2026-09-24_101200_capture"],
     ["30_Privat/Garden/Shed.md", "30_Privat", "Shed"],
-    ["10_Kunden/_overview.md", "10_Kunden", null],
     ["Home.md", "Home", null],
   ])("%s → %s · %s", (path, customer, project) => {
-    expect(taskLabel(path)).toEqual({ customer, project });
+    expect(taskLabel(path, folders)).toEqual({ customer, project });
+  });
+
+  it("names every note by its top folder while no folder is set", () => {
+    const none = { customerFolder: null, ownFolder: null };
+    expect(taskLabel("10_Company/Customers/Contoso/Projects/Plan.md", none)).toEqual({ customer: "10_Company", project: "Plan" });
+    expect(taskLabel("20_Intern/KnowledgeBase/KnowledgeBase.md", none)).toEqual({ customer: "20_Intern", project: "KnowledgeBase" });
+  });
+
+  it("takes one folder without the other, and lets a customer win inside the own folder", () => {
+    expect(taskLabel("20_Intern/KnowledgeBase/KnowledgeBase.md", { customerFolder: null, ownFolder: "20_Intern" })).toEqual({
+      customer: "Intern",
+      project: "KnowledgeBase",
+    });
+    const inside = { customerFolder: "10_Company/Customers", ownFolder: "10_Company" };
+    expect(taskLabel("10_Company/Customers/Contoso/Plan.md", inside)).toEqual({ customer: "Contoso", project: "Plan" });
+    expect(taskLabel("10_Company/Handbook.md", inside)).toEqual({ customer: "Company", project: "Handbook" });
   });
 });
 
 describe("parseFileTasks", () => {
+  const folders = { customerFolder: "10_Kunden", ownFolder: "20_Intern" };
+
   it("reads the lines the metadata cache named, in a CRLF file too", () => {
     const text = "# Portal\r\n\r\n## Open tasks\r\n- [ ] First 📅 2026-09-28\r\n- [x] Second\r\n";
-    const tasks = parseFileTasks("10_Kunden/SecondCustomer/Portal/Portal.md", text, [3, 4]);
+    const tasks = parseFileTasks("10_Kunden/SecondCustomer/Portal/Portal.md", text, [3, 4], folders);
 
     expect(tasks.map((task) => [task.line, task.raw, task.due])).toEqual([
       [3, "- [ ] First 📅 2026-09-28", "2026-09-28"],
@@ -175,6 +201,6 @@ describe("parseFileTasks", () => {
   });
 
   it("reads a note outside the customer folders", () => {
-    expect(parseFileTasks("00_Inbox/x.md", "- [ ] a", [0])[0]).toMatchObject({ customer: "00_Inbox", project: "x" });
+    expect(parseFileTasks("00_Inbox/x.md", "- [ ] a", [0], folders)[0]).toMatchObject({ customer: "00_Inbox", project: "x" });
   });
 });

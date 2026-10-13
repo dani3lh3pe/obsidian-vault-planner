@@ -13,15 +13,16 @@ import {
 } from "./config";
 import { Graph } from "./graph";
 import { getErrorMessage, getPersonalErrorMessage } from "./lib/errors";
+import type { CustomerFolders } from "./lib/types";
 import { ProbeModal } from "./probe";
 import { TaskIndex } from "./vault";
 import { PlannerView } from "./view";
 
 /**
- * Public ids that must not live in git, and the two switches. Tokens never go here (data.json is
- * in the vault).
+ * Public ids that must not live in git, the two switches and the customer folders. Tokens never go
+ * here (data.json is in the vault).
  */
-interface Settings {
+interface Settings extends CustomerFolders {
   tenantId: string;
   clientId: string;
   plannerEnabled: boolean;
@@ -32,7 +33,14 @@ interface Settings {
 export type ChangeReason = "index" | "auth" | "settings" | "todo";
 
 export default class VaultPlannerPlugin extends Plugin {
-  settings: Settings = { tenantId: "", clientId: "", plannerEnabled: false, todoEnabled: false };
+  settings: Settings = {
+    tenantId: "",
+    clientId: "",
+    plannerEnabled: false,
+    todoEnabled: false,
+    customerFolder: null,
+    ownFolder: null,
+  };
   auth!: Auth;
   graph!: Graph;
   /** The personal Microsoft account (M9): its own sign-in, its own token, its own Graph client. */
@@ -68,7 +76,7 @@ export default class VaultPlannerPlugin extends Plugin {
       () => this.emit("todo"),
     );
     this.todoGraph = new Graph(this.todoAuth);
-    this.index = new TaskIndex(this.app, () => this.emit("index"));
+    this.index = new TaskIndex(this.app, () => this.settings, () => this.emit("index"));
     this.index.start(this);
 
     this.registerView(VIEW_TYPE, (leaf) => new PlannerView(leaf, this));
@@ -132,6 +140,9 @@ export default class VaultPlannerPlugin extends Plugin {
       clientId: typeof record.clientId === "string" ? record.clientId : "",
       plannerEnabled: record.plannerEnabled === true,
       todoEnabled: record.todoEnabled === true,
+      // "" is "(none)" too: the dropdown's own value for it, so it must not come back as a folder.
+      customerFolder: typeof record.customerFolder === "string" && record.customerFolder !== "" ? record.customerFolder : null,
+      ownFolder: typeof record.ownFolder === "string" && record.ownFolder !== "" ? record.ownFolder : null,
     };
   }
 
@@ -221,12 +232,46 @@ class VaultPlannerSettingTab extends PluginSettingTab {
       );
 
     this.addAccountRow(containerEl, "Personal Microsoft account", plugin.todoAuth);
+
+    new Setting(containerEl).setName("Customers").setHeading();
+    const folders = this.app.vault
+      .getAllFolders(false)
+      .map((folder) => folder.path)
+      .sort((a, b) => a.localeCompare(b, "de"));
+    this.addFolderRow(containerEl, "customerFolder", folders, "Customer folder", "Every subfolder is a customer.");
+    this.addFolderRow(containerEl, "ownFolder", folders, "Own folder", "The folder itself is one customer, e.g. your internal topics.");
   }
 
   hide(): void {
     this.stopListening?.();
     this.stopListening = null;
     super.hide();
+  }
+
+  /** A folder that no longer exists stays chosen, marked: a rename is not followed (M11). */
+  private addFolderRow(
+    containerEl: HTMLElement,
+    key: keyof CustomerFolders,
+    folders: readonly string[],
+    name: string,
+    desc: string,
+  ): void {
+    const { plugin } = this;
+    const chosen = plugin.settings[key];
+    new Setting(containerEl)
+      .setName(name)
+      .setDesc(desc)
+      .addDropdown((dropdown) => {
+        dropdown.addOption("", "(none)");
+        if (chosen !== null && !folders.includes(chosen)) dropdown.addOption(chosen, `${chosen} (not found)`);
+        for (const folder of folders) dropdown.addOption(folder, folder);
+        dropdown.setValue(chosen ?? "").onChange(async (value) => {
+          plugin.settings[key] = value === "" ? null : value;
+          await plugin.saveSettings();
+          // Labels only: not "settings", which reads the calendar, Planner and To Do again.
+          plugin.index.relabel();
+        });
+      });
   }
 
   private addAccountRow(containerEl: HTMLElement, name: string, auth: Auth): void {

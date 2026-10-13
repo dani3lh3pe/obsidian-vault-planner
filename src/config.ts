@@ -86,11 +86,6 @@ export const BUSINESS_HOURS = { daysOfWeek: [1, 2, 3, 4, 5], startTime: "08:00",
 /** The planning status looks at this week and the next, whatever week is on screen. */
 export const STATUS_WINDOW_DAYS = 14;
 
-/** The folders that name a task's customer. Tasks come from every note (`taskLabel`). */
-export const CUSTOMER_ROOT = "10_Kunden";
-export const INTERN_ROOT = "20_Intern";
-export const INTERN_LABEL = "junis intern";
-
 /**
  * The Tasks plugin's global filter, if the live vault uses one (implementation plan M0.2).
  * Empty means every checkbox line is a task, which is the Tasks default.

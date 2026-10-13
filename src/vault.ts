@@ -1,9 +1,9 @@
 import { MarkdownView, TFile, type App, type CachedMetadata, type Plugin } from "obsidian";
 import { EmptyToggleError, InsideCodeBlockError, LineChangedError, NoteMissingError, TasksMissingError } from "./lib/errors";
-import { parseFileTasks, parseTaskLine } from "./lib/parseTask";
+import { parseFileTasks, parseTaskLine, taskLabel } from "./lib/parseTask";
 import { ensureBlockId, insertTaskLines, locateLine, newBlockId, replaceLine } from "./lib/taskLine";
 import { isOpen } from "./lib/taskList";
-import type { VaultTask } from "./lib/types";
+import type { CustomerFolders, VaultTask } from "./lib/types";
 
 /**
  * Every task line in the vault, kept current through the metadata cache.
@@ -22,6 +22,7 @@ export class TaskIndex {
 
   constructor(
     private readonly app: App,
+    private readonly folders: () => CustomerFolders,
     private readonly changed: () => void,
   ) {}
 
@@ -62,6 +63,16 @@ export class TaskIndex {
 
   get tasks(): VaultTask[] {
     return [...this.byPath.values()].flat();
+  }
+
+  /** The customer folders changed (M11): label every stored task anew, without reading a note. */
+  relabel(): void {
+    const folders = this.folders();
+    for (const [path, tasks] of this.byPath) {
+      const label = taskLabel(path, folders);
+      this.byPath.set(path, tasks.map((task) => ({ ...task, ...label })));
+    }
+    this.changed();
   }
 
   /** Every task line per block id, done ones included. More than one entry is a conflict. */
@@ -138,7 +149,7 @@ export class TaskIndex {
     const lines = (cache.listItems ?? [])
       .filter((item) => item.task !== undefined)
       .map((item) => item.position.start.line);
-    const tasks = parseFileTasks(path, text, lines);
+    const tasks = parseFileTasks(path, text, lines, this.folders());
     if (tasks.length > 0) this.byPath.set(path, tasks);
     else this.byPath.delete(path);
     this.awaiting.delete(path);

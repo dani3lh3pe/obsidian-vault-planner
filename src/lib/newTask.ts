@@ -1,5 +1,5 @@
-import { CUSTOMER_ROOT, INTERN_ROOT } from "../config";
-import { taskLabel } from "./parseTask";
+import { customerOf, taskLabel } from "./parseTask";
+import type { CustomerFolders } from "./types";
 
 /** The notes the "New task" form can write into (M10), by customer. */
 export interface CustomerTargets {
@@ -9,20 +9,19 @@ export interface CustomerTargets {
 }
 
 /**
- * Every note below `10_Kunden/<C>/` and `20_Intern/`, by customer, named by its path below the
- * customer folder (below `20_Intern/` for "junis intern") — paths are unique, names would not be.
- * The customer's own note — no project by `taskLabel` (`_infos`, or the old `<C>/<C>.md`), directly
- * in that folder — comes first.
+ * Every note of a customer by the settings (`customerOf`), by customer, named by its path below
+ * that customer's folder — paths are unique, names would not be. The customer's own note — no
+ * project by `taskLabel` (`_infos`, or the old `<C>/<C>.md`), directly in that folder — comes first.
  */
-export function taskTargets(paths: readonly string[]): CustomerTargets[] {
+export function taskTargets(paths: readonly string[], folders: CustomerFolders): CustomerTargets[] {
   const collate = (a: string, b: string) => a.localeCompare(b, "de");
   const entries = paths
     .flatMap((path) => {
-      const parts = path.replace(/\.md$/u, "").split("/");
-      const depth = parts[0] === CUSTOMER_ROOT ? 2 : parts[0] === INTERN_ROOT ? 1 : 0;
-      if (depth === 0 || parts.length <= depth) return [];
-      const { customer, project } = taskLabel(path);
-      return [{ customer, own: project === null && parts.length === depth + 1, path, label: parts.slice(depth).join("/") }];
+      const owner = customerOf(path, folders);
+      if (owner === null) return [];
+      const label = path.slice(owner.folder.length + 1).replace(/\.md$/u, "");
+      const own = taskLabel(path, folders).project === null && !label.includes("/");
+      return [{ customer: owner.customer, own, path, label }];
     })
     .sort((a, b) => collate(a.customer, b.customer) || Number(b.own) - Number(a.own) || collate(a.label, b.label));
   const byCustomer = new Map<string, CustomerTargets["targets"]>();

@@ -92,6 +92,20 @@ The same app registration as for the work account, opened to personal accounts:
 A problem with the personal account never signs the work account out. Switching it off hides To Do
 and the private calendar, but does not sign the personal account out.
 
+### 6. Customer folders (once per vault)
+
+Settings → Vault Planner → **Customers** decides which customer a card names, what the list's
+customer filter offers and what the "+" form lists:
+
+- **Customer folder:** every subfolder is a customer, with every note below it, however deep. With
+  `Company/Customers`, the note `Company/Customers/Contoso/Projects/Plan.md` reads "Contoso · Plan".
+- **Own folder:** the folder itself is one customer, e.g. your internal topics.
+
+A leading number is dropped from the name: `20_Intern` reads "Intern". Every other note is named by
+its top folder; no setting hides a task. Both start at "(none)", and "+" asks for them while they
+offer no customer. A change relabels the open planner at once. A folder that was renamed or moved shows as
+"(not found)": choose it again. In the test vault choose `10_Kunden` and `20_Intern`.
+
 ## Usage
 
 - **Open:** the calendar icon in the left ribbon, or the command "Open Vault Planner".
@@ -116,7 +130,8 @@ and the private calendar, but does not sign the personal account out.
 - **View:** the buttons above the calendar on the right switch between 1, 2, 3 or 4 work days, the
   work week and the full week with the weekend. In the day views the arrows page by as many work
   days as are visible. The choice is remembered on this device.
-- **New task:** the "+" beside "Tasks" opens a form: name, info, customer and project. "Create"
+- **New task:** the "+" beside "Tasks" opens a form: name, info, customer and project (from the
+  customer folders, Setup step 6). "Create"
   adds the task to that note, below its last open task (or at the end), with the info as
   sub-bullets. The list scrolls to the new card, ready to be dragged. The customer filter of the list
   preselects the customer.
@@ -180,7 +195,8 @@ again instead of overwriting the change.
 | "Conditional Access blocks …" (AADSTS53003/53000) | A CA policy applies | Look up the policy in the sign-in logs |
 | "This response belongs to no pending sign-in" | The link went to another vault window, or Obsidian was restarted | Keep only one vault open, "Sign in" again |
 | "Calendar unreachable – planning status unknown" | Network or Graph trouble | "Retry"; dragging is blocked until then |
-| Every task sits under one customer named after a folder, e.g. "test-vault" | `10_Kunden` and `20_Intern` are not directly in the vault folder, e.g. one level deeper after unpacking | Move the folders up one level, then turn the plugin off and on |
+| Cards are named by a top folder, e.g. "10_Kunden", instead of their customer | No customer folder is chosen, or the chosen one no longer exists ("(not found)") | Settings → Customers: choose the folders (Setup step 6) |
+| Every task sits under one customer named "test-vault" | The test vault was unpacked one level too deep | Move its folders up one level, then turn the plugin off and on |
 | "Personal account: No access to To Do" | `Tasks.ReadWrite` is missing from the app registration or not consented for the personal account | Add the permission, sign the personal account out and in again |
 | "No access to Planner" | `Tasks.ReadWrite` is missing from the app registration or not consented | Add the permission, sign out, sign in again |
 | "… changed in Planner in the meantime" | The task was changed in Planner since the plugin read it | Try again after the reload |
@@ -194,8 +210,8 @@ Desktop only, main window only (no pop-out), default calendar only. The weekend 
 view.
 No attendees, no events without a task. From Planner only Basic plans: the API does not return
 Premium plans.
-Built for one vault and one user: the customer comes from the folders `10_Kunden/` and `20_Intern/`, and all times
-are Europe/Berlin (`src/config.ts`).
+Built for one vault and one user: one customer folder and one own folder (Setup step 6), and all
+times are Europe/Berlin (`src/config.ts`).
 
 ## Development
 

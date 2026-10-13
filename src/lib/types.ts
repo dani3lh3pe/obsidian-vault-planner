@@ -60,6 +60,14 @@ export interface VaultTask {
   project: string | null;
 }
 
+/** The two folders that name a customer (M11), chosen in the settings; null is "(none)". */
+export interface CustomerFolders {
+  /** Every subfolder is a customer. */
+  customerFolder: string | null;
+  /** The folder itself is one customer. */
+  ownFolder: string | null;
+}
+
 /**
  * A Planner task assigned to the signed-in user. Resolved on every read, never stored. Carries the
  * list fields under the same names as VaultTask, so groups, sorting and filters apply as they are.

@@ -988,7 +988,12 @@ export class PlannerView extends ItemView {
 
   /** "+" above the list (M10). */
   private openNewTask(): void {
-    const customers = taskTargets(this.app.vault.getMarkdownFiles().map((file) => file.path));
+    const customers = taskTargets(this.app.vault.getMarkdownFiles().map((file) => file.path), this.plugin.settings);
+    // No folder chosen, or the chosen ones gone: the form would offer no customer (M11).
+    if (customers.length === 0) {
+      new Notice("Choose the customer folders in the settings.");
+      return;
+    }
     const preset = preselect(customers, this.options.customer, this.lastPath);
     const submit = (path: string, name: string, info: string) => this.createTask(path, targetName(customers, path), name, info);
     new NewTaskModal(this.app, customers, preset, submit).open();

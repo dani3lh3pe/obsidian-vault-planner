@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { taskTargets } from "./newTask";
 import { parseFileTasks } from "./parseTask";
 import { cleanTitle, eventSubject } from "./subject";
 import { insertTaskLines, newTaskLines } from "./taskLine";
@@ -19,9 +20,12 @@ function checkboxLines(text: string): number[] {
   return lines;
 }
 
+/** The test vault's folders as Daniel chooses them there once (M11). */
+const FOLDERS = { customerFolder: "10_Kunden", ownFolder: "20_Intern" };
+
 function tasksOf(path: string) {
   const text = readFileSync(`test-vault/${path}`, "utf8");
-  return parseFileTasks(path, text, checkboxLines(text));
+  return parseFileTasks(path, text, checkboxLines(text), FOLDERS);
 }
 
 describe("test vault fixtures", () => {
@@ -75,6 +79,20 @@ describe("test vault fixtures", () => {
       ["SampleCustomer", "2026-09-24 Kickoff"],
     ]);
     expect(label("00_Inbox/2026-09-24_101200_capture.md")).toEqual([["00_Inbox", "2026-09-24_101200_capture"]]);
+    expect(label("20_Intern/KnowledgeBase/KnowledgeBase.md")).toEqual([
+      ["Intern", "KnowledgeBase"],
+      ["Intern", "KnowledgeBase"],
+    ]);
+  });
+
+  it("offers the customers of the chosen folders in the form", () => {
+    const paths = readdirSync("test-vault", { recursive: true, encoding: "utf8" }).filter((path) => path.endsWith(".md"));
+    const customers = taskTargets(paths, FOLDERS);
+    expect(customers.map(({ customer, targets }) => [customer, targets.map((target) => target.label)])).toEqual([
+      ["Intern", ["KnowledgeBase/KnowledgeBase"]],
+      ["SampleCustomer", ["SampleCustomer", "Migration/Meetings/2026-09-24 Kickoff", "Migration/Migration"]],
+      ["SecondCustomer", ["_infos", "Portal/Portal", "Rollout"]],
+    ]);
   });
 
   it("puts a new task at the right place in the real notes, and reads it back", () => {
@@ -83,7 +101,7 @@ describe("test vault fixtures", () => {
       const text = readFileSync(`test-vault/${path}`, "utf8");
       const next = insertTaskLines(text, lines);
       if (next === null) throw new Error(`no place in ${path}`);
-      return { text, next, created: parseFileTasks(path, next, checkboxLines(next)).filter((task) => task.blockId === "t-new001") };
+      return { text, next, created: parseFileTasks(path, next, checkboxLines(next), FOLDERS).filter((task) => task.blockId === "t-new001") };
     };
 
     // Below the last open top-level task, its code block and its sub-task; above "## Done".

@@ -33,6 +33,7 @@ contradict verified pitfalls. Both are corrected below, and the scope is cut.
 
 ## Implementation status (2026-09-24)
 
+- **M11 (customer folders as a setting) done as code (2026-10-13)**, not yet checked on Windows.
 - **M10.0 (every note) and M10 (new task) done as code (2026-10-11)**, not yet checked on Windows.
 - **M6 (Planner) done as code (2026-09-28)**, not yet checked on Windows.
 - **M8 (list by date) done as code (2026-09-29)**, not yet checked on Windows.
@@ -154,12 +155,15 @@ The live vault runs on 1.13.x.
   decision 2) as the drag duration. Now every block is `BLOCK_DURATION` long, one hour, and only
   `cleanTitle` hides old values. The POST uses the `end` that `eventReceive`
   delivers.
-- **Customer and project** (since M10.0, `taskLabel`): The customer is the first folder under
-  `10_Kunden/`, "junis intern" for `20_Intern/`, otherwise the top folder; a note in the vault root
-  names itself. The project is the file name, none for the customer's own note and for a note
-  whose name starts with `_`. Example: `10_Kunden/<C>/_infos.md` gives customer C without a
-  project, `10_Kunden/<C>/<P>.md` and `10_Kunden/<C>/<P>/<P>.md` give C · P, `00_Inbox/<N>.md`
-  gives 00_Inbox · N.
+- **Customer and project** (since M10.0, `taskLabel`; the folders since M11 from the settings):
+  A note below a subfolder of the **customer folder** belongs to that subfolder's customer, a note
+  below the **own folder** to that folder's customer; the name is the folder's, a leading `NN_`
+  dropped. Every other note, one directly in the customer folder included, is named by its top
+  folder; a note in the vault root names itself. The project is the file name, none for the
+  customer's own note and for a note whose name starts with `_`. Example with `10_Kunden` and
+  `20_Intern` chosen: `10_Kunden/<C>/_infos.md` gives customer C without a project,
+  `10_Kunden/<C>/<P>.md` and `10_Kunden/<C>/<P>/<P>.md` give C · P, `20_Intern/<T>/<N>.md` gives
+  Intern · N, `00_Inbox/<N>.md` gives 00_Inbox · N.
 - **WAITING:** The description starts with `WAITING`.
 
 **Outlook event** (`POST /me/events`, with `Prefer: IdType="ImmutableId"`):
@@ -185,7 +189,8 @@ The live vault runs on 1.13.x.
 
 **What lives where:**
 
-- `data.json` holds only `tenantId` and `clientId`.
+- `data.json` holds `tenantId`, `clientId`, the Planner and To Do switches and (M11) the two
+  customer folders.
 - **Device-local** are the refresh token in `app.secretStorage` (ID
   `vault-planner-refresh-token`) and the account's display name in `app.saveLocalStorage`.
 - The access token exists only in memory.
@@ -1132,7 +1137,8 @@ after a triage.
   Outlook block do not show it. Completing (write #2) already leaves indented lines alone.
 - No date and no priority field: the task gets dragged right away, and a planned task moves to
   its block's day (M8.4). A `📅` typed into the name is read as usual.
-- **Target: two native dropdowns.** Customer: the folders below `10_Kunden/`, plus "junis intern".
+- **Target: two native dropdowns.** Customer: the folders below `10_Kunden/`, plus "junis intern"
+  (since M11: the customer folder's subfolders plus the own folder, from the settings).
   Project: every note of that customer (recursive), named by its path below the customer folder —
   unique, unlike names — with the customer's own note (`_infos`) first. The customer comes preselected from the list filter, else
   the last one used (in memory only). Rejected: one search field with suggestions — Daniel asked
@@ -1198,6 +1204,55 @@ target list a pure function of the note paths (`lib/newTask.ts`).
 | Create in the dark theme | The flash is visible |
 | Planner and To Do switched on | The customer dropdown lists only vault customers |
 | Create in a note whose last code block is never closed | Nothing is written; the notice says the task would land in a code block |
+
+## M11 — Customer folders as a setting (in planning)
+
+**Trigger (2026-10-13):** the condition parked in M10 ("build it once a root folder actually
+moves") came true twice in one day: the live vault went `20_Intern` → `20_junis` →
+`10_junis/Intern`, customers to `10_junis/Kunden`. Since then the "+" form offers no internal note
+and internal cards are labelled by their top folder.
+
+**Decided with Daniel (2026-10-13):**
+
+- Two kinds of folder, set once in the settings: the **customer folder**, whose every subfolder is a
+  customer, and the **own folder**, which is one customer itself. They replace `CUSTOMER_ROOT`,
+  `INTERN_ROOT` and `INTERN_LABEL`.
+- A customer is named by its folder, a leading `NN_` dropped; the fixed "junis intern" goes. Blocks
+  created from then on say "Customer: Intern" — existing blocks stay linked, the link is the extended
+  property, not the name.
+- The setting drives the "+" form's customers, the cards' labels and the list's customer filter.
+  Reading stays every note (M10.0): a missing setting never hides a task.
+- It lives in `data.json`: folder names belong to the vault, not to the device.
+- **Two native dropdowns** in a "Customers" section, over every folder of the vault
+  (`getAllFolders`, since 1.6.6), each with "(none)": one folder of each kind is what the vault has.
+  No default in the code — both start at "(none)", in the test vault too (it ships no `.obsidian/`),
+  where they are chosen once like the tenant id. A chosen folder that no longer exists shows as
+  "`<path>` (not found)"; a rename is not followed, since agents restructure outside Obsidian.
+- Whenever the form would offer no customer — no folder set, or the chosen ones gone — "+" opens no
+  empty form but a notice: "Choose the customer folders in the settings" (UX rule 1).
+- **Rejected: a folder with an `_infos.md` is a customer**, no setting at all. It would have survived
+  both moves of that day untouched; Daniel prefers an explicit one-time configuration he can see.
+  The vault's inbox skill does find customers by `_infos.md`, since it needs their frontmatter anyway.
+
+Review level medium (task index). One commit, before anything of the inbox work.
+
+**M11 done as code (2026-10-13).** Spec in `.scratch/m11-customer-folders/spec.md` (not versioned).
+`customerOf` (`lib/parseTask.ts`) is the one place that maps a path to its customer, for the labels
+and the form's targets alike; a changed setting relabels the index in place (`TaskIndex.relabel`)
+and reads neither a note nor Graph.
+
+**Verification M11** (manual, after transferring `release/test-vault.zip` again):
+
+| Action | What it proves |
+| --- | --- |
+| Test vault, both folders "(none)": click "+" | The notice names the settings; no empty form |
+| Choose `10_Kunden` and `20_Intern` | "+" lists SampleCustomer, SecondCustomer and Intern; the KnowledgeBase card reads "Intern · KnowledgeBase"; the filter offers "Intern" |
+| Change a folder while the view is open | The cards relabel without a restart |
+| Rename `20_Intern` in Obsidian, open the settings | "20_Intern (not found)"; its tasks are still listed, labelled by their top folder |
+| Rename `10_Kunden` too, click "+" | The notice again: the chosen folders offer no customer |
+| Drag the KnowledgeBase task | The block body says "Customer: Intern" |
+| A block planned before M11 | Still shows as planned: the link is the extended property, not the name |
+| Live vault: choose `10_junis/Kunden` and `10_junis/Intern` | "+" offers Intern with its topic notes, each customer with its `Projects/` and `Meetings/` notes |
 
 ## M5 — Go-live in the real vault
 
@@ -1312,6 +1367,27 @@ prove.
   - Mobile, popout windows, several calendars, attendees, events without a task; the weekend only in
     the "Week" view (M7)
 
+**Deliberate (with Daniel, 2026-10-13): processing the inbox is not a planner feature.** Daniel asked
+for a button "Process inbox": meeting summaries from the meeting recorder land in `00_Inbox/` and
+should be filed under their customer, with his tasks extracted. The routine exists — the vault's
+own `inbox` skill, run today by hand from Claudian or Cowork; the problem is forgetting it. So it
+runs as a Cowork scheduled task on the notebook — weekdays at 07:00, the vault as its folder (a task
+with local files runs locally), approval mode "Automatically approve", a run missed while asleep
+starts on waking — with no line of planner code. The tasks it writes show up in the list like any
+other line (M10.0), and so do its open questions, each also written as a `- [ ]` line in
+`00_Inbox/_Rückfragen.md`. A run applies directly; its undo is a local git in the vault (no remote,
+`.obsidian/` ignored), committed before and after each run — without `.git` the skill stops.
+
+- **Rejected: a button in the planner.** It would spawn an agent that moves files and edits notes,
+  outside invariants 2, 3 and 5, for what a schedule does without a click — and a click is what
+  gets forgotten. The meeting recorder stayed out of the planner for the same reasons (its plan,
+  2026-09-30).
+- **Rejected: the meeting recorder triggers the triage** after each summary. It would cover only its
+  own notes and break its invariant 1 (never change an existing note).
+- **Rejected: Windows Task Scheduler with `claude -p "/inbox"`.** It needs permission flags for an
+  unattended run, shows no result, and the CLI docs announce `--bare` (no `CLAUDE.md`, no skills) as
+  the future default for `-p` — the run would silently lose the vault's rules.
+
 ## Open, not blocking
 
 - `urgentDays` is 7 (web app) instead of 3 (draft). Check after the first week.
@@ -1338,7 +1414,7 @@ prove.
 - A lazy continuation (M10, code review): an unindented line right after the last open task that
   Markdown still counts to it ends that task's lines, and the new task goes in between. The vault's
   task syntax is one line per task; handle it only if it happens.
-- Scope as a setting (M10, 2026-10-11): Daniel would like to set in the settings where the planner
-  may create tasks. Not now: `10_Kunden` and `20_Intern` also name the customer, so a setting for
-  the targets alone is half the flexibility, and reading stays every note (M10.0). Build it once a
-  root folder actually moves.
+- Vault templates in this repo (2026-10-13): the vault `CLAUDE.md` and `inbox` skill are drafted in
+  English with neutral names, a short "This vault" section holding the personal values, so they can
+  be offered here as a proposal for other users. Publish them once they have run a few weeks in the
+  live vault; until then the drafts live in `.scratch/inbox/`.
