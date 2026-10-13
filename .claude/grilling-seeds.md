@@ -24,7 +24,11 @@ routes them there too.
   and the planner never sees the live vault. Before any path goes into the design (labels, a target
   list, a folder rule), ask for a screenshot of the file tree. (2026-10-11: a new-task feature was
   being designed for customer notes the planner had stopped reading; only the tree in round 2
-  showed it.)
+  showed it. 2026-10-13: it changed twice more during one grilling.)
+- **What does the live vault actually have?** A vault `CLAUDE.md`, git, the skills a routine relies
+  on — ask, never infer it from a skill's text. (2026-10-13: "apply directly, the commit is the undo"
+  was decided on the inbox skill's `git commit`; the vault had no git and no `CLAUDE.md`, which
+  surfaced only in rounds 5 and 7.)
 - **Does the calendar count?** Blocks are the planning status (Invariant 1). Every grouping, filter,
   count or sort has to decide whether a block counts or only the task line does. (2026-09-29: a
   task dragged onto today stayed under "No date", fixed in M8.4.)
