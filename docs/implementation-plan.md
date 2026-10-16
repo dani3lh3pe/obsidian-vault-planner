@@ -1267,7 +1267,8 @@ and 2 and the verification tables remain open.
    the `📅` date for these lines.
 2. **Extend vault `CLAUDE.md` §3:**
    - Never remove or change block ids `^…` at the end of a line, not even when rephrasing.
-   - **When copying or splitting, only the original keeps the block id.**
+   - **When copying or splitting, only the original keeps the block id.** Except in the triage,
+     which cancels the original: there the id moves to the copy ("Open, not blocking").
    - Indented blocks under tasks stay unchanged.
 3. **Back up:** the vault as a zip, as the state before the first write.
 4. **Install:** only once all verification tables M1–M4 and M6 have passed on Windows, the
@@ -1399,8 +1400,11 @@ other line (M10.0), and so do its open questions, each also written as a `- [ ]`
   `group by folder` first; only if templates hold open `- [ ]`, that one folder is left out.
 - vault-triage (since M10.0): it copies an inbox task into a note and leaves the original open, so
   both show as cards; once the inbox line was dragged, the copy also carries its block id and both
-  become "Duplicate block id". The fix belongs in the skill and in the vault `CLAUDE.md` §3, outside
-  this repo; it still names folder notes as the only place the planner reads.
+  become "Duplicate block id". Decided 2026-10-16: the triage sets every copied line in the moved
+  note to `- [-]`, which Tasks and the planner hide, and a block id moves to the copy, because the
+  block belongs to the live task. Written into the draft `.scratch/inbox/inbox_skill.md` (step 5.5);
+  still open in the live vault's skill and `CLAUDE.md` §3, and in the synced `vault-triage`, which
+  also still names folder notes as the only place the planner reads.
 - Open statuses: Tasks counts every status character except `x` and `-` as open, the planner only
   ` ` and `/`. Older than M10.0; decide once M0.2 shows the live vault's statuses.
 - Comments (M10, invariant review): a task inside `%% … %%` or `<!-- … -->` can be the place below
